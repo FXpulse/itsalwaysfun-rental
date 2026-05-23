@@ -8,48 +8,55 @@ import type { Product } from "@/types/database";
 
 export const revalidate = 60;
 
-const CATEGORY_CARDS = [
-  {
-    title: "Order by Date",
-    href: "/order-by-date",
-    image: null,
-    icon: Calendar,
-    desc: "Pick your date — see what's available.",
-    color: "from-brand-yellow to-yellow-300",
-  },
-  {
-    title: "Bounce Houses",
-    href: "/category/bounce-houses",
-    image: "https://files.sysers.com/cp/upload/itsalwaysfun/categories/med/allsportsarena.png",
-    desc: "Themed bounce houses for every party.",
-  },
-  {
-    title: "Bounce & Slide Combos",
-    href: "/category/combos",
-    image: "https://files.sysers.com/cp/upload/itsalwaysfun/categories/med/4_Bounce_Slides_Combos.jpg",
-    desc: "Coming soon.",
-    comingSoon: true,
-  },
-  {
-    title: "Dry Slides",
-    href: "/category/dry-slides",
-    image: "https://files.sysers.com/cp/upload/itsalwaysfun/categories/med/dry-slides.png",
-    desc: "Big slides for big thrills.",
-  },
-];
-
 export default async function HomePage() {
-  const [supabaseResult, settings] = await Promise.all([
-    createAdminClient()
+  const supabase = createAdminClient();
+
+  const [productsResult, categoriesResult, settings] = await Promise.all([
+    supabase
       .from("products")
       .select("id, name, slug, category, price_per_day, image_url, description")
       .eq("is_active", true)
       .order("category")
       .order("name"),
+    supabase
+      .from("categories")
+      .select("name, slug, description, image_url, is_active")
+      .order("display_order"),
     getSiteSettings(),
   ]);
 
-  const list = (supabaseResult.data as Product[]) || [];
+  const list = (productsResult.data as Product[]) || [];
+  const allCategories = categoriesResult.data || [];
+
+  // Count active products per category
+  const productCountByCategory: Record<string, number> = {};
+  for (const p of list) {
+    productCountByCategory[p.category] = (productCountByCategory[p.category] || 0) + 1;
+  }
+
+  // Build category cards: 1st card always "Order by Date", then DB categories
+  const orderByDateCard = {
+    title: "Order by Date",
+    href: "/order-by-date",
+    image: null as string | null,
+    desc: "Pick your date — see what's available.",
+    comingSoon: false,
+    isOrderByDate: true,
+  };
+
+  const dbCategoryCards = allCategories
+    .filter((c) => c.is_active)
+    .slice(0, 3) // limit to 3 so home page stays clean (4 cards total with Order by Date)
+    .map((c) => ({
+      title: c.name,
+      href: `/category/${c.slug}`,
+      image: c.image_url,
+      desc: c.description || "",
+      comingSoon: (productCountByCategory[c.name] || 0) === 0,
+      isOrderByDate: false,
+    }));
+
+  const categoryCards = [orderByDateCard, ...dbCategoryCards];
 
   return (
     <div>
@@ -81,7 +88,7 @@ export default async function HomePage() {
           {settings.section_categories_title}
         </h2>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-          {CATEGORY_CARDS.map((c) => (
+          {categoryCards.map((c) => (
             <Link
               key={c.href}
               href={c.href}
@@ -98,11 +105,15 @@ export default async function HomePage() {
                     className="object-cover group-hover:scale-105 transition-transform duration-500"
                     unoptimized
                   />
-                ) : c.icon ? (
+                ) : c.isOrderByDate ? (
                   <div className="flex items-center justify-center h-full">
-                    <c.icon className="h-16 w-16 text-brand-navy" />
+                    <Calendar className="h-16 w-16 text-brand-navy" />
                   </div>
-                ) : null}
+                ) : (
+                  <div className="flex items-center justify-center h-full text-slate-300 text-sm">
+                    No image
+                  </div>
+                )}
                 {c.comingSoon && (
                   <div className="absolute top-2 right-2 bg-slate-800 text-white text-[10px] font-bold px-2 py-1 rounded uppercase tracking-wider">
                     Coming Soon

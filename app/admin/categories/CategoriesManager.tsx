@@ -1,14 +1,16 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useRef } from "react";
+import Image from "next/image";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
-import { Plus, Trash2, Edit, X } from "lucide-react";
+import { Plus, Trash2, Edit, X, Upload, ImageOff } from "lucide-react";
 import {
   createCategory,
   updateCategory,
   deleteCategory,
   toggleCategoryActive,
+  uploadCategoryImage,
 } from "./actions";
 
 interface Category {
@@ -18,6 +20,7 @@ interface Category {
   description: string | null;
   display_order: number;
   is_active: boolean;
+  image_url: string | null;
 }
 
 export function CategoriesManager({
@@ -77,7 +80,6 @@ export function CategoriesManager({
 
   return (
     <div className="space-y-6">
-      {/* Add new button */}
       <div className="flex justify-end">
         <button
           onClick={() => {
@@ -90,7 +92,6 @@ export function CategoriesManager({
         </button>
       </div>
 
-      {/* Add form */}
       {showAdd && (
         <CategoryFormCard
           title="Add new category"
@@ -101,12 +102,12 @@ export function CategoriesManager({
         />
       )}
 
-      {/* List */}
       <div className="card p-0 overflow-hidden">
         <table className="w-full text-sm">
           <thead className="bg-slate-50 border-b border-slate-200">
             <tr>
               <th className="text-left px-4 py-3 font-semibold text-slate-700 w-12">#</th>
+              <th className="text-left px-4 py-3 font-semibold text-slate-700 w-16">Image</th>
               <th className="text-left px-4 py-3 font-semibold text-slate-700">Name</th>
               <th className="text-left px-4 py-3 font-semibold text-slate-700">Slug</th>
               <th className="text-left px-4 py-3 font-semibold text-slate-700">Products</th>
@@ -120,6 +121,22 @@ export function CategoriesManager({
               return (
                 <tr key={c.id} className="border-t border-slate-100 hover:bg-slate-50">
                   <td className="px-4 py-3 text-slate-400 font-mono text-xs">{c.display_order}</td>
+                  <td className="px-4 py-3">
+                    {c.image_url ? (
+                      <Image
+                        src={c.image_url}
+                        alt={c.name}
+                        width={40}
+                        height={40}
+                        className="object-cover rounded"
+                        unoptimized
+                      />
+                    ) : (
+                      <div className="w-10 h-10 bg-slate-100 rounded flex items-center justify-center text-slate-300">
+                        <ImageOff className="h-4 w-4" />
+                      </div>
+                    )}
+                  </td>
                   <td className="px-4 py-3 font-medium text-slate-900">{c.name}</td>
                   <td className="px-4 py-3 font-mono text-xs text-slate-500">{c.slug}</td>
                   <td className="px-4 py-3">{count}</td>
@@ -161,7 +178,6 @@ export function CategoriesManager({
         </table>
       </div>
 
-      {/* Edit form (renders below list) */}
       {editing && (
         <CategoryFormCard
           title={`Edit "${editing.name}"`}
@@ -170,8 +186,81 @@ export function CategoriesManager({
           submitLabel="Save changes"
           pending={pending}
           initial={editing}
+          showImageUpload
         />
       )}
+    </div>
+  );
+}
+
+function CategoryImageUploader({ category }: { category: Category }) {
+  const router = useRouter();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [preview, setPreview] = useState(category.image_url);
+  const [pending, setPending] = useState(false);
+
+  async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setPending(true);
+    const formData = new FormData();
+    formData.append("image", file);
+
+    const result = await uploadCategoryImage(category.id, formData);
+    setPending(false);
+
+    if ("error" in result && result.error) {
+      toast.error(result.error);
+      return;
+    }
+    if ("url" in result && result.url) {
+      setPreview(result.url);
+      toast.success("Category image updated");
+      router.refresh();
+    }
+  }
+
+  return (
+    <div className="flex items-start gap-4 mb-4 pb-4 border-b border-slate-200">
+      <div className="bg-slate-50 rounded border border-slate-200 w-24 h-24 flex items-center justify-center flex-shrink-0">
+        {preview ? (
+          <Image
+            src={preview}
+            alt="Category"
+            width={96}
+            height={96}
+            className="object-cover rounded w-full h-full"
+            unoptimized
+          />
+        ) : (
+          <ImageOff className="h-6 w-6 text-slate-300" />
+        )}
+      </div>
+      <div className="flex-1">
+        <label className="block text-sm font-medium text-slate-700 mb-1">
+          Category image
+        </label>
+        <p className="text-xs text-slate-500 mb-2">
+          Shown on home page category card · 1:1 ratio recommended · max 5 MB
+        </p>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/png,image/jpeg,image/jpg,image/webp"
+          onChange={handleFile}
+          className="hidden"
+        />
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={pending}
+          className="inline-flex items-center gap-2 text-sm bg-white border border-slate-300 rounded px-3 py-1.5 hover:bg-slate-50 disabled:opacity-50"
+        >
+          <Upload className="h-3.5 w-3.5" />
+          {pending ? "Uploading..." : preview ? "Replace image" : "Upload image"}
+        </button>
+      </div>
     </div>
   );
 }
@@ -183,6 +272,7 @@ function CategoryFormCard({
   submitLabel,
   pending,
   initial,
+  showImageUpload = false,
 }: {
   title: string;
   onClose: () => void;
@@ -190,6 +280,7 @@ function CategoryFormCard({
   submitLabel: string;
   pending: boolean;
   initial?: Category;
+  showImageUpload?: boolean;
 }) {
   return (
     <div className="card">
@@ -199,6 +290,9 @@ function CategoryFormCard({
           <X className="h-4 w-4" />
         </button>
       </div>
+
+      {showImageUpload && initial && <CategoryImageUploader category={initial} />}
+
       <form onSubmit={onSubmit} className="space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>

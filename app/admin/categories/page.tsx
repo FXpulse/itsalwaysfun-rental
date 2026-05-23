@@ -10,6 +10,7 @@ interface Category {
   description: string | null;
   display_order: number;
   is_active: boolean;
+  image_url: string | null;
 }
 
 export default async function AdminCategoriesPage() {
@@ -19,7 +20,7 @@ export default async function AdminCategoriesPage() {
   const [{ data: categories }, { data: products }] = await Promise.all([
     supabase
       .from("categories")
-      .select("id, name, slug, description, display_order, is_active")
+      .select("id, name, slug, description, display_order, is_active, image_url")
       .order("display_order"),
     supabase.from("products").select("category"),
   ]);

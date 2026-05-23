@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { uploadImage } from "@/lib/storage/upload";
 import { z } from "zod";
 
 async function requireAdmin() {
@@ -101,4 +102,44 @@ export async function toggleCategoryActive(id: string, currentlyActive: boolean)
   revalidatePath("/admin/categories");
   revalidatePath("/", "layout");
   return { success: true };
+}
+
+/** Upload an image and assign it to a category. */
+export async function uploadCategoryImage(categoryId: string, formData: FormData) {
+  await requireAdmin();
+  const file = formData.get("image") as File | null;
+  if (!file || file.size === 0) {
+    return { error: "No file selected" };
+  }
+
+  const supabase = createAdminClient();
+  const { data: cat } = await supabase
+    .from("categories")
+    .select("slug")
+    .eq("id", categoryId)
+    .single();
+
+  const upload = await uploadImage({
+    bucket: "site-assets",
+    file,
+    pathPrefix: "categories",
+    filenameHint: cat?.slug || "category",
+  });
+
+  if ("error" in upload) {
+    return { error: upload.error };
+  }
+
+  const { error } = await supabase
+    .from("categories")
+    .update({ image_url: upload.url })
+    .eq("id", categoryId);
+
+  if (error) {
+    return { error: `Uploaded but failed to save: ${error.message}` };
+  }
+
+  revalidatePath("/admin/categories");
+  revalidatePath("/", "layout");
+  return { success: true, url: upload.url };
 }
