@@ -1,15 +1,9 @@
 // POST /api/bookings/check-and-hold
-// Body: { product_slug | product_id, event_date, start_time?, end_time?,
-//         customer: { first_name, last_name, email, phone?, address? } }
+// Body: { product_slug | product_id, event_date, event_end_date?, start_time?,
+//         end_time?, customer: { first_name, last_name, email, phone?, address? } }
 //
-// Flow:
-//   1. Validate availability for product+date
-//   2. Create booking with status="pending_payment", hold_expires_at = now + 15min
-//   3. Create Stripe Payment Intent for the FULL price (100% upfront, no deposit)
-//   4. Return { booking_id, client_secret, amount }
-//
-// If Stripe is not configured: returns booking but no client_secret
-// (allows testing the hold flow before Stripe keys are present).
+// Supports MULTI-DAY rentals: if event_end_date > event_date, all days in
+// range must be available and total = price_per_day × num_days.
 
 import { NextResponse } from "next/server";
 import { z } from "zod";
@@ -19,12 +13,14 @@ import { getStripe, isStripeConfigured } from "@/lib/stripe/server";
 export const dynamic = "force-dynamic";
 
 const HOLD_MINUTES = 15;
+const MAX_DAYS = 14; // safety cap
 
 const BodySchema = z
   .object({
     product_slug: z.string().regex(/^[a-z0-9-]+$/).optional(),
     product_id: z.string().uuid().optional(),
     event_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    event_end_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
     start_time: z.string().regex(/^\d{2}:\d{2}(:\d{2})?$/).optional(),
     end_time: z.string().regex(/^\d{2}:\d{2}(:\d{2})?$/).optional(),
     customer: z.object({
@@ -41,6 +37,20 @@ const BodySchema = z
     message: "product_slug or product_id is required",
   });
 
+/** Return all ISO date strings from start to end inclusive. */
+function datesInRange(start: string, end: string): string[] {
+  const out: string[] = [];
+  const s = new Date(start + "T00:00:00");
+  const e = new Date(end + "T00:00:00");
+  if (e < s) return [];
+  const cur = new Date(s);
+  while (cur <= e) {
+    out.push(cur.toISOString().split("T")[0]);
+    cur.setDate(cur.getDate() + 1);
+  }
+  return out;
+}
+
 export async function POST(request: Request) {
   let body: unknown;
   try {
@@ -53,6 +63,24 @@ export async function POST(request: Request) {
   if (!parsed.success) {
     return NextResponse.json(
       { error: "Invalid input", details: parsed.error.flatten() },
+      { status: 400 }
+    );
+  }
+
+  const startDate = parsed.data.event_date;
+  const endDate = parsed.data.event_end_date || startDate;
+
+  if (endDate < startDate) {
+    return NextResponse.json(
+      { error: "End date must be on or after start date" },
+      { status: 400 }
+    );
+  }
+
+  const days = datesInRange(startDate, endDate);
+  if (days.length === 0 || days.length > MAX_DAYS) {
+    return NextResponse.json(
+      { error: `Rental range must be 1–${MAX_DAYS} days` },
       { status: 400 }
     );
   }
@@ -82,47 +110,71 @@ export async function POST(request: Request) {
     );
   }
 
-  // 2. Check date availability
-  const date = parsed.data.event_date;
-
-  // Blocked dates
+  // 2. Check ALL days in range for blocks
   const { data: blocked } = await supabase
     .from("blocked_dates")
-    .select("reason")
+    .select("blocked_date, reason")
     .eq("product_id", product.id)
-    .eq("blocked_date", date)
-    .maybeSingle();
+    .in("blocked_date", days);
 
-  if (blocked) {
+  if (blocked && blocked.length > 0) {
     return NextResponse.json(
-      { error: "Date is blocked", reason: blocked.reason },
+      {
+        error: `Date${blocked.length > 1 ? "s" : ""} blocked in your range`,
+        blocked_dates: blocked.map((b) => b.blocked_date),
+        reason: blocked[0].reason,
+      },
       { status: 409 }
     );
   }
 
-  // Active bookings (count vs stock, excluding expired holds)
+  // 3. Check ALL days for existing bookings (respect stock)
   const nowISO = new Date().toISOString();
   const { data: activeBookings } = await supabase
     .from("bookings")
-    .select("id, booking_status, hold_expires_at")
+    .select("id, event_date, event_end_date, booking_status, hold_expires_at")
     .eq("product_id", product.id)
-    .eq("event_date", date)
+    .lte("event_date", endDate)
+    .or(`event_end_date.gte.${startDate},and(event_end_date.is.null,event_date.gte.${startDate})`)
     .in("booking_status", ["pending_payment", "confirmed", "delivered"]);
 
-  const stillActive = (activeBookings || []).filter((b) => {
-    if (b.booking_status !== "pending_payment") return true;
-    if (!b.hold_expires_at) return true;
-    return b.hold_expires_at > nowISO;
-  });
+  // Build count-per-day, filtering expired holds
+  const occupiedByDay: Record<string, number> = {};
+  for (const b of activeBookings || []) {
+    if (
+      b.booking_status === "pending_payment" &&
+      b.hold_expires_at &&
+      b.hold_expires_at < nowISO
+    ) {
+      continue;
+    }
+    const bStart = b.event_date;
+    const bEnd = b.event_end_date || b.event_date;
+    for (const day of datesInRange(bStart, bEnd)) {
+      if (day >= startDate && day <= endDate) {
+        occupiedByDay[day] = (occupiedByDay[day] || 0) + 1;
+      }
+    }
+  }
 
-  if (stillActive.length >= product.stock) {
+  const conflictDays = Object.entries(occupiedByDay)
+    .filter(([_, count]) => count >= product.stock)
+    .map(([day]) => day);
+
+  if (conflictDays.length > 0) {
     return NextResponse.json(
-      { error: "Already booked", available_after: null },
+      {
+        error: "Some days in your range are already booked",
+        conflict_dates: conflictDays,
+      },
       { status: 409 }
     );
   }
 
-  // 3. Create booking with hold
+  // 4. Calculate total
+  const totalAmount = product.price_per_day * days.length;
+
+  // 5. Create booking with hold
   const holdExpiresAt = new Date(Date.now() + HOLD_MINUTES * 60_000).toISOString();
 
   const { data: booking, error: bookErr } = await supabase
@@ -135,12 +187,13 @@ export async function POST(request: Request) {
       customer_email: parsed.data.customer.email,
       customer_phone: parsed.data.customer.phone || null,
       customer_address: parsed.data.customer.address || null,
-      event_date: date,
+      event_date: startDate,
+      event_end_date: endDate,
       start_time: parsed.data.start_time || null,
       end_time: parsed.data.end_time || null,
       product_id: product.id,
       product_name: product.name,
-      total_amount: product.price_per_day,
+      total_amount: totalAmount,
       stripe_payment_status: "pending",
       booking_status: "pending_payment",
       hold_expires_at: holdExpiresAt,
@@ -155,7 +208,7 @@ export async function POST(request: Request) {
     );
   }
 
-  // 4. Create Stripe Payment Intent (FULL amount, 100% upfront)
+  // 6. Stripe Payment Intent
   let clientSecret: string | null = null;
   let paymentIntentId: string | null = null;
 
@@ -163,15 +216,17 @@ export async function POST(request: Request) {
     try {
       const stripe = getStripe();
       const intent = await stripe.paymentIntents.create({
-        amount: product.price_per_day,
+        amount: totalAmount,
         currency: "usd",
         automatic_payment_methods: { enabled: true },
-        description: `${product.name} rental — ${date}`,
+        description: `${product.name} rental — ${startDate}${endDate !== startDate ? ` to ${endDate}` : ""} (${days.length} day${days.length > 1 ? "s" : ""})`,
         metadata: {
           booking_id: booking.id,
           product_id: product.id,
           product_slug: product.slug,
-          event_date: date,
+          event_date: startDate,
+          event_end_date: endDate,
+          days: String(days.length),
           customer_email: parsed.data.customer.email,
         },
         receipt_email: parsed.data.customer.email,
@@ -180,13 +235,11 @@ export async function POST(request: Request) {
       clientSecret = intent.client_secret;
       paymentIntentId = intent.id;
 
-      // Persist payment intent ID on the booking
       await supabase
         .from("bookings")
         .update({ stripe_payment_intent_id: paymentIntentId })
         .eq("id", booking.id);
     } catch (e: any) {
-      // Roll back the booking — Stripe failed
       await supabase.from("bookings").delete().eq("id", booking.id);
       return NextResponse.json(
         { error: "Payment setup failed", details: e.message },
@@ -197,12 +250,15 @@ export async function POST(request: Request) {
 
   return NextResponse.json({
     booking_id: booking.id,
-    hold_id: booking.id, // alias — booking ID acts as the hold token
+    hold_id: booking.id,
     hold_expires_at: holdExpiresAt,
-    amount: product.price_per_day,
+    amount: totalAmount,
+    days: days.length,
+    event_date: startDate,
+    event_end_date: endDate,
     currency: "usd",
     product_name: product.name,
-    client_secret: clientSecret, // null if Stripe not configured yet
+    client_secret: clientSecret,
     payment_intent_id: paymentIntentId,
   });
 }

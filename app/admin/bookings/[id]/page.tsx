@@ -61,7 +61,18 @@ export default async function BookingDetailPage({
           </h2>
           <dl className="space-y-2 text-sm">
             <Row label="Product" value={b.product_name} />
-            <Row label="Event date" value={formatDate(b.event_date)} />
+            <Row label="Start date" value={formatDate(b.event_date)} />
+            {b.event_end_date && b.event_end_date !== b.event_date && (
+              <>
+                <Row label="End date" value={formatDate(b.event_end_date)} />
+                <Row label="Days" value={(() => {
+                  const days = Math.round(
+                    (new Date(b.event_end_date).getTime() - new Date(b.event_date).getTime()) / 86400000
+                  ) + 1;
+                  return <span className="font-bold text-purple-700">{days} days</span>;
+                })()} />
+              </>
+            )}
             {b.start_time && <Row label="Start time" value={b.start_time} />}
             {b.end_time && <Row label="End time" value={b.end_time} />}
           </dl>

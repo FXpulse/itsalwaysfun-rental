@@ -119,6 +119,17 @@ export default async function AdminBookingsPage({
                   <tr key={b.id} className="border-t border-slate-100 hover:bg-slate-50">
                     <td className="px-4 py-3">
                       <div className="font-medium">{formatDate(b.event_date)}</div>
+                      {b.event_end_date && b.event_end_date !== b.event_date && (
+                        <div className="text-xs text-purple-600 font-semibold">
+                          → {formatDate(b.event_end_date)}
+                          {(() => {
+                            const days = Math.round(
+                              (new Date(b.event_end_date).getTime() - new Date(b.event_date).getTime()) / 86400000
+                            ) + 1;
+                            return ` (${days} days)`;
+                          })()}
+                        </div>
+                      )}
                       {b.start_time && (
                         <div className="text-xs text-slate-400">
                           {b.start_time}

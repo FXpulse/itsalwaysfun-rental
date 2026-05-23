@@ -78,6 +78,7 @@ export function BookingWizard({
   // Wizard state
   const [step, setStep] = useState<Step>(cartItem?.productSlug ? "date" : "date");
   const [eventDate, setEventDate] = useState<string | null>(cartItem?.eventDate || null);
+  const [numDays, setNumDays] = useState<number>(1);
   const [startTime, setStartTime] = useState("9:00 AM");
   const [endTime, setEndTime] = useState("5:00 PM");
   const [selectedCategory, setSelectedCategory] = useState<string | null>(
@@ -143,6 +144,19 @@ export function BookingWizard({
     setStep(s);
   }
 
+  // Compute end date from start + numDays
+  const eventEndDate = useMemo(() => {
+    if (!eventDate || numDays <= 1) return eventDate;
+    const d = new Date(eventDate + "T00:00:00");
+    d.setDate(d.getDate() + (numDays - 1));
+    return d.toISOString().split("T")[0];
+  }, [eventDate, numDays]);
+
+  const totalAmount = useMemo(
+    () => (selectedProduct ? selectedProduct.price_per_day * numDays : 0),
+    [selectedProduct, numDays],
+  );
+
   async function handleSubmit() {
     if (!selectedProduct || !eventDate) return;
 
@@ -154,6 +168,7 @@ export function BookingWizard({
           body: JSON.stringify({
             product_slug: selectedProduct.slug,
             event_date: eventDate,
+            event_end_date: eventEndDate,
             start_time: convertTime(startTime),
             end_time: convertTime(endTime),
             customer: {
@@ -182,11 +197,13 @@ export function BookingWizard({
           city: customer.city,
           zip: customer.zip,
           eventDate,
+          eventEndDate,
+          numDays,
           startTime,
           endTime,
           product: selectedProduct.name,
           productSlug: selectedProduct.slug,
-          totalPrice: Math.round(selectedProduct.price_per_day / 100),
+          totalPrice: Math.round(totalAmount / 100),
           notes: customer.notes,
           source: "website-booking",
         }).catch(() => {});
@@ -258,6 +275,8 @@ export function BookingWizard({
           <DatePickerStep
             value={eventDate}
             onChange={(d) => setEventDate(d)}
+            numDays={numDays}
+            onDaysChange={setNumDays}
             onNext={() => goToStep("category")}
             unavailableDates={selectedProductSlug ? unavailableDates : new Set()}
           />
@@ -295,6 +314,9 @@ export function BookingWizard({
             }}
             product={selectedProduct}
             eventDate={eventDate!}
+            eventEndDate={eventEndDate}
+            numDays={numDays}
+            totalAmount={totalAmount}
             onBack={() => goToStep("product")}
             onSubmit={handleSubmit}
             pending={pending}
@@ -343,11 +365,15 @@ async function fireGhlWebhook(payload: any) {
 function DatePickerStep({
   value,
   onChange,
+  numDays,
+  onDaysChange,
   onNext,
   unavailableDates,
 }: {
   value: string | null;
   onChange: (d: string) => void;
+  numDays: number;
+  onDaysChange: (n: number) => void;
   onNext: () => void;
   unavailableDates: Set<string>;
 }) {
@@ -367,12 +393,58 @@ function DatePickerStep({
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
+  // Highlight all days in selected range
+  const rangeSet = useMemo(() => {
+    if (!value || numDays <= 1) return new Set<string>();
+    const set = new Set<string>();
+    const start = new Date(value + "T00:00:00");
+    for (let i = 0; i < numDays; i++) {
+      const d = new Date(start);
+      d.setDate(d.getDate() + i);
+      set.add(d.toISOString().split("T")[0]);
+    }
+    return set;
+  }, [value, numDays]);
+
   return (
     <div>
       <h2 className="text-xl font-bold text-brand-navy mb-1">When is your event?</h2>
       <p className="text-sm text-slate-500 mb-6">
-        Pick the date you want to rent.
+        Pick the start date and how many days you want to rent.
       </p>
+
+      {/* Days selector */}
+      <div className="bg-slate-50 rounded-lg p-3 mb-4 flex items-center justify-between">
+        <div>
+          <label className="text-sm font-medium text-slate-700">
+            How many days? <span className="text-xs text-slate-400">(rental period)</span>
+          </label>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => onDaysChange(Math.max(1, numDays - 1))}
+            disabled={numDays <= 1}
+            className="w-8 h-8 rounded bg-white border border-slate-300 text-brand-navy font-bold disabled:opacity-30"
+          >
+            −
+          </button>
+          <span className="w-12 text-center font-bold text-brand-navy text-lg">
+            {numDays}
+          </span>
+          <button
+            type="button"
+            onClick={() => onDaysChange(Math.min(14, numDays + 1))}
+            disabled={numDays >= 14}
+            className="w-8 h-8 rounded bg-white border border-slate-300 text-brand-navy font-bold disabled:opacity-30"
+          >
+            +
+          </button>
+          <span className="text-sm text-slate-500 ml-2">
+            {numDays === 1 ? "1 day" : `${numDays} days`}
+          </span>
+        </div>
+      </div>
 
       <div className="flex items-center justify-between mb-4">
         <button onClick={() => setCursor(subMonths(cursor, 1))} className="p-2 rounded hover:bg-slate-100">
@@ -400,6 +472,7 @@ function DatePickerStep({
           const isUnavail = unavailableDates.has(iso);
 
           const disabled = !inMonth || isPast || isUnavail;
+          const isInRange = rangeSet.has(iso) && !isSelected;
 
           return (
             <button
@@ -411,7 +484,8 @@ function DatePickerStep({
                 ${isPast ? "text-slate-300 cursor-not-allowed" : ""}
                 ${isUnavail && inMonth && !isPast ? "bg-red-50 text-red-300 cursor-not-allowed line-through" : ""}
                 ${isSelected ? "bg-brand-navy text-white ring-2 ring-brand-yellow" : ""}
-                ${!disabled && !isSelected ? "hover:bg-brand-yellow/30 text-brand-navy" : ""}
+                ${isInRange ? "bg-brand-yellow/40 text-brand-navy font-bold" : ""}
+                ${!disabled && !isSelected && !isInRange ? "hover:bg-brand-yellow/30 text-brand-navy" : ""}
                 ${isToday && !isSelected ? "ring-2 ring-brand-yellow" : ""}
               `}
             >
@@ -554,6 +628,9 @@ function CustomerInfoStep({
   onTimeChange,
   product,
   eventDate,
+  eventEndDate,
+  numDays,
+  totalAmount,
   onBack,
   onSubmit,
   pending,
@@ -565,6 +642,9 @@ function CustomerInfoStep({
   onTimeChange: (s: string, e: string) => void;
   product: Product;
   eventDate: string;
+  eventEndDate: string | null;
+  numDays: number;
+  totalAmount: number;
   onBack: () => void;
   onSubmit: () => void;
   pending: boolean;
@@ -578,13 +658,21 @@ function CustomerInfoStep({
     customer.city.trim() &&
     customer.zip.trim();
 
+  const rangeLabel =
+    numDays > 1 && eventEndDate
+      ? `${format(new Date(eventDate), "MMM d")} – ${format(new Date(eventEndDate), "MMM d, yyyy")}`
+      : format(new Date(eventDate), "EEE, MMM d, yyyy");
+
   return (
     <div>
       <h2 className="text-xl font-bold text-brand-navy mb-1">Your details</h2>
       <p className="text-sm text-slate-500 mb-6">
-        For <strong>{product.name}</strong> on{" "}
-        <strong>{format(new Date(eventDate), "EEE, MMM d, yyyy")}</strong> ·{" "}
-        <strong>{formatCurrency(product.price_per_day)}</strong>
+        For <strong>{product.name}</strong> on <strong>{rangeLabel}</strong>
+        {numDays > 1 && (
+          <> · <strong>{numDays} days × {formatCurrency(product.price_per_day)}</strong></>
+        )}
+        {" "}·{" "}
+        <strong className="text-brand-navy">Total: {formatCurrency(totalAmount)}</strong>
       </p>
 
       {/* Time pickers */}

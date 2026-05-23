@@ -36,7 +36,8 @@ export interface Booking {
   customer_email: string;
   customer_phone: string | null;
   customer_address: string | null;
-  event_date: string;        // ISO date
+  event_date: string;        // ISO date — first day of rental
+  event_end_date: string | null;  // ISO date — last day (null = single-day, same as event_date)
   start_time: string | null;
   end_time: string | null;
   product_id: string;
