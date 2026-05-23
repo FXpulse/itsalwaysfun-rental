@@ -43,10 +43,20 @@ export default async function AdminBookingsPage({
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-brand-navy mb-1">Bookings</h1>
-      <p className="text-sm text-slate-500 mb-6">
-        {list.length} bookings between {formatDate(from)} and {formatDate(to)}
-      </p>
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-2xl font-bold text-brand-navy mb-1">Bookings</h1>
+          <p className="text-sm text-slate-500">
+            {list.length} bookings between {formatDate(from)} and {formatDate(to)}
+          </p>
+        </div>
+        <Link
+          href="/admin/bookings/new"
+          className="btn-accent inline-flex items-center gap-2"
+        >
+          + New booking
+        </Link>
+      </div>
 
       {/* Filters */}
       <form className="card mb-6 flex flex-col md:flex-row gap-3 md:items-end">
@@ -147,7 +157,7 @@ export default async function AdminBookingsPage({
       </div>
 
       <p className="text-xs text-slate-400 mt-4">
-        Detail view + cancel/refund actions coming next session. For now, this is read-only overview.
+        Click <strong>View</strong> on any booking to manage it (mark as paid, change status, add notes).
       </p>
     </div>
   );
