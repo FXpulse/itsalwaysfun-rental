@@ -66,7 +66,7 @@ export default async function AdminDashboardPage() {
         <ul className="list-disc list-inside text-sm text-slate-600 space-y-1">
           <li>Monthly calendar with booking density per day</li>
           <li>Recent bookings table with quick actions</li>
-          <li>Low-availability alerts (products booked >= 50% of upcoming weekends)</li>
+          <li>Low-availability alerts (products booked &gt;= 50% of upcoming weekends)</li>
         </ul>
         <p className="text-xs text-slate-400 mt-4">
           Built incrementally — see Products / Bookings / Availability pages in the sidebar.
