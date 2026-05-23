@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   startOfMonth,
@@ -295,15 +296,26 @@ function DayDetailModal({
         {dayData.booked.length > 0 && (
           <div className="mb-4">
             <h4 className="text-xs uppercase tracking-wider text-slate-500 font-semibold mb-2">
-              📦 Booked ({dayData.booked.length})
+              📦 Booked ({dayData.booked.length}) — click to open detail
             </h4>
             <ul className="space-y-1">
               {dayData.booked.map((b) => (
-                <li key={b.id} className="bg-purple-50 border border-purple-200 rounded px-3 py-2 text-sm">
-                  <div className="font-medium text-purple-900">{b.product_name}</div>
-                  <div className="text-xs text-purple-700">
-                    {b.customer_first_name} {b.customer_last_name} · {b.booking_status}
-                  </div>
+                <li key={b.id}>
+                  <Link
+                    href={`/admin/bookings/${b.id}`}
+                    onClick={onClose}
+                    className="block bg-purple-50 border border-purple-200 rounded px-3 py-2 text-sm hover:bg-purple-100 transition"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="font-medium text-purple-900">{b.product_name}</div>
+                        <div className="text-xs text-purple-700">
+                          {b.customer_first_name} {b.customer_last_name} · {b.booking_status}
+                        </div>
+                      </div>
+                      <span className="text-xs text-purple-700">View →</span>
+                    </div>
+                  </Link>
                 </li>
               ))}
             </ul>

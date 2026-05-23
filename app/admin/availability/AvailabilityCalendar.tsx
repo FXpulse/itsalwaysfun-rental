@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition, useMemo } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import {
@@ -249,17 +250,32 @@ export function AvailabilityCalendar({
               : isPast
                 ? "bg-slate-50 text-slate-400 border-slate-100"
                 : booking
-                  ? "bg-purple-50 border-purple-200 text-slate-700"
+                  ? "bg-purple-50 border-purple-200 text-slate-700 cursor-pointer hover:bg-purple-100"
                   : block
                     ? "bg-red-50 border-red-200 text-slate-700"
                     : isToday
                       ? "bg-yellow-50 border-brand-yellow text-slate-900 font-semibold cursor-pointer hover:bg-yellow-100"
                       : "bg-white border-slate-200 text-slate-700 cursor-pointer hover:bg-emerald-50 hover:border-emerald-300";
 
+            // If there's a booking, render as Link to the booking detail page
+            if (booking && inMonth && !isPast) {
+              return (
+                <Link
+                  key={iso}
+                  href={`/admin/bookings/${booking.id}`}
+                  className={`${baseClass} ${stateClass}`}
+                  title={`View booking — ${booking.customer_first_name} ${booking.customer_last_name}`}
+                >
+                  <span className="text-xs">{format(day, "d")}</span>
+                  {badge}
+                </Link>
+              );
+            }
+
             return (
               <button
                 key={iso}
-                disabled={!inMonth || isPast || !!booking || pending}
+                disabled={!inMonth || isPast || pending}
                 onClick={() => {
                   if (!booking && !block && inMonth && !isPast) {
                     setOpenBlockModal(iso);
@@ -277,7 +293,7 @@ export function AvailabilityCalendar({
 
         <p className="text-xs text-slate-400 mt-4">
           Click an available date to block it (maintenance, damaged, personal hold).
-          Bookings cannot be removed from here — manage them in Bookings page.
+          Click a <span className="bg-purple-100 text-purple-800 px-1 rounded">booked</span> day to jump to its booking detail.
         </p>
       </div>
 
