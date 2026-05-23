@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { LogOut, Calendar, Package, BookOpen, Settings, Home, Globe, Tag } from "lucide-react";
+import { LogOut, Calendar, Package, BookOpen, Settings, Home, Globe, Tag, HelpCircle } from "lucide-react";
 
 export default async function AdminLayout({
   children,
@@ -26,6 +26,7 @@ export default async function AdminLayout({
     { href: "/admin/bookings", label: "Bookings", icon: BookOpen },
     { href: "/admin/availability", label: "Availability", icon: Calendar },
     { href: "/admin/site", label: "Website content", icon: Globe },
+    { href: "/admin/faqs", label: "FAQs", icon: HelpCircle },
     { href: "/admin/settings", label: "Settings", icon: Settings },
   ];
 
