@@ -1,0 +1,32 @@
+node_modules/
+.next/
+out/
+build/
+dist/
+
+# Env
+.env
+.env.local
+.env.*.local
+
+# Supabase
+supabase/.branches/
+supabase/.temp/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-error.log*
+
+# OS / IDE
+.DS_Store
+.vscode/
+.idea/
+*.swp
+
+# TS
+*.tsbuildinfo
+next-env.d.ts
+
+# Vercel
+.vercel
