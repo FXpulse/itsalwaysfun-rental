@@ -103,7 +103,11 @@ export function AvailabilityCalendar({
 
   function changeProduct(id: string) {
     const params = new URLSearchParams(searchParams);
-    params.set("product", id);
+    if (id === "all") {
+      params.delete("product");
+    } else {
+      params.set("product", id);
+    }
     router.push(`/admin/availability?${params.toString()}`);
   }
 
@@ -150,11 +154,14 @@ export function AvailabilityCalendar({
             onChange={(e) => changeProduct(e.target.value)}
             className="input max-w-md"
           >
-            {products.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name} {!p.is_active && "(inactive)"} — {p.category}
-              </option>
-            ))}
+            <option value="all">⭐ All products (overview)</option>
+            <optgroup label="Single product">
+              {products.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name} {!p.is_active && "(inactive)"} — {p.category}
+                </option>
+              ))}
+            </optgroup>
           </select>
         </div>
 
