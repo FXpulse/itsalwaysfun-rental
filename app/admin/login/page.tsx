@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
@@ -9,10 +9,22 @@ export default function AdminLoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const next = searchParams.get("next") || "/admin/dashboard";
+  const errorParam = searchParams.get("error");
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+
+  // Show error toast on first render if redirected back with ?error=
+  useEffect(() => {
+    if (errorParam === "no_role") {
+      // User is authed but has no role row → sign them out + show message
+      const supabase = createClient();
+      supabase.auth.signOut().then(() => {
+        toast.error("Your account has no role assigned. Contact an admin.");
+      });
+    }
+  }, [errorParam]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
