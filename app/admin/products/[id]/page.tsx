@@ -19,11 +19,10 @@ export default async function EditProductPage({
   if (!idParse.success) notFound();
 
   const supabase = createAdminClient();
-  const { data: product, error } = await supabase
-    .from("products")
-    .select("*")
-    .eq("id", params.id)
-    .single();
+  const [{ data: product, error }, { data: categories }] = await Promise.all([
+    supabase.from("products").select("*").eq("id", params.id).single(),
+    supabase.from("categories").select("name").eq("is_active", true).order("display_order"),
+  ]);
 
   if (error || !product) notFound();
 
@@ -62,6 +61,7 @@ export default async function EditProductPage({
           product={product as Product}
           action={boundUpdate}
           submitLabel="Save"
+          categories={categories || []}
         />
       </div>
     </div>

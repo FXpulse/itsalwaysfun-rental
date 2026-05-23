@@ -2,8 +2,17 @@ import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
 import { ProductForm } from "../ProductForm";
 import { createProduct } from "../actions";
+import { createAdminClient } from "@/lib/supabase/admin";
 
-export default function NewProductPage() {
+export const dynamic = "force-dynamic";
+
+export default async function NewProductPage() {
+  const supabase = createAdminClient();
+  const { data: categories } = await supabase
+    .from("categories")
+    .select("name")
+    .eq("is_active", true)
+    .order("display_order");
   return (
     <div className="max-w-3xl">
       <Link
@@ -19,7 +28,11 @@ export default function NewProductPage() {
       </p>
 
       <div className="card">
-        <ProductForm action={createProduct} submitLabel="Create" />
+        <ProductForm
+          action={createProduct}
+          submitLabel="Create"
+          categories={categories || []}
+        />
       </div>
     </div>
   );

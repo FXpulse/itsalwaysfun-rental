@@ -9,9 +9,22 @@ interface Props {
   product?: Product | null;
   action: (formData: FormData) => Promise<{ error?: any; success?: boolean } | void>;
   submitLabel?: string;
+  categories?: { name: string }[];
 }
 
-export function ProductForm({ product, action, submitLabel = "Save" }: Props) {
+const FALLBACK_CATEGORIES = [
+  "Bounce Houses",
+  "Bounce & Slide Combos",
+  "Dry Slides",
+  "Concessions",
+  "Add-Ons",
+];
+
+export function ProductForm({ product, action, submitLabel = "Save", categories }: Props) {
+  const categoryOptions =
+    categories && categories.length > 0
+      ? categories.map((c) => c.name)
+      : FALLBACK_CATEGORIES;
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [errors, setErrors] = useState<Record<string, string[]>>({});
@@ -92,15 +105,13 @@ export function ProductForm({ product, action, submitLabel = "Save" }: Props) {
           <select
             name="category"
             required
-            defaultValue={product?.category || "Bounce Houses"}
+            defaultValue={product?.category || categoryOptions[0]}
             className="input"
             disabled={pending}
           >
-            <option>Bounce Houses</option>
-            <option>Dry Slides</option>
-            <option>Bounce & Slide Combos</option>
-            <option>Concessions</option>
-            <option>Add-Ons</option>
+            {categoryOptions.map((c) => (
+              <option key={c}>{c}</option>
+            ))}
           </select>
           <ErrorMsg name="category" />
         </div>
