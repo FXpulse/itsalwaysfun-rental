@@ -81,9 +81,18 @@ export function BookingWizard({
   // Wizard state
   const [step, setStep] = useState<Step>(cartItem?.productSlug ? "date" : "date");
   const [eventDate, setEventDate] = useState<string | null>(cartItem?.eventDate || null);
-  const [numDays, setNumDays] = useState<number>(1);
+  const [eventEndDate, setEventEndDate] = useState<string | null>(null);
   const [startTime, setStartTime] = useState("9:00 AM");
   const [endTime, setEndTime] = useState("5:00 PM");
+
+  // numDays is computed from date range
+  const numDays = useMemo(() => {
+    if (!eventDate) return 1;
+    if (!eventEndDate || eventEndDate === eventDate) return 1;
+    const start = new Date(eventDate + "T00:00:00");
+    const end = new Date(eventEndDate + "T00:00:00");
+    return Math.max(1, Math.round((end.getTime() - start.getTime()) / 86400000) + 1);
+  }, [eventDate, eventEndDate]);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(
     cartItem?.productSlug
       ? products.find((p) => p.slug === cartItem.productSlug)?.category || null
@@ -143,14 +152,6 @@ export function BookingWizard({
     setStep(s);
   }
 
-  // Compute end date from start + numDays
-  const eventEndDate = useMemo(() => {
-    if (!eventDate || numDays <= 1) return eventDate;
-    const d = new Date(eventDate + "T00:00:00");
-    d.setDate(d.getDate() + (numDays - 1));
-    return d.toISOString().split("T")[0];
-  }, [eventDate, numDays]);
-
   // Multi-day formula: base + 30% × (days-1) × base
   const totalAmount = useMemo(() => {
     if (!selectedProduct || numDays < 1) return 0;
@@ -158,6 +159,9 @@ export function BookingWizard({
     const surcharge = selectedProduct.price_per_day * 0.30 * (numDays - 1);
     return Math.round(selectedProduct.price_per_day + surcharge);
   }, [selectedProduct, numDays]);
+
+  // For API: use end date if set, else single-day (event_date repeated)
+  const effectiveEndDate = eventEndDate || eventDate;
 
   async function handleSubmit() {
     if (!selectedProduct || !eventDate) return;
@@ -170,7 +174,7 @@ export function BookingWizard({
           body: JSON.stringify({
             product_slug: selectedProduct.slug,
             event_date: eventDate,
-            event_end_date: eventEndDate,
+            event_end_date: effectiveEndDate,
             start_time: convertTime(startTime),
             end_time: convertTime(endTime),
             customer: {
@@ -200,7 +204,7 @@ export function BookingWizard({
           city: customer.city,
           zip: customer.zip,
           eventDate,
-          eventEndDate,
+          eventEndDate: effectiveEndDate,
           numDays,
           startTime,
           endTime,
@@ -279,10 +283,15 @@ export function BookingWizard({
       <div className="card">
         {step === "date" && (
           <DatePickerStep
-            value={eventDate}
-            onChange={(d) => setEventDate(d)}
+            startDate={eventDate}
+            endDate={eventEndDate}
+            onChange={(start, end) => {
+              setEventDate(start);
+              setEventEndDate(end);
+            }}
+            product={selectedProduct}
             numDays={numDays}
-            onDaysChange={setNumDays}
+            totalAmount={totalAmount}
             onNext={() => goToStep("category")}
             unavailableDates={selectedProductSlug ? unavailableDates : new Set()}
           />
@@ -320,7 +329,7 @@ export function BookingWizard({
             }}
             product={selectedProduct}
             eventDate={eventDate!}
-            eventEndDate={eventEndDate}
+            eventEndDate={effectiveEndDate}
             numDays={numDays}
             totalAmount={totalAmount}
             couponCode={couponCode}
@@ -371,21 +380,49 @@ async function fireGhlWebhook(payload: any) {
 // ── Sub-components ─────────────────────────────────────────
 
 function DatePickerStep({
-  value,
+  startDate,
+  endDate,
   onChange,
+  product,
   numDays,
-  onDaysChange,
+  totalAmount,
   onNext,
   unavailableDates,
 }: {
-  value: string | null;
-  onChange: (d: string) => void;
+  startDate: string | null;
+  endDate: string | null;
+  onChange: (start: string | null, end: string | null) => void;
+  product: Product | undefined;
   numDays: number;
-  onDaysChange: (n: number) => void;
+  totalAmount: number;
   onNext: () => void;
   unavailableDates: Set<string>;
 }) {
-  const [cursor, setCursor] = useState(value ? new Date(value) : new Date());
+  const [cursor, setCursor] = useState(startDate ? new Date(startDate) : new Date());
+
+  function handleDayClick(iso: string) {
+    // No start yet → set start
+    if (!startDate) {
+      onChange(iso, null);
+      return;
+    }
+    // Has start, no end yet
+    if (!endDate) {
+      if (iso === startDate) {
+        // Click same date again → clear
+        onChange(null, null);
+      } else if (iso > startDate) {
+        // Click later → set as end
+        onChange(startDate, iso);
+      } else {
+        // Click earlier → make new start
+        onChange(iso, null);
+      }
+      return;
+    }
+    // Has both — reset to single-day at clicked
+    onChange(iso, null);
+  }
 
   const monthStart = startOfMonth(cursor);
   const monthEnd = endOfMonth(cursor);
@@ -401,116 +438,171 @@ function DatePickerStep({
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  // Highlight all days in selected range
+  // Build effective range (end = startDate if not set yet)
+  const effectiveEnd = endDate || startDate;
   const rangeSet = useMemo(() => {
-    if (!value || numDays <= 1) return new Set<string>();
+    if (!startDate || !effectiveEnd) return new Set<string>();
     const set = new Set<string>();
-    const start = new Date(value + "T00:00:00");
-    for (let i = 0; i < numDays; i++) {
-      const d = new Date(start);
-      d.setDate(d.getDate() + i);
-      set.add(d.toISOString().split("T")[0]);
+    const start = new Date(startDate + "T00:00:00");
+    const end = new Date(effectiveEnd + "T00:00:00");
+    const cur = new Date(start);
+    while (cur <= end) {
+      set.add(cur.toISOString().split("T")[0]);
+      cur.setDate(cur.getDate() + 1);
     }
     return set;
-  }, [value, numDays]);
+  }, [startDate, effectiveEnd]);
 
   return (
     <div>
       <h2 className="text-xl font-bold text-brand-navy mb-1">When is your event?</h2>
       <p className="text-sm text-slate-500 mb-6">
-        Pick the start date and how many days you want to rent.
+        Click a date to set the <strong>start</strong>. Click another to set the
+        <strong> end</strong> (multi-day). Click again to reset.
       </p>
 
-      {/* Days selector */}
-      <div className="bg-slate-50 rounded-lg p-3 mb-4 flex items-center justify-between">
-        <div>
-          <label className="text-sm font-medium text-slate-700">
-            How many days? <span className="text-xs text-slate-400">(rental period)</span>
-          </label>
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => onDaysChange(Math.max(1, numDays - 1))}
-            disabled={numDays <= 1}
-            className="w-8 h-8 rounded bg-white border border-slate-300 text-brand-navy font-bold disabled:opacity-30"
-          >
-            −
-          </button>
-          <span className="w-12 text-center font-bold text-brand-navy text-lg">
-            {numDays}
-          </span>
-          <button
-            type="button"
-            onClick={() => onDaysChange(Math.min(14, numDays + 1))}
-            disabled={numDays >= 14}
-            className="w-8 h-8 rounded bg-white border border-slate-300 text-brand-navy font-bold disabled:opacity-30"
-          >
-            +
-          </button>
-          <span className="text-sm text-slate-500 ml-2">
-            {numDays === 1 ? "1 day" : `${numDays} days`}
-          </span>
-        </div>
-      </div>
-
-      <div className="flex items-center justify-between mb-4">
-        <button onClick={() => setCursor(subMonths(cursor, 1))} className="p-2 rounded hover:bg-slate-100">
-          <ChevronLeft className="h-5 w-5" />
-        </button>
-        <h3 className="text-lg font-semibold text-brand-navy">{format(cursor, "MMMM yyyy")}</h3>
-        <button onClick={() => setCursor(addMonths(cursor, 1))} className="p-2 rounded hover:bg-slate-100">
-          <ChevronRight className="h-5 w-5" />
-        </button>
-      </div>
-
-      <div className="grid grid-cols-7 gap-1 text-center text-xs uppercase tracking-wider text-slate-500 mb-2">
-        {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => (
-          <div key={d} className="py-1">{d}</div>
-        ))}
-      </div>
-
-      <div className="grid grid-cols-7 gap-1 mb-6">
-        {days.map((day) => {
-          const iso = format(day, "yyyy-MM-dd");
-          const inMonth = isSameMonth(day, cursor);
-          const isPast = isBefore(day, today);
-          const isToday = isSameDay(day, today);
-          const isSelected = value === iso;
-          const isUnavail = unavailableDates.has(iso);
-
-          const disabled = !inMonth || isPast || isUnavail;
-          const isInRange = rangeSet.has(iso) && !isSelected;
-
-          return (
-            <button
-              key={iso}
-              onClick={() => !disabled && onChange(iso)}
-              disabled={disabled}
-              className={`aspect-square rounded text-sm font-medium transition
-                ${!inMonth ? "text-slate-300" : ""}
-                ${isPast ? "text-slate-300 cursor-not-allowed" : ""}
-                ${isUnavail && inMonth && !isPast ? "bg-red-50 text-red-300 cursor-not-allowed line-through" : ""}
-                ${isSelected ? "bg-brand-navy text-white ring-2 ring-brand-yellow" : ""}
-                ${isInRange ? "bg-brand-yellow/40 text-brand-navy font-bold" : ""}
-                ${!disabled && !isSelected && !isInRange ? "hover:bg-brand-yellow/30 text-brand-navy" : ""}
-                ${isToday && !isSelected ? "ring-2 ring-brand-yellow" : ""}
-              `}
-            >
-              {format(day, "d")}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Calendar — takes 2/3 on desktop */}
+        <div className="lg:col-span-2">
+          <div className="flex items-center justify-between mb-4">
+            <button onClick={() => setCursor(subMonths(cursor, 1))} className="p-2 rounded hover:bg-slate-100">
+              <ChevronLeft className="h-5 w-5" />
             </button>
-          );
-        })}
-      </div>
+            <h3 className="text-lg font-semibold text-brand-navy">{format(cursor, "MMMM yyyy")}</h3>
+            <button onClick={() => setCursor(addMonths(cursor, 1))} className="p-2 rounded hover:bg-slate-100">
+              <ChevronRight className="h-5 w-5" />
+            </button>
+          </div>
 
-      <div className="flex justify-end">
-        <button
-          onClick={onNext}
-          disabled={!value}
-          className="btn-primary disabled:opacity-50"
-        >
-          Continue →
-        </button>
+          <div className="grid grid-cols-7 gap-1 text-center text-xs uppercase tracking-wider text-slate-500 mb-2">
+            {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => (
+              <div key={d} className="py-1">{d}</div>
+            ))}
+          </div>
+
+          <div className="grid grid-cols-7 gap-1">
+            {days.map((day) => {
+              const iso = format(day, "yyyy-MM-dd");
+              const inMonth = isSameMonth(day, cursor);
+              const isPast = isBefore(day, today);
+              const isToday = isSameDay(day, today);
+              const isStart = startDate === iso;
+              const isEnd = endDate === iso;
+              const isUnavail = unavailableDates.has(iso);
+
+              const disabled = !inMonth || isPast || isUnavail;
+              const isInRange = rangeSet.has(iso) && !isStart && !isEnd;
+
+              return (
+                <button
+                  key={iso}
+                  onClick={() => !disabled && handleDayClick(iso)}
+                  disabled={disabled}
+                  className={`aspect-square rounded text-sm font-medium transition relative
+                    ${!inMonth ? "text-slate-300" : ""}
+                    ${isPast ? "text-slate-300 cursor-not-allowed" : ""}
+                    ${isUnavail && inMonth && !isPast ? "bg-red-50 text-red-300 cursor-not-allowed line-through" : ""}
+                    ${isStart || isEnd ? "bg-brand-navy text-white ring-2 ring-brand-yellow font-bold" : ""}
+                    ${isInRange ? "bg-brand-yellow/40 text-brand-navy font-semibold" : ""}
+                    ${!disabled && !isStart && !isEnd && !isInRange ? "hover:bg-brand-yellow/30 text-brand-navy" : ""}
+                    ${isToday && !isStart && !isEnd ? "ring-2 ring-brand-yellow/60" : ""}
+                  `}
+                >
+                  {format(day, "d")}
+                  {isStart && endDate && (
+                    <span className="absolute top-0 right-0 text-[8px] bg-brand-yellow text-brand-navy px-1 rounded-bl">S</span>
+                  )}
+                  {isEnd && (
+                    <span className="absolute top-0 right-0 text-[8px] bg-brand-yellow text-brand-navy px-1 rounded-bl">E</span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Summary sidebar — 1/3 on desktop, below on mobile */}
+        <div className="lg:col-span-1">
+          <div className="bg-slate-50 rounded-lg p-4 border border-slate-200 sticky top-4">
+            <h3 className="text-sm uppercase tracking-wider text-slate-500 font-semibold mb-3">
+              Your selection
+            </h3>
+
+            <div className="space-y-3 text-sm mb-4">
+              <div>
+                <div className="text-xs uppercase text-slate-500">Start date</div>
+                <div className={`font-semibold ${startDate ? "text-brand-navy" : "text-slate-400"}`}>
+                  {startDate ? format(new Date(startDate + "T00:00:00"), "EEE, MMM d, yyyy") : "Click a date"}
+                </div>
+              </div>
+
+              <div>
+                <div className="text-xs uppercase text-slate-500">End date</div>
+                <div className={`font-semibold ${endDate ? "text-brand-navy" : "text-slate-400"}`}>
+                  {endDate
+                    ? format(new Date(endDate + "T00:00:00"), "EEE, MMM d, yyyy")
+                    : startDate
+                      ? <span className="italic text-xs">(same as start = 1 day)</span>
+                      : "—"}
+                </div>
+              </div>
+
+              <div className="border-t border-slate-200 pt-3">
+                <div className="text-xs uppercase text-slate-500">Days</div>
+                <div className="font-bold text-brand-navy text-lg">
+                  {numDays} day{numDays === 1 ? "" : "s"}
+                </div>
+              </div>
+
+              {product && (
+                <>
+                  <div>
+                    <div className="text-xs uppercase text-slate-500">Rental</div>
+                    <div className="font-semibold text-brand-navy">{product.name}</div>
+                  </div>
+                  <div className="border-t border-slate-200 pt-3 space-y-1">
+                    <div className="flex justify-between text-xs text-slate-500">
+                      <span>Base (1 day)</span>
+                      <span>${(product.price_per_day / 100).toFixed(2)}</span>
+                    </div>
+                    {numDays > 1 && (
+                      <div className="flex justify-between text-xs text-slate-500">
+                        <span>+ {numDays - 1} extra day{numDays - 1 === 1 ? "" : "s"} × 30%</span>
+                        <span>${((totalAmount - product.price_per_day) / 100).toFixed(2)}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between font-bold text-brand-navy pt-2 border-t border-slate-200">
+                      <span>Total</span>
+                      <span>${(totalAmount / 100).toFixed(2)}</span>
+                    </div>
+                  </div>
+                </>
+              )}
+              {!product && startDate && (
+                <p className="text-xs text-slate-400 italic pt-2 border-t border-slate-200">
+                  Pick a rental in the next step to see total.
+                </p>
+              )}
+            </div>
+
+            {startDate && (
+              <button
+                onClick={() => onChange(null, null)}
+                className="text-xs text-slate-500 hover:text-red-600 mb-3 underline"
+              >
+                Clear selection
+              </button>
+            )}
+
+            <button
+              onClick={onNext}
+              disabled={!startDate}
+              className="btn-primary w-full disabled:opacity-50"
+            >
+              Continue →
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );
