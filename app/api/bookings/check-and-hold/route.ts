@@ -280,14 +280,23 @@ export async function POST(request: Request) {
     }
   }
 
-  // Increment coupon usage (best-effort)
+  // Increment coupon usage (best-effort — don't block booking)
   if (appliedCouponCode) {
-    await supabase
-      .from("coupons")
-      .update({ current_uses: ((parsed.data.coupon_code as any).current_uses || 0) + 1 })
-      .eq("code", appliedCouponCode)
-      .then(() => {})
-      .catch(() => {});
+    try {
+      const { data: c } = await supabase
+        .from("coupons")
+        .select("current_uses")
+        .eq("code", appliedCouponCode)
+        .single();
+      if (c) {
+        await supabase
+          .from("coupons")
+          .update({ current_uses: (c.current_uses || 0) + 1 })
+          .eq("code", appliedCouponCode);
+      }
+    } catch {
+      // ignore — booking already saved, counter is non-critical
+    }
   }
 
   return NextResponse.json({
