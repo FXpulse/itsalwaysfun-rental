@@ -108,13 +108,8 @@ export function BookingWizard({
   const [unavailableDates, setUnavailableDates] = useState<Set<string>>(new Set());
   const [loadingAvailability, setLoadingAvailability] = useState(false);
 
-  // When category selected → if cart pre-selected a product, skip to customer step
-  useEffect(() => {
-    if (cartItem?.productSlug && eventDate && selectedProductSlug && step === "date") {
-      // came from "Book Now" with a date — jump ahead
-      setStep("customer");
-    }
-  }, [cartItem, eventDate, selectedProductSlug, step]);
+  // Cart item pre-fills product + category selection but user still
+  // walks through each step (no auto-skip — was buggy with stale cart).
 
   // When product selected, fetch its unavailable dates
   useEffect(() => {
