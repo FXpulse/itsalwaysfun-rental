@@ -26,15 +26,88 @@ export async function updateBookingStatus(bookingId: string, newStatus: string) 
   if (!parsed.success) {
     return { error: "Invalid status" };
   }
+
   const supabase = createAdminClient();
+
+  // If cancelling, also mark payment as failed (won't be collected)
+  // unless it was already paid (then admin must refund manually via Stripe).
+  const updates: { booking_status: string; stripe_payment_status?: string; notes?: string } = {
+    booking_status: parsed.data,
+  };
+
+  if (parsed.data === "cancelled") {
+    const { data: existing } = await supabase
+      .from("bookings")
+      .select("stripe_payment_status, notes")
+      .eq("id", bookingId)
+      .single();
+
+    if (existing?.stripe_payment_status === "pending") {
+      updates.stripe_payment_status = "failed";
+    }
+    // Audit line
+    const cancelNote = `[${new Date().toISOString().split("T")[0]}] Cancelled by ${user.email}`;
+    updates.notes = existing?.notes ? `${existing.notes}\n${cancelNote}` : cancelNote;
+  }
+
   const { error } = await supabase
     .from("bookings")
-    .update({ booking_status: parsed.data })
+    .update(updates)
     .eq("id", bookingId);
+
   if (error) return { error: error.message };
+
   revalidatePath("/admin/bookings");
   revalidatePath(`/admin/bookings/${bookingId}`);
   return { success: true };
+}
+
+/** Restore a cancelled booking. Returns it to pending_payment (or confirmed if was paid). */
+export async function restoreBooking(bookingId: string) {
+  const user = await requireAdmin();
+  const supabase = createAdminClient();
+
+  const { data: existing } = await supabase
+    .from("bookings")
+    .select("booking_status, stripe_payment_status, notes")
+    .eq("id", bookingId)
+    .single();
+
+  if (!existing) return { error: "Booking not found" };
+  if (existing.booking_status !== "cancelled") {
+    return { error: "Only cancelled bookings can be restored" };
+  }
+
+  // Decide new status: if was paid, restore to confirmed; otherwise pending_payment
+  let newBookingStatus: string;
+  let newPaymentStatus: string | undefined;
+
+  if (existing.stripe_payment_status === "paid" || existing.stripe_payment_status === "refunded") {
+    newBookingStatus = "confirmed";
+  } else {
+    newBookingStatus = "pending_payment";
+    if (existing.stripe_payment_status === "failed") {
+      newPaymentStatus = "pending"; // give it another chance
+    }
+  }
+
+  const restoreNote = `[${new Date().toISOString().split("T")[0]}] Restored from cancelled by ${user.email}`;
+  const newNotes = existing.notes ? `${existing.notes}\n${restoreNote}` : restoreNote;
+
+  const { error } = await supabase
+    .from("bookings")
+    .update({
+      booking_status: newBookingStatus,
+      ...(newPaymentStatus && { stripe_payment_status: newPaymentStatus }),
+      notes: newNotes,
+    })
+    .eq("id", bookingId);
+
+  if (error) return { error: error.message };
+
+  revalidatePath("/admin/bookings");
+  revalidatePath(`/admin/bookings/${bookingId}`);
+  return { success: true, newStatus: newBookingStatus };
 }
 
 const PaymentMethodSchema = z.enum(["cash", "venmo", "zelle", "check", "other"]);

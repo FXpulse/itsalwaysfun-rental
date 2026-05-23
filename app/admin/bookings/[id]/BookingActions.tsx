@@ -3,11 +3,12 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { CheckCircle, Truck, Flag, XCircle, Save, DollarSign } from "lucide-react";
+import { CheckCircle, Truck, Flag, XCircle, Save, DollarSign, RotateCcw, AlertTriangle } from "lucide-react";
 import {
   updateBookingStatus,
   markAsPaidManually,
   updateBookingNotes,
+  restoreBooking,
 } from "../actions";
 import type { Booking } from "@/types/database";
 
@@ -24,12 +25,28 @@ export function BookingActions({
   const [paidNote, setPaidNote] = useState("");
 
   function handleStatusChange(newStatus: string) {
-    if (!confirm(`Mark booking as "${newStatus.replace(/_/g, " ")}"?`)) return;
+    let msg = `Mark booking as "${newStatus.replace(/_/g, " ")}"?`;
+    if (newStatus === "cancelled" && booking.stripe_payment_status === "paid") {
+      msg = "⚠️ Customer already PAID for this booking. Cancelling here does NOT issue a refund — you must refund manually via Stripe Dashboard. Continue?";
+    }
+    if (!confirm(msg)) return;
     startTransition(async () => {
       const result = await updateBookingStatus(booking.id, newStatus);
       if (result?.error) toast.error(result.error);
       else {
-        toast.success("Status updated");
+        toast.success(newStatus === "cancelled" ? "Booking cancelled" : "Status updated");
+        router.refresh();
+      }
+    });
+  }
+
+  function handleRestore() {
+    if (!confirm("Restore this cancelled booking? It will go back to pending payment (or confirmed if previously paid).")) return;
+    startTransition(async () => {
+      const result = await restoreBooking(booking.id);
+      if (result?.error) toast.error(result.error);
+      else {
+        toast.success(`Restored to ${(result as any)?.newStatus?.replace(/_/g, " ") || "active"}`);
         router.refresh();
       }
     });
@@ -62,6 +79,33 @@ export function BookingActions({
 
   return (
     <div className="space-y-6">
+      {/* Restore button when cancelled */}
+      {isCancelled && (
+        <div className="card border-l-4 border-l-amber-500">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <h2 className="text-lg font-semibold text-brand-navy mb-1">
+                This booking is cancelled
+              </h2>
+              <p className="text-sm text-slate-500 mb-4">
+                Payment status: <strong>{booking.stripe_payment_status}</strong>.
+                {isPaid && " Customer was charged — refund manually via Stripe if needed."}
+                {" "}If this was cancelled by mistake, you can restore it.
+              </p>
+              <button
+                onClick={handleRestore}
+                disabled={pending}
+                className="bg-brand-navy text-white font-semibold px-4 py-2 rounded-md hover:bg-brand-navy-dark transition inline-flex items-center gap-2 disabled:opacity-50"
+              >
+                <RotateCcw className="h-4 w-4" />
+                Restore booking
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Mark as paid manually (cash/Venmo/Zelle) */}
       {!isPaid && !isCancelled && (
         <div className="card border-l-4 border-l-emerald-500">
@@ -116,7 +160,8 @@ export function BookingActions({
         </div>
       )}
 
-      {/* Status transitions */}
+      {/* Status transitions (hidden when cancelled — use Restore card above) */}
+      {!isCancelled && (
       <div className="card">
         <h2 className="text-lg font-semibold text-brand-navy mb-1">
           Change booking status
@@ -164,6 +209,7 @@ export function BookingActions({
           )}
         </div>
       </div>
+      )}
 
       {/* Notes */}
       <div className="card">
