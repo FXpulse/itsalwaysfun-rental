@@ -1,12 +1,12 @@
 import Link from "next/link";
 import Image from "next/image";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getSiteSettings } from "@/lib/site-settings";
 import { formatCurrency } from "@/lib/utils";
 import { Calendar, Sparkles, ArrowRight } from "lucide-react";
 import type { Product } from "@/types/database";
 
-export const dynamic = "force-dynamic";
-export const revalidate = 60; // refresh products every minute
+export const revalidate = 60;
 
 const CATEGORY_CARDS = [
   {
@@ -39,15 +39,17 @@ const CATEGORY_CARDS = [
 ];
 
 export default async function HomePage() {
-  const supabase = createAdminClient();
-  const { data: products } = await supabase
-    .from("products")
-    .select("id, name, slug, category, price_per_day, image_url, description")
-    .eq("is_active", true)
-    .order("category")
-    .order("name");
+  const [supabaseResult, settings] = await Promise.all([
+    createAdminClient()
+      .from("products")
+      .select("id, name, slug, category, price_per_day, image_url, description")
+      .eq("is_active", true)
+      .order("category")
+      .order("name"),
+    getSiteSettings(),
+  ]);
 
-  const list = (products as Product[]) || [];
+  const list = (supabaseResult.data as Product[]) || [];
 
   return (
     <div>
@@ -56,21 +58,19 @@ export default async function HomePage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-24 text-center">
           <Sparkles className="h-12 w-12 text-brand-yellow mx-auto mb-4" />
           <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold mb-4">
-            Welcome to <span className="text-brand-yellow">It's Always Fun</span>
+            {settings.hero_title}
           </h1>
           <p className="text-lg sm:text-xl text-white/90 max-w-2xl mx-auto mb-6">
-            We don't just rent bounce houses — we create unforgettable memories
-            filled with energy, laughter, and joy.
+            {settings.hero_subtitle}
           </p>
           <p className="text-brand-yellow text-xl sm:text-2xl font-semibold italic mb-8">
-            "Because when it comes to your special day,<br />
-            fun isn't optional, it's guaranteed!"
+            "{settings.hero_tagline}"
           </p>
           <Link
             href="/order-by-date"
             className="inline-flex items-center gap-2 bg-brand-yellow text-brand-navy font-bold px-8 py-4 rounded-md hover:bg-yellow-300 transition text-lg shadow-lg"
           >
-            Check availability →
+            {settings.hero_cta_label}
           </Link>
         </div>
       </section>
@@ -78,7 +78,7 @@ export default async function HomePage() {
       {/* Categories grid */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <h2 className="text-3xl font-bold text-brand-navy text-center mb-8">
-          Bounce Higher. Laugh Louder. Celebrate Bigger.
+          {settings.section_categories_title}
         </h2>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
           {CATEGORY_CARDS.map((c) => (
@@ -126,7 +126,7 @@ export default async function HomePage() {
           <div className="flex items-end justify-between mb-8">
             <div>
               <h2 className="text-3xl font-bold text-brand-navy">
-                Our Rentals
+                {settings.section_featured_title}
               </h2>
               <p className="text-slate-600">
                 {list.length} bounce houses + slides ready for your event
@@ -160,18 +160,15 @@ export default async function HomePage() {
       {/* Trust strip */}
       <section className="bg-brand-yellow text-brand-navy py-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-1 sm:grid-cols-3 gap-6 text-center">
-          <div>
-            <div className="text-2xl font-bold">🚚 Free Delivery</div>
-            <div className="text-sm">Within Jacksonville metro area</div>
-          </div>
-          <div>
-            <div className="text-2xl font-bold">🧼 Cleaned & Sanitized</div>
-            <div className="text-sm">Every unit, every rental, every time</div>
-          </div>
-          <div>
-            <div className="text-2xl font-bold">⭐ 5-Star Rated</div>
-            <div className="text-sm">Hundreds of happy families</div>
-          </div>
+          {[settings.trust_delivery, settings.trust_cleaned, settings.trust_rating].map((line, i) => {
+            const [bold, ...rest] = line.split("—");
+            return (
+              <div key={i}>
+                <div className="text-2xl font-bold">{bold.trim()}</div>
+                <div className="text-sm">{rest.join("—").trim()}</div>
+              </div>
+            );
+          })}
         </div>
       </section>
     </div>

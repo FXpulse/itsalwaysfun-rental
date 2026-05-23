@@ -3,7 +3,15 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useState } from "react";
-import { Phone, Instagram, Facebook, ShoppingCart, Search, Menu, X } from "lucide-react";
+import {
+  Phone,
+  Instagram,
+  Facebook,
+  ShoppingCart,
+  Search,
+  Menu,
+  X,
+} from "lucide-react";
 import { useCart } from "@/lib/cart/context";
 
 const NAV_ITEMS = [
@@ -18,24 +26,34 @@ const INFO_ITEMS = [
   { href: "/info/terms-of-service", label: "Terms of Service" },
 ];
 
-const PHONE = process.env.NEXT_PUBLIC_BUSINESS_PHONE || "(904) 584-3047";
-const INSTAGRAM = process.env.NEXT_PUBLIC_INSTAGRAM || "https://instagram.com/itsalwaysfunparty";
-const FACEBOOK = process.env.NEXT_PUBLIC_FACEBOOK || "https://facebook.com/itsalwaysfunparty";
+interface Props {
+  logoUrl: string;
+  businessName: string;
+  phone: string;
+  instagramUrl: string;
+  facebookUrl: string;
+}
 
-export function Header() {
+export function Header({
+  logoUrl,
+  businessName,
+  phone,
+  instagramUrl,
+  facebookUrl,
+}: Props) {
   const { hasItem } = useCart();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [infoOpen, setInfoOpen] = useState(false);
 
+  const telHref = `tel:${phone.replace(/\D/g, "")}`;
+
   return (
     <header className="bg-white shadow-sm">
-      {/* Top bar — logo, search, contact, cart */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center gap-4">
-        {/* Logo */}
         <Link href="/" className="flex-shrink-0">
           <Image
-            src="https://files.sysers.com/cp/upload/itsalwaysfun/editor/med/its_always_fun_logo.png"
-            alt="It's Always Fun"
+            src={logoUrl}
+            alt={businessName}
             width={160}
             height={60}
             className="h-12 sm:h-14 w-auto"
@@ -44,7 +62,6 @@ export function Header() {
           />
         </Link>
 
-        {/* Search (placeholder, non-functional) */}
         <div className="hidden md:flex flex-1 max-w-md mx-4 relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
           <input
@@ -55,18 +72,17 @@ export function Header() {
           />
         </div>
 
-        {/* Right side: phone + social + cart */}
         <div className="flex items-center gap-3 sm:gap-4 ml-auto">
           <a
-            href={`tel:${PHONE.replace(/\D/g, "")}`}
+            href={telHref}
             className="hidden sm:flex items-center gap-2 text-brand-navy font-semibold hover:text-brand-yellow-dark transition text-sm"
           >
             <Phone className="h-4 w-4" />
-            <span className="hidden md:inline">{PHONE}</span>
+            <span className="hidden md:inline">{phone}</span>
           </a>
 
           <a
-            href={INSTAGRAM}
+            href={instagramUrl}
             target="_blank"
             rel="noopener noreferrer"
             className="hidden sm:block text-brand-navy hover:text-brand-yellow-dark transition"
@@ -75,7 +91,7 @@ export function Header() {
             <Instagram className="h-5 w-5" />
           </a>
           <a
-            href={FACEBOOK}
+            href={facebookUrl}
             target="_blank"
             rel="noopener noreferrer"
             className="hidden sm:block text-brand-navy hover:text-brand-yellow-dark transition"
@@ -107,7 +123,6 @@ export function Header() {
         </div>
       </div>
 
-      {/* Yellow navigation bar */}
       <nav className="bg-brand-yellow hidden lg:block">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <ul className="flex items-center gap-1">
@@ -122,7 +137,6 @@ export function Header() {
               </li>
             ))}
 
-            {/* Info dropdown */}
             <li
               className="relative"
               onMouseEnter={() => setInfoOpen(true)}
@@ -159,11 +173,14 @@ export function Header() {
         </div>
       </nav>
 
-      {/* Mobile menu */}
       {mobileOpen && (
         <nav className="lg:hidden bg-brand-yellow border-t border-brand-yellow-dark">
           <ul className="px-4 py-2 space-y-1">
-            {[...NAV_ITEMS, ...INFO_ITEMS, { href: "/contact", label: "Contact Us" }].map((item) => (
+            {[
+              ...NAV_ITEMS,
+              ...INFO_ITEMS,
+              { href: "/contact", label: "Contact Us" },
+            ].map((item) => (
               <li key={item.href}>
                 <Link
                   href={item.href}
@@ -176,10 +193,10 @@ export function Header() {
             ))}
             <li className="pt-2 border-t border-brand-yellow-dark/50">
               <a
-                href={`tel:${PHONE.replace(/\D/g, "")}`}
+                href={telHref}
                 className="flex items-center gap-2 px-3 py-2 text-brand-navy font-semibold"
               >
-                <Phone className="h-4 w-4" /> {PHONE}
+                <Phone className="h-4 w-4" /> {phone}
               </a>
             </li>
           </ul>

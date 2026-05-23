@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { ProductForm } from "../ProductForm";
+import { ProductImageUploader } from "./ProductImageUploader";
 import { updateProduct } from "../actions";
 import type { Product } from "@/types/database";
 import { z } from "zod";
@@ -43,7 +44,20 @@ export default async function EditProductPage({
         Slug: <code className="font-mono">{product.slug}</code>
       </p>
 
+      <div className="card mb-6">
+        <h2 className="text-lg font-semibold text-brand-navy mb-1">Product image</h2>
+        <p className="text-xs text-slate-500 mb-4">
+          Upload a new image to replace the current one. The image is stored
+          in Supabase Storage and the URL is saved automatically.
+        </p>
+        <ProductImageUploader
+          productId={product.id}
+          currentUrl={product.image_url}
+        />
+      </div>
+
       <div className="card">
+        <h2 className="text-lg font-semibold text-brand-navy mb-4">Details</h2>
         <ProductForm
           product={product as Product}
           action={boundUpdate}
