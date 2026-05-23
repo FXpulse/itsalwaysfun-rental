@@ -136,6 +136,74 @@ export function BookingWizard({
       .finally(() => setLoadingAvailability(false));
   }, [selectedProductSlug]);
 
+  // Abandoned cart timer: 30 min after user enters customer info with email,
+  // fire GHL webhook so they can recover the booking via email/SMS.
+  // Resets on any form change. Cleared when leaving the customer step (submit
+  // moves to "payment", back button moves to "product") — so it only fires if
+  // user lingered on the info step without progressing.
+  useEffect(() => {
+    if (step !== "customer") return;
+    if (!customer.email || !customer.email.includes("@")) return;
+    if (!selectedProductSlug || !eventDate) return;
+
+    const ABANDONED_CART_MS = 30 * 60 * 1000;
+    const product = products.find((p) => p.slug === selectedProductSlug);
+    if (!product) return;
+
+    const fireAtKey = `iaf_abandoned_fired_${customer.email}`;
+    if (typeof window !== "undefined") {
+      const last = window.localStorage.getItem(fireAtKey);
+      if (last && Date.now() - parseInt(last, 10) < ABANDONED_CART_MS) {
+        return; // already fired for this email recently
+      }
+    }
+
+    const timer = setTimeout(() => {
+      const days = (() => {
+        if (!eventEndDate || eventEndDate === eventDate) return 1;
+        const s = new Date(eventDate + "T00:00:00");
+        const e = new Date(eventEndDate + "T00:00:00");
+        return Math.max(1, Math.round((e.getTime() - s.getTime()) / 86400000) + 1);
+      })();
+      const subtotal = days === 1
+        ? product.price_per_day
+        : Math.round(product.price_per_day + product.price_per_day * 0.30 * (days - 1));
+
+      fetch("/api/bookings/abandoned-cart", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          firstName: customer.firstName,
+          lastName: customer.lastName,
+          email: customer.email,
+          phone: customer.phone,
+          product: product.name,
+          productSlug: product.slug,
+          eventDate,
+          eventEndDate: eventEndDate || eventDate,
+          totalPrice: Math.round(subtotal / 100),
+          source: "abandoned-cart-30min",
+        }),
+      }).catch(() => {});
+
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem(fireAtKey, String(Date.now()));
+      }
+    }, ABANDONED_CART_MS);
+
+    return () => clearTimeout(timer);
+  }, [
+    step,
+    customer.email,
+    customer.firstName,
+    customer.lastName,
+    customer.phone,
+    selectedProductSlug,
+    eventDate,
+    eventEndDate,
+    products,
+  ]);
+
   const selectedProduct = useMemo(
     () => products.find((p) => p.slug === selectedProductSlug),
     [products, selectedProductSlug],

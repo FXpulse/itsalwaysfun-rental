@@ -16,6 +16,7 @@ const BodySchema = z.object({
   product: z.string().max(200),
   productSlug: z.string().max(100),
   eventDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  eventEndDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   totalPrice: z.number().int().min(0),
   source: z.string().optional(),
 });
