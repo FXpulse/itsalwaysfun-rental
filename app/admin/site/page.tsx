@@ -3,6 +3,13 @@ import { SiteSettingsForm } from "./SiteSettingsForm";
 
 export const dynamic = "force-dynamic";
 
+interface SettingRow {
+  key: string;
+  value: string | null;
+  description: string | null;
+  category: string;
+}
+
 export default async function AdminSitePage() {
   const supabase = createAdminClient();
   const { data: settings } = await supabase
@@ -11,9 +18,9 @@ export default async function AdminSitePage() {
     .order("category")
     .order("key");
 
-  // Group by category
-  const grouped: Record<string, typeof settings> = {};
-  for (const s of settings || []) {
+  // Group by category — explicit Record<string, SettingRow[]> so TS is happy
+  const grouped: Record<string, SettingRow[]> = {};
+  for (const s of (settings as SettingRow[] | null) || []) {
     if (!grouped[s.category]) grouped[s.category] = [];
     grouped[s.category]!.push(s);
   }
