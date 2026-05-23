@@ -3,12 +3,13 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { CheckCircle, Truck, Flag, XCircle, Save, DollarSign, RotateCcw, AlertTriangle } from "lucide-react";
+import { CheckCircle, Truck, Flag, XCircle, Save, DollarSign, RotateCcw, AlertTriangle, Undo2 } from "lucide-react";
 import {
   updateBookingStatus,
   markAsPaidManually,
   updateBookingNotes,
   restoreBooking,
+  refundBooking,
 } from "../actions";
 import type { Booking } from "@/types/database";
 
@@ -23,6 +24,8 @@ export function BookingActions({
   const [notes, setNotes] = useState(booking.notes || "");
   const [paidMethod, setPaidMethod] = useState<string>("cash");
   const [paidNote, setPaidNote] = useState("");
+  const [refundNote, setRefundNote] = useState("");
+  const [showRefundForm, setShowRefundForm] = useState(false);
 
   function handleStatusChange(newStatus: string) {
     let msg = `Mark booking as "${newStatus.replace(/_/g, " ")}"?`;
@@ -52,6 +55,30 @@ export function BookingActions({
     });
   }
 
+  function handleRefund() {
+    const method = booking.payment_method || (booking.stripe_payment_intent_id ? "stripe" : "manual");
+    const isStripe = method === "stripe";
+    const msg = isStripe
+      ? "Refund this booking? Stripe will be charged back automatically and the customer will see the refund in 5-10 business days. This cannot be undone."
+      : `Mark this ${method} payment as refunded? You'll need to return the money to the customer manually (cash, Venmo, etc). This will move the booking to cancelled status.`;
+    if (!confirm(msg)) return;
+    startTransition(async () => {
+      const result = await refundBooking(booking.id, refundNote);
+      if (result?.error) toast.error(result.error);
+      else {
+        const r = result as any;
+        if (r?.auto_refunded) {
+          toast.success("Refunded via Stripe");
+        } else {
+          toast.success("Marked as refunded — return money to customer");
+        }
+        setShowRefundForm(false);
+        setRefundNote("");
+        router.refresh();
+      }
+    });
+  }
+
   function handleMarkAsPaid() {
     startTransition(async () => {
       const result = await markAsPaidManually(booking.id, paidMethod, paidNote);
@@ -75,7 +102,10 @@ export function BookingActions({
   }
 
   const isPaid = booking.stripe_payment_status === "paid";
+  const isRefunded = booking.stripe_payment_status === "refunded";
   const isCancelled = booking.booking_status === "cancelled";
+  const paymentMethodLabel = booking.payment_method || (booking.stripe_payment_intent_id ? "stripe" : "manual");
+  const isStripePayment = paymentMethodLabel === "stripe";
 
   return (
     <div className="space-y-6">
@@ -103,6 +133,75 @@ export function BookingActions({
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Refund (when paid) */}
+      {isPaid && !isRefunded && (
+        <div className="card border-l-4 border-l-orange-500">
+          <h2 className="text-lg font-semibold text-brand-navy mb-1 flex items-center gap-2">
+            <Undo2 className="h-5 w-5 text-orange-600" />
+            Refund payment
+          </h2>
+          <p className="text-sm text-slate-500 mb-4">
+            Payment method: <strong>{paymentMethodLabel}</strong>.
+            {isStripePayment
+              ? " Stripe will auto-refund the customer's card (5-10 business days). The booking will be cancelled."
+              : " You'll need to return the money to the customer manually (cash, Venmo, Zelle, etc.). The booking will be marked refunded + cancelled in the system."}
+          </p>
+
+          {!showRefundForm ? (
+            <button
+              onClick={() => setShowRefundForm(true)}
+              className="bg-orange-600 text-white font-semibold px-4 py-2 rounded-md hover:bg-orange-700 transition inline-flex items-center gap-2"
+            >
+              <Undo2 className="h-4 w-4" /> Issue refund
+            </button>
+          ) : (
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs uppercase tracking-wider text-slate-500 mb-1">
+                  Audit note (optional)
+                </label>
+                <input
+                  value={refundNote}
+                  onChange={(e) => setRefundNote(e.target.value)}
+                  placeholder="e.g. Customer cancelled due to weather"
+                  className="input"
+                  disabled={pending}
+                />
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={handleRefund}
+                  disabled={pending}
+                  className="bg-orange-600 text-white font-semibold px-4 py-2 rounded-md hover:bg-orange-700 transition inline-flex items-center gap-2 disabled:opacity-50"
+                >
+                  <Undo2 className="h-4 w-4" />
+                  {pending ? "Processing..." : isStripePayment ? "Confirm refund (Stripe)" : "Confirm — mark refunded"}
+                </button>
+                <button
+                  onClick={() => { setShowRefundForm(false); setRefundNote(""); }}
+                  className="px-4 py-2 text-slate-600 hover:text-slate-900"
+                  disabled={pending}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {isRefunded && (
+        <div className="card border-l-4 border-l-slate-400 bg-slate-50">
+          <h2 className="text-lg font-semibold text-slate-700 mb-1 flex items-center gap-2">
+            <Undo2 className="h-5 w-5" />
+            Refunded
+          </h2>
+          <p className="text-sm text-slate-600">
+            This booking was refunded. See notes for audit trail.
+          </p>
         </div>
       )}
 

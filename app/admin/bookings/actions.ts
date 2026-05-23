@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { getStripe, isStripeConfigured } from "@/lib/stripe/server";
 import { z } from "zod";
 
 async function requireAdmin() {
@@ -60,6 +61,76 @@ export async function updateBookingStatus(bookingId: string, newStatus: string) 
   revalidatePath("/admin/bookings");
   revalidatePath(`/admin/bookings/${bookingId}`);
   return { success: true };
+}
+
+/** Refund a booking — works for any payment method.
+ *
+ *  - Stripe payment: calls Stripe Refunds API + marks DB as refunded
+ *  - Manual payment (cash/Venmo/Zelle/check/other): just marks DB
+ *    (admin returns the money in person/via app, audit logged)
+ */
+export async function refundBooking(bookingId: string, note: string) {
+  const user = await requireAdmin();
+  const supabase = createAdminClient();
+
+  const { data: booking } = await supabase
+    .from("bookings")
+    .select("*")
+    .eq("id", bookingId)
+    .single();
+
+  if (!booking) return { error: "Booking not found" };
+
+  if (booking.stripe_payment_status === "refunded") {
+    return { error: "Already refunded" };
+  }
+  if (booking.stripe_payment_status !== "paid") {
+    return { error: "Can only refund paid bookings" };
+  }
+
+  let stripeRefundId: string | null = null;
+  const isStripePayment =
+    booking.payment_method === "stripe" || (!booking.payment_method && booking.stripe_payment_intent_id);
+
+  // Stripe refund first (if applicable)
+  if (isStripePayment && booking.stripe_payment_intent_id) {
+    if (!isStripeConfigured()) {
+      return { error: "Stripe not configured — cannot auto-refund. Refund manually via Stripe Dashboard." };
+    }
+    try {
+      const stripe = getStripe();
+      const refund = await stripe.refunds.create({
+        payment_intent: booking.stripe_payment_intent_id,
+      });
+      stripeRefundId = refund.id;
+    } catch (e: any) {
+      return { error: `Stripe refund failed: ${e.message}` };
+    }
+  }
+
+  // Build audit line
+  const methodLabel = booking.payment_method || (isStripePayment ? "stripe" : "manual");
+  const auditNote = `[${new Date().toISOString().split("T")[0]}] Refunded (${methodLabel}) by ${user.email}${stripeRefundId ? ` — Stripe refund: ${stripeRefundId}` : ""}${note ? ` — ${note}` : ""}`;
+  const newNotes = booking.notes ? `${booking.notes}\n${auditNote}` : auditNote;
+
+  const { error } = await supabase
+    .from("bookings")
+    .update({
+      stripe_payment_status: "refunded",
+      booking_status: "cancelled",
+      notes: newNotes,
+    })
+    .eq("id", bookingId);
+
+  if (error) return { error: error.message };
+
+  revalidatePath("/admin/bookings");
+  revalidatePath(`/admin/bookings/${bookingId}`);
+  return {
+    success: true,
+    stripe_refund_id: stripeRefundId,
+    auto_refunded: !!stripeRefundId,
+  };
 }
 
 /** Restore a cancelled booking. Returns it to pending_payment (or confirmed if was paid). */
