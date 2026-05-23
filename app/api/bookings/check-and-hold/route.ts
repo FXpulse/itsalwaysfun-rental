@@ -9,11 +9,12 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getStripe, isStripeConfigured } from "@/lib/stripe/server";
+import { multiDayTotal, applyCoupon } from "@/lib/pricing";
 
 export const dynamic = "force-dynamic";
 
 const HOLD_MINUTES = 15;
-const MAX_DAYS = 14; // safety cap
+const MAX_DAYS = 14;
 
 const BodySchema = z
   .object({
@@ -30,6 +31,7 @@ const BodySchema = z
       phone: z.string().max(40).optional(),
       address: z.string().max(500).optional(),
     }),
+    coupon_code: z.string().max(50).optional(),
     ghl_contact_id: z.string().optional(),
     ghl_opportunity_id: z.string().optional(),
   })
@@ -171,8 +173,36 @@ export async function POST(request: Request) {
     );
   }
 
-  // 4. Calculate total
-  const totalAmount = product.price_per_day * days.length;
+  // 4. Calculate subtotal — multi-day: base + 30% × (days-1) × base
+  const subtotal = multiDayTotal(product.price_per_day, days.length);
+
+  // Apply coupon if provided
+  let totalAmount = subtotal;
+  let appliedCouponCode: string | null = null;
+  let discountAmount = 0;
+
+  if (parsed.data.coupon_code) {
+    const code = parsed.data.coupon_code.trim().toUpperCase();
+    const { data: coupon } = await supabase
+      .from("coupons")
+      .select("*")
+      .ilike("code", code)
+      .maybeSingle();
+
+    if (coupon && coupon.is_active) {
+      const expired = coupon.expires_at && new Date(coupon.expires_at) < new Date();
+      const usedUp = coupon.max_uses != null && coupon.current_uses >= coupon.max_uses;
+      if (!expired && !usedUp) {
+        const { total, discount } = applyCoupon(subtotal, {
+          discount_type: coupon.discount_type,
+          discount_value: coupon.discount_value,
+        });
+        totalAmount = total;
+        discountAmount = discount;
+        appliedCouponCode = coupon.code;
+      }
+    }
+  }
 
   // 5. Create booking with hold
   const holdExpiresAt = new Date(Date.now() + HOLD_MINUTES * 60_000).toISOString();
@@ -194,6 +224,8 @@ export async function POST(request: Request) {
       product_id: product.id,
       product_name: product.name,
       total_amount: totalAmount,
+      coupon_code: appliedCouponCode,
+      discount_amount: discountAmount,
       stripe_payment_status: "pending",
       booking_status: "pending_payment",
       hold_expires_at: holdExpiresAt,
@@ -248,11 +280,24 @@ export async function POST(request: Request) {
     }
   }
 
+  // Increment coupon usage (best-effort)
+  if (appliedCouponCode) {
+    await supabase
+      .from("coupons")
+      .update({ current_uses: ((parsed.data.coupon_code as any).current_uses || 0) + 1 })
+      .eq("code", appliedCouponCode)
+      .then(() => {})
+      .catch(() => {});
+  }
+
   return NextResponse.json({
     booking_id: booking.id,
     hold_id: booking.id,
     hold_expires_at: holdExpiresAt,
+    subtotal,
+    discount: discountAmount,
     amount: totalAmount,
+    coupon_code: appliedCouponCode,
     days: days.length,
     event_date: startDate,
     event_end_date: endDate,

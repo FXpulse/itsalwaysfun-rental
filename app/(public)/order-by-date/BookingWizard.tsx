@@ -59,6 +59,9 @@ interface BookingResult {
   booking_id: string;
   client_secret: string | null;
   amount: number;
+  subtotal?: number;
+  discount?: number;
+  coupon_code?: string | null;
   product_name: string;
 }
 
@@ -100,6 +103,7 @@ export function BookingWizard({
     notes: "",
   });
   const [bookingResult, setBookingResult] = useState<BookingResult | null>(null);
+  const [couponCode, setCouponCode] = useState("");
   const [pending, startTransition] = useTransition();
   const [unavailableDates, setUnavailableDates] = useState<Set<string>>(new Set());
   const [loadingAvailability, setLoadingAvailability] = useState(false);
@@ -152,10 +156,13 @@ export function BookingWizard({
     return d.toISOString().split("T")[0];
   }, [eventDate, numDays]);
 
-  const totalAmount = useMemo(
-    () => (selectedProduct ? selectedProduct.price_per_day * numDays : 0),
-    [selectedProduct, numDays],
-  );
+  // Multi-day formula: base + 30% × (days-1) × base
+  const totalAmount = useMemo(() => {
+    if (!selectedProduct || numDays < 1) return 0;
+    if (numDays === 1) return selectedProduct.price_per_day;
+    const surcharge = selectedProduct.price_per_day * 0.30 * (numDays - 1);
+    return Math.round(selectedProduct.price_per_day + surcharge);
+  }, [selectedProduct, numDays]);
 
   async function handleSubmit() {
     if (!selectedProduct || !eventDate) return;
@@ -178,6 +185,7 @@ export function BookingWizard({
               phone: customer.phone,
               address: `${customer.address}, ${customer.city} ${customer.zip}`.trim(),
             },
+            coupon_code: couponCode.trim() || undefined,
           }),
         });
 
@@ -212,6 +220,9 @@ export function BookingWizard({
           booking_id: data.booking_id,
           client_secret: data.client_secret,
           amount: data.amount,
+          subtotal: data.subtotal,
+          discount: data.discount,
+          coupon_code: data.coupon_code,
           product_name: data.product_name,
         });
         setStep("payment");
@@ -317,6 +328,8 @@ export function BookingWizard({
             eventEndDate={eventEndDate}
             numDays={numDays}
             totalAmount={totalAmount}
+            couponCode={couponCode}
+            onCouponChange={setCouponCode}
             onBack={() => goToStep("product")}
             onSubmit={handleSubmit}
             pending={pending}
@@ -631,6 +644,8 @@ function CustomerInfoStep({
   eventEndDate,
   numDays,
   totalAmount,
+  couponCode,
+  onCouponChange,
   onBack,
   onSubmit,
   pending,
@@ -645,6 +660,8 @@ function CustomerInfoStep({
   eventEndDate: string | null;
   numDays: number;
   totalAmount: number;
+  couponCode: string;
+  onCouponChange: (s: string) => void;
   onBack: () => void;
   onSubmit: () => void;
   pending: boolean;
@@ -792,6 +809,23 @@ function CustomerInfoStep({
             placeholder="Setup location, gate code, special requests..."
             className="input"
           />
+        </div>
+
+        {/* Coupon code */}
+        <div className="bg-slate-50 rounded p-3 border border-slate-200">
+          <label className="block text-sm font-medium text-slate-700 mb-1">
+            🎟 Discount code <span className="text-xs text-slate-400">(optional)</span>
+          </label>
+          <input
+            value={couponCode}
+            onChange={(e) => onCouponChange(e.target.value.toUpperCase())}
+            placeholder="WELCOME10"
+            className="input font-mono"
+            disabled={pending}
+          />
+          <p className="text-xs text-slate-500 mt-1">
+            We'll validate it on the next step. Invalid/expired codes are ignored.
+          </p>
         </div>
       </div>
 
