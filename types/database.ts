@@ -43,6 +43,7 @@ export interface Booking {
   product_id: string;
   product_name: string;
   total_amount: number;      // cents
+  surface_type: "dirt" | "grass" | "concrete" | "paver" | "asphalt" | "other" | null;
   stripe_payment_intent_id: string | null;
   stripe_payment_status: PaymentStatus;
   booking_status: BookingStatus;
