@@ -31,11 +31,11 @@ create trigger user_roles_set_updated_at
   before update on public.user_roles
   for each row execute function public.touch_user_roles_updated_at();
 
--- Seed: promote ludmilayhenry@gmail.com to admin (if account exists)
+-- Seed: promote known admin emails (if accounts exist)
 insert into public.user_roles (user_id, role, is_active)
 select u.id, 'admin', true
 from auth.users u
-where u.email = 'ludmilayhenry@gmail.com'
+where u.email in ('admin@itsalwaysfun.com', 'ludmilayhenry@gmail.com')
 on conflict (user_id) do update set role = 'admin', is_active = true;
 
 -- Helper to check if a user is admin from RLS/server code
