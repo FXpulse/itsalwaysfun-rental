@@ -4,7 +4,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { LogOut, Home, BookOpen, User, Plus } from "lucide-react";
+import { LogOut, Home, BookOpen, User, Plus, Gift, Sparkles } from "lucide-react";
 
 export default async function PortalLayout({
   children,
@@ -31,6 +31,8 @@ export default async function PortalLayout({
           <nav className="flex gap-1 ml-auto text-sm">
             <NavLink href="/portal" icon={Home} label="Home" />
             <NavLink href="/portal/bookings" icon={BookOpen} label="Bookings" />
+            <NavLink href="/portal/points" icon={Sparkles} label="Points" />
+            <NavLink href="/portal/referrals" icon={Gift} label="Refer" />
             <NavLink href="/portal/profile" icon={User} label="Profile" />
             <Link
               href="/order-by-date"

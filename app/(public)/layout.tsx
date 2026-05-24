@@ -1,6 +1,8 @@
+import { Suspense } from "react";
 import Script from "next/script";
 import { Header } from "@/components/public/Header";
 import { Footer } from "@/components/public/Footer";
+import { ReferralTracker } from "@/components/public/ReferralTracker";
 import { CartProvider } from "@/lib/cart/context";
 import { getSiteSettings } from "@/lib/site-settings";
 
@@ -15,6 +17,9 @@ export default async function PublicLayout({
 
   return (
     <CartProvider>
+      <Suspense fallback={null}>
+        <ReferralTracker />
+      </Suspense>
       <div className="min-h-screen flex flex-col">
         <Header
           logoUrl={settings.logo_url}

@@ -8,8 +8,10 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
 import { getStripe, isStripeConfigured } from "@/lib/stripe/server";
 import { multiDayTotal, applyCoupon } from "@/lib/pricing";
+import { redeemPoints as doRedeemPoints } from "@/lib/loyalty";
 
 export const dynamic = "force-dynamic";
 
@@ -37,6 +39,7 @@ const BodySchema = z
       .nullable()
       .optional(),
     notes: z.string().max(2000).nullable().optional(),
+    redeem_points: z.number().int().min(0).optional(),
     ghl_contact_id: z.string().optional(),
     ghl_opportunity_id: z.string().optional(),
   })
@@ -206,6 +209,30 @@ export async function POST(request: Request) {
         discountAmount = discount;
         appliedCouponCode = coupon.code;
       }
+    }
+  }
+
+  // 4b. Apply loyalty points redemption (if user is logged in + requested)
+  let pointsRedeemed = 0;
+  let pointsDiscountCents = 0;
+  if (parsed.data.redeem_points && parsed.data.redeem_points > 0) {
+    const authClient = createClient();
+    const { data: { user: authUser } } = await authClient.auth.getUser();
+    if (authUser) {
+      const r = await doRedeemPoints(
+        authUser.id,
+        parsed.data.redeem_points,
+        null,
+        totalAmount,
+      );
+      if (r.error) {
+        return NextResponse.json({ error: r.error }, { status: 400 });
+      }
+      pointsRedeemed = r.points_used;
+      pointsDiscountCents = r.discount_cents;
+      totalAmount = Math.max(0, totalAmount - pointsDiscountCents);
+      // Merge with existing discount for tracking
+      discountAmount += pointsDiscountCents;
     }
   }
 

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { getStripe, isStripeConfigured } from "@/lib/stripe/server";
+import { awardForPaidBooking } from "@/lib/loyalty";
 import { z } from "zod";
 
 async function requireAdmin() {
@@ -216,6 +217,14 @@ export async function markAsPaidManually(
     .eq("id", bookingId);
 
   if (error) return { error: error.message };
+
+  // Loyalty: award points + commission (idempotent — safe if already awarded)
+  try {
+    await awardForPaidBooking(bookingId);
+  } catch (e) {
+    console.error("[loyalty award failed, non-fatal]", e);
+  }
+
   revalidatePath("/admin/bookings");
   revalidatePath(`/admin/bookings/${bookingId}`);
   return { success: true };

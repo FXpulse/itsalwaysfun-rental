@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { BookingWizard } from "./BookingWizard";
 import { isStripeConfigured } from "@/lib/stripe/server";
+import { ensureCustomerProfile, getLoyaltySettings } from "@/lib/loyalty";
 import type { Product } from "@/types/database";
 import { Sparkles } from "lucide-react";
 
@@ -42,6 +43,8 @@ export default async function OrderByDatePage() {
 
   let prefill: any = null;
   let isReturningCustomer = false;
+  let availablePoints = 0;
+  let loyaltySettings: { points_redemption_rate: number; min_redeem_points: number } | null = null;
   if (user?.email) {
     const meta = (user.user_metadata as any) || {};
     const { data: latest } = await supabase
@@ -62,6 +65,20 @@ export default async function OrderByDatePage() {
       email: user.email,
       phone: meta.phone || latest?.customer_phone || "",
       address: meta.address || latest?.customer_address || "",
+    };
+
+    // Loyalty: ensure profile + fetch points
+    await ensureCustomerProfile(user.id);
+    const { data: profile } = await supabase
+      .from("customer_profiles")
+      .select("loyalty_points")
+      .eq("user_id", user.id)
+      .single();
+    availablePoints = profile?.loyalty_points || 0;
+    const s = await getLoyaltySettings();
+    loyaltySettings = {
+      points_redemption_rate: s.points_redemption_rate,
+      min_redeem_points: s.min_redeem_points,
     };
   }
 
@@ -105,6 +122,8 @@ export default async function OrderByDatePage() {
         stripeConfigured={isStripeConfigured()}
         stripePublishableKey={process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || ""}
         prefillCustomer={prefill}
+        availablePoints={availablePoints}
+        loyaltySettings={loyaltySettings}
       />
     </div>
   );

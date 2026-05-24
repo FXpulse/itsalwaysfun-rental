@@ -14,6 +14,7 @@ import Stripe from "stripe";
 import { getStripe, isStripeConfigured } from "@/lib/stripe/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { addContactNote, upsertContact, addContactTags } from "@/lib/ghl/client";
+import { awardForPaidBooking } from "@/lib/loyalty";
 
 export const dynamic = "force-dynamic";
 
@@ -104,6 +105,13 @@ export async function POST(request: Request) {
       }
     } catch (e) {
       console.error("[GHL sync failed, non-fatal]", e);
+    }
+
+    // Loyalty: award points to the buyer + commission to referrer (if any)
+    try {
+      await awardForPaidBooking(bookingId);
+    } catch (e) {
+      console.error("[loyalty award failed, non-fatal]", e);
     }
 
     return NextResponse.json({ received: true, booking_id: bookingId, status: "confirmed" });

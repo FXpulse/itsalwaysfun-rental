@@ -21,6 +21,7 @@ const CATEGORY_LABELS: Record<string, string> = {
   footer: "Footer",
   general: "General",
   appearance: "Appearance — colors & fonts (per zone)",
+  loyalty: "Loyalty & referrals (points + commission)",
 };
 
 // Settings that should render as textarea

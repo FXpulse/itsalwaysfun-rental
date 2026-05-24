@@ -73,18 +73,27 @@ interface PrefillCustomer {
   address: string;
 }
 
+interface LoyaltyConfig {
+  points_redemption_rate: number;
+  min_redeem_points: number;
+}
+
 export function BookingWizard({
   products,
   categories,
   stripeConfigured,
   stripePublishableKey,
   prefillCustomer,
+  availablePoints = 0,
+  loyaltySettings = null,
 }: {
   products: Product[];
   categories: Category[];
   stripeConfigured: boolean;
   stripePublishableKey: string;
   prefillCustomer?: PrefillCustomer | null;
+  availablePoints?: number;
+  loyaltySettings?: LoyaltyConfig | null;
 }) {
   const { item: cartItem, clear } = useCart();
 
@@ -124,6 +133,7 @@ export function BookingWizard({
   });
   const [bookingResult, setBookingResult] = useState<BookingResult | null>(null);
   const [couponCode, setCouponCode] = useState("");
+  const [redeemPoints, setRedeemPoints] = useState(0);
   const [pending, startTransition] = useTransition();
   const [unavailableDates, setUnavailableDates] = useState<Set<string>>(new Set());
   const [loadingAvailability, setLoadingAvailability] = useState(false);
@@ -266,6 +276,7 @@ export function BookingWizard({
             surface_type: customer.surfaceType || null,
             notes: customer.notes || null,
             coupon_code: couponCode.trim() || undefined,
+            redeem_points: redeemPoints > 0 ? redeemPoints : undefined,
           }),
         });
 
@@ -415,6 +426,10 @@ export function BookingWizard({
             totalAmount={totalAmount}
             couponCode={couponCode}
             onCouponChange={setCouponCode}
+            availablePoints={availablePoints}
+            loyaltySettings={loyaltySettings}
+            redeemPoints={redeemPoints}
+            onRedeemPointsChange={setRedeemPoints}
             onBack={() => goToStep("product")}
             onSubmit={handleSubmit}
             pending={pending}
@@ -814,6 +829,10 @@ function CustomerInfoStep({
   totalAmount,
   couponCode,
   onCouponChange,
+  availablePoints,
+  loyaltySettings,
+  redeemPoints,
+  onRedeemPointsChange,
   onBack,
   onSubmit,
   pending,
@@ -830,6 +849,10 @@ function CustomerInfoStep({
   totalAmount: number;
   couponCode: string;
   onCouponChange: (s: string) => void;
+  availablePoints: number;
+  loyaltySettings: { points_redemption_rate: number; min_redeem_points: number } | null;
+  redeemPoints: number;
+  onRedeemPointsChange: (n: number) => void;
   onBack: () => void;
   onSubmit: () => void;
   pending: boolean;
@@ -1030,6 +1053,51 @@ function CustomerInfoStep({
             We'll validate it on the next step. Invalid/expired codes are ignored.
           </p>
         </div>
+
+        {/* Loyalty points redemption — only if logged in + has min */}
+        {loyaltySettings && availablePoints >= loyaltySettings.min_redeem_points && (
+          <div className="bg-brand-yellow/10 rounded p-3 border border-brand-yellow">
+            <label className="block text-sm font-medium text-brand-navy mb-1">
+              ✨ Redeem loyalty points{" "}
+              <span className="text-xs text-slate-600">
+                (you have {availablePoints.toLocaleString()})
+              </span>
+            </label>
+            <div className="flex gap-2 items-center">
+              <input
+                type="number"
+                min={0}
+                max={availablePoints}
+                step={loyaltySettings.points_redemption_rate}
+                value={redeemPoints || ""}
+                onChange={(e) =>
+                  onRedeemPointsChange(
+                    Math.min(availablePoints, Math.max(0, parseInt(e.target.value) || 0)),
+                  )
+                }
+                placeholder={`Min ${loyaltySettings.min_redeem_points}`}
+                className="input flex-1"
+                disabled={pending}
+              />
+              <button
+                type="button"
+                onClick={() => onRedeemPointsChange(availablePoints)}
+                className="text-xs bg-brand-navy text-white rounded px-3 py-2 hover:bg-brand-navy-dark"
+                disabled={pending}
+              >
+                Use all
+              </button>
+            </div>
+            {redeemPoints >= loyaltySettings.min_redeem_points && (
+              <p className="text-xs text-brand-navy font-semibold mt-1">
+                ≈ ${(redeemPoints / loyaltySettings.points_redemption_rate).toFixed(2)} discount
+              </p>
+            )}
+            <p className="text-xs text-slate-500 mt-1">
+              {loyaltySettings.points_redemption_rate} points = $1 off
+            </p>
+          </div>
+        )}
       </div>
 
       <div className="flex justify-between mt-6">
