@@ -11,6 +11,7 @@ import {
   Search,
   Menu,
   X,
+  User,
 } from "lucide-react";
 import { useCart } from "@/lib/cart/context";
 
@@ -99,6 +100,15 @@ export function Header({
           >
             <Facebook className="h-5 w-5" />
           </a>
+
+          <Link
+            href="/portal"
+            className="hidden sm:inline-flex items-center text-brand-navy hover:text-brand-yellow-dark"
+            aria-label="My account"
+            title="My account"
+          >
+            <User className="h-5 w-5" />
+          </Link>
 
           <Link
             href="/order-by-date"

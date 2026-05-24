@@ -65,16 +65,26 @@ interface BookingResult {
   product_name: string;
 }
 
+interface PrefillCustomer {
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  address: string;
+}
+
 export function BookingWizard({
   products,
   categories,
   stripeConfigured,
   stripePublishableKey,
+  prefillCustomer,
 }: {
   products: Product[];
   categories: Category[];
   stripeConfigured: boolean;
   stripePublishableKey: string;
+  prefillCustomer?: PrefillCustomer | null;
 }) {
   const { item: cartItem, clear } = useCart();
 
@@ -102,11 +112,11 @@ export function BookingWizard({
     cartItem?.productSlug || null,
   );
   const [customer, setCustomer] = useState({
-    firstName: "",
-    lastName: "",
-    email: "",
-    phone: "",
-    address: "",
+    firstName: prefillCustomer?.firstName || "",
+    lastName: prefillCustomer?.lastName || "",
+    email: prefillCustomer?.email || "",
+    phone: prefillCustomer?.phone || "",
+    address: prefillCustomer?.address || "",
     city: "Jacksonville",
     zip: "",
     notes: "",
