@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getSiteSettings } from "@/lib/site-settings";
 import { formatCurrency } from "@/lib/utils";
 import { Calendar, Sparkles, ArrowRight } from "lucide-react";
+import { HomeBanners } from "@/components/public/HomeBanners";
 import type { Product } from "@/types/database";
 
 export const revalidate = 60;
@@ -11,7 +12,7 @@ export const revalidate = 60;
 export default async function HomePage() {
   const supabase = createAdminClient();
 
-  const [productsResult, categoriesResult, settings] = await Promise.all([
+  const [productsResult, categoriesResult, settings, bannersResult] = await Promise.all([
     supabase
       .from("products")
       .select("id, name, slug, category, price_per_day, image_url, description")
@@ -23,7 +24,14 @@ export default async function HomePage() {
       .select("name, slug, description, image_url, is_active")
       .order("display_order"),
     getSiteSettings(),
+    supabase
+      .from("home_banners")
+      .select("id, image_url, alt_text, link_url")
+      .eq("is_active", true)
+      .order("sort_order", { ascending: true }),
   ]);
+
+  const banners = bannersResult.data || [];
 
   const list = (productsResult.data as Product[]) || [];
   const allCategories = categoriesResult.data || [];
@@ -87,6 +95,9 @@ export default async function HomePage() {
 
   return (
     <div>
+      {/* Banner carousel (above hero, only if banners exist) */}
+      {banners.length > 0 && <HomeBanners banners={banners} />}
+
       {/* Hero */}
       <section
         className="bg-gradient-to-br from-brand-navy to-brand-navy-dark text-white"

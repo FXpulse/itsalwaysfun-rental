@@ -179,15 +179,6 @@ export function Header({
                 Contact Us
               </Link>
             </li>
-
-            <li className="ml-auto">
-              <Link
-                href="/portal"
-                className="block px-4 py-3 text-brand-navy font-semibold hover:bg-brand-yellow-dark transition inline-flex items-center gap-1"
-              >
-                <User className="h-4 w-4" /> My Account
-              </Link>
-            </li>
           </ul>
         </div>
       </nav>
