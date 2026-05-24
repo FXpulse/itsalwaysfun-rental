@@ -103,11 +103,11 @@ export function Header({
 
           <Link
             href="/portal"
-            className="hidden sm:inline-flex items-center text-brand-navy hover:text-brand-yellow-dark"
-            aria-label="My account"
-            title="My account"
+            className="hidden sm:inline-flex items-center gap-1.5 bg-brand-navy text-white text-sm font-semibold px-3 py-1.5 rounded hover:bg-brand-navy-dark transition"
+            title="Sign in to your account"
           >
-            <User className="h-5 w-5" />
+            <User className="h-4 w-4" />
+            <span>My Account</span>
           </Link>
 
           <Link
@@ -179,6 +179,15 @@ export function Header({
                 Contact Us
               </Link>
             </li>
+
+            <li className="ml-auto">
+              <Link
+                href="/portal"
+                className="block px-4 py-3 text-brand-navy font-semibold hover:bg-brand-yellow-dark transition inline-flex items-center gap-1"
+              >
+                <User className="h-4 w-4" /> My Account
+              </Link>
+            </li>
           </ul>
         </div>
       </nav>
@@ -202,6 +211,15 @@ export function Header({
               </li>
             ))}
             <li className="pt-2 border-t border-brand-yellow-dark/50">
+              <Link
+                href="/portal"
+                className="flex items-center gap-2 px-3 py-2 text-brand-navy font-semibold rounded hover:bg-white/30"
+                onClick={() => setMobileOpen(false)}
+              >
+                <User className="h-4 w-4" /> My Account
+              </Link>
+            </li>
+            <li>
               <a
                 href={telHref}
                 className="flex items-center gap-2 px-3 py-2 text-brand-navy font-semibold"
