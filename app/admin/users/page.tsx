@@ -55,7 +55,7 @@ export default async function AdminUsersPage() {
       user_id: u.id,
       email: u.email || "(unknown)",
       created_at: u.created_at,
-      last_sign_in_at: u.last_sign_in_at,
+      last_sign_in_at: u.last_sign_in_at ?? null,
     }));
 
   return (
