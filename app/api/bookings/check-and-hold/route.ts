@@ -32,6 +32,11 @@ const BodySchema = z
       address: z.string().max(500).optional(),
     }),
     coupon_code: z.string().max(50).optional(),
+    surface_type: z
+      .enum(["dirt", "grass", "concrete", "paver", "asphalt", "other"])
+      .nullable()
+      .optional(),
+    notes: z.string().max(2000).nullable().optional(),
     ghl_contact_id: z.string().optional(),
     ghl_opportunity_id: z.string().optional(),
   })
@@ -226,6 +231,8 @@ export async function POST(request: Request) {
       total_amount: totalAmount,
       coupon_code: appliedCouponCode,
       discount_amount: discountAmount,
+      surface_type: parsed.data.surface_type || null,
+      notes: parsed.data.notes || null,
       stripe_payment_status: "pending",
       booking_status: "pending_payment",
       hold_expires_at: holdExpiresAt,

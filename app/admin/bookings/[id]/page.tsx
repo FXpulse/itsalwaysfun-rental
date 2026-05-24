@@ -95,6 +95,16 @@ export default async function BookingDetailPage({
               </a>
             ) : "—"} />
             <Row label="Address" value={b.customer_address || "—"} />
+            {b.surface_type && (
+              <Row
+                label="Setup surface"
+                value={
+                  <span className="bg-amber-100 text-amber-800 px-2 py-0.5 rounded text-xs uppercase tracking-wide">
+                    {b.surface_type}
+                  </span>
+                }
+              />
+            )}
           </dl>
         </div>
 

@@ -20,6 +20,7 @@ const CATEGORY_LABELS: Record<string, string> = {
   home: "Home page content",
   footer: "Footer",
   general: "General",
+  appearance: "Appearance — colors & fonts (per zone)",
 };
 
 // Settings that should render as textarea
@@ -28,6 +29,31 @@ const LONG_TEXT_KEYS = new Set([
   "footer_description",
   "service_area",
 ]);
+
+// Font family options — covers common system + web-safe choices
+const FONT_OPTIONS = [
+  { value: "", label: "Default (system)" },
+  { value: "system-ui, sans-serif", label: "System UI" },
+  { value: "'Inter', sans-serif", label: "Inter" },
+  { value: "'Roboto', sans-serif", label: "Roboto" },
+  { value: "'Open Sans', sans-serif", label: "Open Sans" },
+  { value: "'Poppins', sans-serif", label: "Poppins" },
+  { value: "'Montserrat', sans-serif", label: "Montserrat" },
+  { value: "'Lato', sans-serif", label: "Lato" },
+  { value: "Georgia, serif", label: "Georgia (serif)" },
+  { value: "'Playfair Display', serif", label: "Playfair Display (serif)" },
+  { value: "'Merriweather', serif", label: "Merriweather (serif)" },
+  { value: "'Courier New', monospace", label: "Courier (mono)" },
+  { value: "Impact, sans-serif", label: "Impact" },
+  { value: "'Comic Sans MS', cursive", label: "Comic Sans (fun)" },
+];
+
+function isColorKey(key: string) {
+  return key.endsWith("_color") || key.endsWith("_bg_color") || key.endsWith("_text_color");
+}
+function isFontKey(key: string) {
+  return key.endsWith("_font_family");
+}
 
 export function SiteSettingsForm({
   groupedSettings,
@@ -135,6 +161,8 @@ export function SiteSettingsForm({
             <div className="space-y-4">
               {items.map((s) => {
                 const isLong = LONG_TEXT_KEYS.has(s.key);
+                const isColor = isColorKey(s.key);
+                const isFont = isFontKey(s.key);
                 return (
                   <div key={s.key}>
                     <label
@@ -146,7 +174,43 @@ export function SiteSettingsForm({
                     {s.description && (
                       <p className="text-xs text-slate-500 mb-1">{s.description}</p>
                     )}
-                    {isLong ? (
+                    {isFont ? (
+                      <select
+                        id={s.key}
+                        name={s.key}
+                        defaultValue={s.value || ""}
+                        className="input"
+                        disabled={pending}
+                      >
+                        {FONT_OPTIONS.map((opt) => (
+                          <option key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </option>
+                        ))}
+                      </select>
+                    ) : isColor ? (
+                      <div className="flex gap-2 items-center">
+                        <input
+                          type="color"
+                          defaultValue={s.value || "#ffffff"}
+                          className="h-10 w-16 rounded border border-slate-300 cursor-pointer"
+                          disabled={pending}
+                          onChange={(e) => {
+                            const text = document.getElementById(s.key) as HTMLInputElement;
+                            if (text) text.value = e.target.value;
+                          }}
+                        />
+                        <input
+                          id={s.key}
+                          name={s.key}
+                          type="text"
+                          defaultValue={s.value || ""}
+                          placeholder="#1a1a6e, rgb(...), or empty"
+                          className="input flex-1 font-mono text-sm"
+                          disabled={pending}
+                        />
+                      </div>
+                    ) : isLong ? (
                       <textarea
                         id={s.key}
                         name={s.key}

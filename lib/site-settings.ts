@@ -24,6 +24,22 @@ export interface SiteSettings {
   trust_rating: string;
   footer_description: string;
   booking_terms_note: string;
+  // Appearance (per-zone styling — empty = use defaults)
+  hero_bg_color: string;
+  hero_text_color: string;
+  hero_font_family: string;
+  categories_bg_color: string;
+  categories_text_color: string;
+  categories_font_family: string;
+  featured_bg_color: string;
+  featured_text_color: string;
+  featured_font_family: string;
+  trust_bg_color: string;
+  trust_text_color: string;
+  trust_font_family: string;
+  footer_bg_color: string;
+  footer_text_color: string;
+  footer_font_family: string;
 }
 
 // Sensible defaults (used if DB query fails or key missing)
@@ -52,6 +68,22 @@ const DEFAULTS: SiteSettings = {
   footer_description:
     "We don't just rent bounce houses — we create unforgettable memories filled with energy, laughter, and joy. Serving Jacksonville and surrounding areas.",
   booking_terms_note: "Reschedule up to 7 days before with no fee.",
+  // Appearance defaults (empty → tailwind classes take over)
+  hero_bg_color: "",
+  hero_text_color: "",
+  hero_font_family: "",
+  categories_bg_color: "",
+  categories_text_color: "",
+  categories_font_family: "",
+  featured_bg_color: "",
+  featured_text_color: "",
+  featured_font_family: "",
+  trust_bg_color: "",
+  trust_text_color: "",
+  trust_font_family: "",
+  footer_bg_color: "",
+  footer_text_color: "",
+  footer_font_family: "",
 };
 
 export async function getSiteSettings(): Promise<SiteSettings> {

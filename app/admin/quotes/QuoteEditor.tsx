@@ -27,6 +27,7 @@ export interface QuoteFormData {
   id?: string;
   customer_first_name: string;
   customer_last_name: string;
+  customer_company: string;
   customer_email: string;
   customer_phone: string;
   customer_address: string;
@@ -57,6 +58,7 @@ export function QuoteEditor({
     initial || {
       customer_first_name: "",
       customer_last_name: "",
+      customer_company: "",
       customer_email: "",
       customer_phone: "",
       customer_address: "",
@@ -136,6 +138,7 @@ export function QuoteEditor({
     startTransition(async () => {
       const payload = {
         ...data,
+        customer_company: data.customer_company || null,
         customer_address: data.customer_address || null,
         event_end_date: data.event_end_date || null,
         start_time: data.start_time || null,
@@ -196,6 +199,14 @@ export function QuoteEditor({
               className="input"
               value={data.customer_last_name}
               onChange={(e) => patch({ customer_last_name: e.target.value })}
+            />
+          </Field>
+          <Field label="Company (optional)" full>
+            <input
+              className="input"
+              placeholder="e.g. Acme Events LLC"
+              value={data.customer_company}
+              onChange={(e) => patch({ customer_company: e.target.value })}
             />
           </Field>
           <Field label="Email" required>

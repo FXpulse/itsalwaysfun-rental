@@ -9,6 +9,9 @@ interface Props {
   description: string;
   instagramUrl: string;
   facebookUrl: string;
+  bgColor?: string;
+  textColor?: string;
+  fontFamily?: string;
 }
 
 export function Footer({
@@ -19,10 +22,18 @@ export function Footer({
   description,
   instagramUrl,
   facebookUrl,
+  bgColor,
+  textColor,
+  fontFamily,
 }: Props) {
   const year = new Date().getFullYear();
+  const style: React.CSSProperties = {
+    ...(bgColor && { background: bgColor }),
+    ...(textColor && { color: textColor }),
+    ...(fontFamily && { fontFamily }),
+  };
   return (
-    <footer className="bg-brand-navy text-white mt-16">
+    <footer className="bg-brand-navy text-white mt-16" style={style}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 grid grid-cols-1 md:grid-cols-4 gap-8">
         <div className="md:col-span-2">
           <h3 className="text-xl font-bold text-brand-yellow mb-2">

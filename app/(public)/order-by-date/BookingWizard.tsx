@@ -120,6 +120,7 @@ export function BookingWizard({
     city: "Jacksonville",
     zip: "",
     notes: "",
+    surfaceType: "",
   });
   const [bookingResult, setBookingResult] = useState<BookingResult | null>(null);
   const [couponCode, setCouponCode] = useState("");
@@ -262,6 +263,8 @@ export function BookingWizard({
               phone: customer.phone,
               address: `${customer.address}, ${customer.city} ${customer.zip}`.trim(),
             },
+            surface_type: customer.surfaceType || null,
+            notes: customer.notes || null,
             coupon_code: couponCode.trim() || undefined,
           }),
         });
@@ -838,7 +841,8 @@ function CustomerInfoStep({
     customer.phone.trim() &&
     customer.address.trim() &&
     customer.city.trim() &&
-    customer.zip.trim();
+    customer.zip.trim() &&
+    customer.surfaceType;
 
   const rangeLabel =
     numDays > 1 && eventEndDate
@@ -962,6 +966,40 @@ function CustomerInfoStep({
               placeholder="32256"
               className="input"
             />
+          </div>
+        </div>
+
+        {/* Surface type — required so we bring the right anchors */}
+        <div>
+          <label className="block text-sm font-medium text-slate-700 mb-2">
+            Setup surface <span className="text-red-500">*</span>
+          </label>
+          <p className="text-xs text-slate-500 mb-2">
+            Where will the inflatable be set up? We bring different anchors/stakes
+            depending on the surface.
+          </p>
+          <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+            {[
+              { value: "grass", label: "Grass" },
+              { value: "dirt", label: "Dirt" },
+              { value: "concrete", label: "Concrete" },
+              { value: "paver", label: "Paver" },
+              { value: "asphalt", label: "Asphalt" },
+              { value: "other", label: "Other" },
+            ].map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => onChange({ ...customer, surfaceType: opt.value })}
+                className={`text-xs font-semibold py-2 px-2 rounded border transition ${
+                  customer.surfaceType === opt.value
+                    ? "bg-brand-navy text-white border-brand-navy"
+                    : "bg-white text-slate-700 border-slate-300 hover:border-brand-navy"
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
           </div>
         </div>
 

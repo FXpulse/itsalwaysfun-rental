@@ -58,10 +58,40 @@ export default async function HomePage() {
 
   const categoryCards = [orderByDateCard, ...dbCategoryCards];
 
+  // Build per-zone style objects (only set what's customized, leave else default)
+  const heroStyle: React.CSSProperties = {
+    ...(settings.hero_bg_color && {
+      background: settings.hero_bg_color,
+      backgroundImage: "none",
+    }),
+    ...(settings.hero_text_color && { color: settings.hero_text_color }),
+    ...(settings.hero_font_family && { fontFamily: settings.hero_font_family }),
+  };
+  const categoriesStyle: React.CSSProperties = {
+    ...(settings.categories_bg_color && { background: settings.categories_bg_color }),
+    ...(settings.categories_text_color && { color: settings.categories_text_color }),
+    ...(settings.categories_font_family && {
+      fontFamily: settings.categories_font_family,
+    }),
+  };
+  const featuredStyle: React.CSSProperties = {
+    ...(settings.featured_bg_color && { background: settings.featured_bg_color }),
+    ...(settings.featured_text_color && { color: settings.featured_text_color }),
+    ...(settings.featured_font_family && { fontFamily: settings.featured_font_family }),
+  };
+  const trustStyle: React.CSSProperties = {
+    ...(settings.trust_bg_color && { background: settings.trust_bg_color }),
+    ...(settings.trust_text_color && { color: settings.trust_text_color }),
+    ...(settings.trust_font_family && { fontFamily: settings.trust_font_family }),
+  };
+
   return (
     <div>
       {/* Hero */}
-      <section className="bg-gradient-to-br from-brand-navy to-brand-navy-dark text-white">
+      <section
+        className="bg-gradient-to-br from-brand-navy to-brand-navy-dark text-white"
+        style={heroStyle}
+      >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-24 text-center">
           <Sparkles className="h-12 w-12 text-brand-yellow mx-auto mb-4" />
           <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold mb-4">
@@ -83,7 +113,8 @@ export default async function HomePage() {
       </section>
 
       {/* Categories grid */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+      <section style={categoriesStyle}>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <h2 className="text-3xl font-bold text-brand-navy text-center mb-8">
           {settings.section_categories_title}
         </h2>
@@ -129,10 +160,11 @@ export default async function HomePage() {
             </Link>
           ))}
         </div>
+        </div>
       </section>
 
       {/* Featured products */}
-      <section className="bg-slate-50 py-12">
+      <section className="bg-slate-50 py-12" style={featuredStyle}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-end justify-between mb-8">
             <div>
@@ -169,7 +201,7 @@ export default async function HomePage() {
       </section>
 
       {/* Trust strip */}
-      <section className="bg-brand-yellow text-brand-navy py-8">
+      <section className="bg-brand-yellow text-brand-navy py-8" style={trustStyle}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-1 sm:grid-cols-3 gap-6 text-center">
           {[settings.trust_delivery, settings.trust_cleaned, settings.trust_rating].map((line, i) => {
             const [bold, ...rest] = line.split("—");

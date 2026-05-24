@@ -47,6 +47,7 @@ export default async function AdminQuoteDetailPage({
       id: quote.id,
       customer_first_name: quote.customer_first_name,
       customer_last_name: quote.customer_last_name,
+      customer_company: quote.customer_company || "",
       customer_email: quote.customer_email,
       customer_phone: quote.customer_phone,
       customer_address: quote.customer_address || "",
@@ -129,6 +130,9 @@ export default async function AdminQuoteDetailPage({
             <div className="font-medium">
               {quote.customer_first_name} {quote.customer_last_name}
             </div>
+            {quote.customer_company && (
+              <div className="text-slate-600 italic">{quote.customer_company}</div>
+            )}
             <div className="text-slate-500">{quote.customer_email}</div>
             <div className="text-slate-500">{quote.customer_phone}</div>
           </div>

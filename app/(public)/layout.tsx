@@ -32,6 +32,9 @@ export default async function PublicLayout({
           description={settings.footer_description}
           instagramUrl={settings.instagram_url}
           facebookUrl={settings.facebook_url}
+          bgColor={settings.footer_bg_color}
+          textColor={settings.footer_text_color}
+          fontFamily={settings.footer_font_family}
         />
       </div>
 

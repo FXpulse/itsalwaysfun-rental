@@ -27,6 +27,7 @@ interface Quote {
   token: string;
   customer_first_name: string;
   customer_last_name: string;
+  customer_company: string | null;
   customer_email: string;
   customer_phone: string;
   customer_address: string | null;
@@ -165,6 +166,9 @@ function QuoteDetails({ quote }: { quote: Quote }) {
           <div className="font-semibold text-base">
             {quote.customer_first_name} {quote.customer_last_name}
           </div>
+          {quote.customer_company && (
+            <div className="text-slate-600 italic">{quote.customer_company}</div>
+          )}
           <div className="text-slate-600">{quote.customer_email}</div>
           <div className="text-slate-600">{quote.customer_phone}</div>
           {quote.customer_address && (

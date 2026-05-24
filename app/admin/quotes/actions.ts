@@ -16,6 +16,7 @@ const LineItemSchema = z.object({
 const QuoteInputSchema = z.object({
   customer_first_name: z.string().min(1).max(100),
   customer_last_name: z.string().min(1).max(100),
+  customer_company: z.string().max(200).optional().nullable(),
   customer_email: z.string().email(),
   customer_phone: z.string().min(1).max(40),
   customer_address: z.string().max(500).optional().nullable(),
@@ -71,6 +72,7 @@ export async function createQuote(input: z.infer<typeof QuoteInputSchema>) {
       token: tokRow,
       customer_first_name: parsed.data.customer_first_name,
       customer_last_name: parsed.data.customer_last_name,
+      customer_company: parsed.data.customer_company,
       customer_email: parsed.data.customer_email.toLowerCase().trim(),
       customer_phone: parsed.data.customer_phone,
       customer_address: parsed.data.customer_address,
@@ -132,6 +134,7 @@ export async function updateQuote(id: string, input: z.infer<typeof QuoteInputSc
     .update({
       customer_first_name: parsed.data.customer_first_name,
       customer_last_name: parsed.data.customer_last_name,
+      customer_company: parsed.data.customer_company,
       customer_email: parsed.data.customer_email.toLowerCase().trim(),
       customer_phone: parsed.data.customer_phone,
       customer_address: parsed.data.customer_address,
