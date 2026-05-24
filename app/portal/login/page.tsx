@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
@@ -8,6 +8,22 @@ import { Mail, ArrowRight, CheckCircle2 } from "lucide-react";
 import Link from "next/link";
 
 export default function CustomerLoginPage() {
+  return (
+    <Suspense fallback={<LoginFallback />}>
+      <LoginForm />
+    </Suspense>
+  );
+}
+
+function LoginFallback() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
+      <div className="w-full max-w-md card text-center text-slate-400">Loading…</div>
+    </div>
+  );
+}
+
+function LoginForm() {
   const searchParams = useSearchParams();
   const next = searchParams.get("next") || "/portal";
   const [email, setEmail] = useState("");
