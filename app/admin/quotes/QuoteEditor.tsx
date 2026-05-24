@@ -152,8 +152,9 @@ export function QuoteEditor({
         return;
       }
       toast.success(data.id ? "Quote updated" : "Quote created");
-      if (!data.id && "quote" in r && r.quote) {
-        router.push(`/admin/quotes/${r.quote.id}`);
+      const createdQuote = (r as { quote?: { id: string } }).quote;
+      if (!data.id && createdQuote?.id) {
+        router.push(`/admin/quotes/${createdQuote.id}`);
       } else {
         router.refresh();
       }
