@@ -199,14 +199,52 @@ export async function awardForPaidBooking(bookingId: string): Promise<void> {
     .select("commission_pending_cents")
     .eq("user_id", profile.referred_by_user_id)
     .single();
+  let newPendingCents = commissionCents;
   if (refProfile) {
+    newPendingCents = (refProfile.commission_pending_cents || 0) + commissionCents;
     await supabase
       .from("customer_profiles")
-      .update({
-        commission_pending_cents:
-          (refProfile.commission_pending_cents || 0) + commissionCents,
-      })
+      .update({ commission_pending_cents: newPendingCents })
       .eq("user_id", profile.referred_by_user_id);
+  }
+
+  // Fire email webhook to GHL so referrer gets notified
+  // (env var GHL_REFERRAL_WEBHOOK_URL — optional, skipped if not set)
+  try {
+    const webhookUrl = process.env.GHL_REFERRAL_WEBHOOK_URL;
+    if (webhookUrl) {
+      const { data: { user: referrerUser } } = await supabase.auth.admin.getUserById(
+        profile.referred_by_user_id,
+      );
+      const referrerMeta = (referrerUser?.user_metadata as any) || {};
+
+      // Check threshold (auto-suggest payout if reached)
+      const { data: thresholdSetting } = await supabase
+        .from("site_settings")
+        .select("value")
+        .eq("key", "commission_payout_threshold_cents")
+        .maybeSingle();
+      const thresholdCents = parseInt((thresholdSetting?.value as string) || "5000", 10);
+      const readyForPayout = newPendingCents >= thresholdCents;
+
+      await fetch(webhookUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          firstName: referrerMeta.first_name || "",
+          lastName: referrerMeta.last_name || "",
+          email: referrerUser?.email,
+          phone: referrerMeta.phone || "",
+          commissionEarned: (commissionCents / 100).toFixed(2),
+          referredCustomer: customer.email,
+          totalPendingCommission: (newPendingCents / 100).toFixed(2),
+          readyForPayout,
+          source: "referral-commission-earned",
+        }),
+      });
+    }
+  } catch (e) {
+    console.error("Referral webhook failed (non-fatal)", e);
   }
 }
 

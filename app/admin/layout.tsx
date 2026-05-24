@@ -23,6 +23,7 @@ import {
   UserCircle,
   FileText,
   Images,
+  Sparkles,
 } from "lucide-react";
 
 type Role = "admin" | "staff";
@@ -44,6 +45,7 @@ const ALL_NAV: NavItem[] = [
   { href: "/admin/products", label: "Products", icon: Package, minRole: "admin" },
   { href: "/admin/categories", label: "Categories", icon: Tag, minRole: "admin" },
   { href: "/admin/coupons", label: "Coupons", icon: Ticket, minRole: "admin" },
+  { href: "/admin/loyalty", label: "Loyalty", icon: Sparkles, minRole: "admin" },
   { href: "/admin/reports", label: "Reports", icon: BarChart3, minRole: "admin" },
   { href: "/admin/site", label: "Website content", icon: Globe, minRole: "admin" },
   { href: "/admin/banners", label: "Home banners", icon: Images, minRole: "admin" },
