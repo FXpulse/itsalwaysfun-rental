@@ -1,3 +1,4 @@
+import Script from "next/script";
 import { Header } from "@/components/public/Header";
 import { Footer } from "@/components/public/Footer";
 import { CartProvider } from "@/lib/cart/context";
@@ -33,6 +34,15 @@ export default async function PublicLayout({
           facebookUrl={settings.facebook_url}
         />
       </div>
+
+      {/* GHL Chat Widget — only on public pages, not admin */}
+      <Script
+        id="ghl-chat-widget"
+        src="https://beta.leadconnectorhq.com/loader.js"
+        data-resources-url="https://beta.leadconnectorhq.com/chat-widget/loader.js"
+        data-widget-id="69eba45b52e615af8a4d80d6"
+        strategy="afterInteractive"
+      />
     </CartProvider>
   );
 }

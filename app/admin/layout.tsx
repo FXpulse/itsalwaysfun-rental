@@ -20,6 +20,7 @@ import {
   Users,
   BarChart3,
   Boxes,
+  UserCircle,
 } from "lucide-react";
 
 type Role = "admin" | "staff";
@@ -34,6 +35,7 @@ interface NavItem {
 const ALL_NAV: NavItem[] = [
   { href: "/admin/dashboard", label: "Dashboard", icon: Home, minRole: "staff" },
   { href: "/admin/bookings", label: "Bookings", icon: BookOpen, minRole: "staff" },
+  { href: "/admin/customers", label: "Customers", icon: UserCircle, minRole: "staff" },
   { href: "/admin/inventory", label: "Inventory", icon: Boxes, minRole: "staff" },
   { href: "/admin/availability", label: "Availability", icon: Calendar, minRole: "staff" },
   { href: "/admin/products", label: "Products", icon: Package, minRole: "admin" },
