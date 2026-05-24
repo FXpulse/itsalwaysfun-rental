@@ -5,6 +5,8 @@
 
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { sendEmail, isEmailConfigured } from "@/lib/email/send";
+import { renderAbandonedCartEmail } from "@/lib/email/templates";
 
 export const dynamic = "force-dynamic";
 
@@ -37,22 +39,46 @@ export async function POST(request: Request) {
     );
   }
 
+  const results: any = {};
+
+  // 1. GHL webhook (CRM sync)
   const webhookUrl = process.env.GHL_ABANDONED_CART_WEBHOOK_URL;
-  if (!webhookUrl) {
-    return NextResponse.json({ ok: false, reason: "no_webhook_configured" });
+  if (webhookUrl) {
+    try {
+      const r = await fetch(webhookUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...parsed.data,
+          source: parsed.data.source || "abandoned-cart",
+        }),
+      });
+      results.ghl = { ok: r.ok, status: r.status };
+    } catch (e: any) {
+      results.ghl = { ok: false, error: e.message };
+    }
   }
 
-  try {
-    const r = await fetch(webhookUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        ...parsed.data,
-        source: parsed.data.source || "abandoned-cart",
-      }),
+  // 2. Direct email via Resend
+  if (isEmailConfigured()) {
+    const baseUrl =
+      process.env.NEXT_PUBLIC_APP_URL || "https://itsalwaysfun-rental.vercel.app";
+    const tmpl = renderAbandonedCartEmail({
+      firstName: parsed.data.firstName,
+      productName: parsed.data.product,
+      eventDate: parsed.data.eventDate,
+      totalPrice: Math.round(parsed.data.totalPrice * 100),
+      resumeUrl: `${baseUrl}/order-by-date?product=${encodeURIComponent(parsed.data.productSlug)}`,
     });
-    return NextResponse.json({ ok: r.ok, status: r.status });
-  } catch (e: any) {
-    return NextResponse.json({ ok: false, reason: e.message });
+    const r = await sendEmail({
+      to: parsed.data.email,
+      subject: tmpl.subject,
+      html: tmpl.html,
+      text: tmpl.text,
+      tags: [{ name: "type", value: "abandoned_cart" }],
+    });
+    results.resend = { ok: r.ok, id: r.id, error: r.error };
   }
+
+  return NextResponse.json({ ok: true, results });
 }

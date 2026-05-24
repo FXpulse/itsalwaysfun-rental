@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin } from "@/lib/auth/roles";
+import { sendEmail, isEmailConfigured } from "@/lib/email/send";
+import { renderQuoteEmail } from "@/lib/email/templates";
 import { z } from "zod";
 
 const LineItemSchema = z.object({
@@ -181,11 +183,10 @@ export async function sendQuote(id: string) {
     .eq("id", id);
   if (error) return { error: error.message };
 
-  // Best-effort GHL webhook (optional). If GHL_QUOTE_WEBHOOK_URL is set,
-  // fire it so a GHL workflow can send the email.
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://itsalwaysfun-rental.vercel.app";
   const quoteUrl = `${baseUrl}/quotes/${q.token}`;
 
+  // 1. Best-effort GHL webhook (for CRM sync — contact tag/notes/custom fields)
   const webhookUrl = process.env.GHL_QUOTE_WEBHOOK_URL;
   if (webhookUrl) {
     try {
@@ -208,6 +209,33 @@ export async function sendQuote(id: string) {
       });
     } catch {
       // ignore — quote is marked sent anyway
+    }
+  }
+
+  // 2. Send the actual email via Resend
+  if (isEmailConfigured()) {
+    const tmpl = renderQuoteEmail({
+      firstName: q.customer_first_name,
+      quoteNumber: q.quote_number,
+      quoteUrl,
+      total: q.total_cents,
+      eventDate: q.event_date,
+      eventEndDate: q.event_end_date,
+      message: q.customer_message,
+      expiresAt: q.expires_at,
+    });
+    const r = await sendEmail({
+      to: q.customer_email,
+      subject: tmpl.subject,
+      html: tmpl.html,
+      text: tmpl.text,
+      tags: [
+        { name: "type", value: "quote_sent" },
+        { name: "quote_number", value: q.quote_number },
+      ],
+    });
+    if (!r.ok) {
+      console.error("[Resend quote send failed]", r.error);
     }
   }
 

@@ -3,6 +3,8 @@
 // webhooks, server actions, and route handlers.
 
 import { createAdminClient } from "@/lib/supabase/admin";
+import { sendEmail, isEmailConfigured } from "@/lib/email/send";
+import { renderReferralEmail, renderAdminPayoutAlert } from "@/lib/email/templates";
 
 export interface LoyaltySettings {
   points_per_dollar: number;
@@ -208,25 +210,24 @@ export async function awardForPaidBooking(bookingId: string): Promise<void> {
       .eq("user_id", profile.referred_by_user_id);
   }
 
-  // Fire email webhook to GHL so referrer gets notified
-  // (env var GHL_REFERRAL_WEBHOOK_URL — optional, skipped if not set)
+  // Lookup referrer user + check threshold
+  const { data: { user: referrerUser } } = await supabase.auth.admin.getUserById(
+    profile.referred_by_user_id,
+  );
+  const referrerMeta = (referrerUser?.user_metadata as any) || {};
+
+  const { data: thresholdSetting } = await supabase
+    .from("site_settings")
+    .select("value")
+    .eq("key", "commission_payout_threshold_cents")
+    .maybeSingle();
+  const thresholdCents = parseInt((thresholdSetting?.value as string) || "5000", 10);
+  const readyForPayout = newPendingCents >= thresholdCents;
+
+  // 1. Fire GHL webhook (for CRM sync if configured)
   try {
     const webhookUrl = process.env.GHL_REFERRAL_WEBHOOK_URL;
     if (webhookUrl) {
-      const { data: { user: referrerUser } } = await supabase.auth.admin.getUserById(
-        profile.referred_by_user_id,
-      );
-      const referrerMeta = (referrerUser?.user_metadata as any) || {};
-
-      // Check threshold (auto-suggest payout if reached)
-      const { data: thresholdSetting } = await supabase
-        .from("site_settings")
-        .select("value")
-        .eq("key", "commission_payout_threshold_cents")
-        .maybeSingle();
-      const thresholdCents = parseInt((thresholdSetting?.value as string) || "5000", 10);
-      const readyForPayout = newPendingCents >= thresholdCents;
-
       await fetch(webhookUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -245,6 +246,49 @@ export async function awardForPaidBooking(bookingId: string): Promise<void> {
     }
   } catch (e) {
     console.error("Referral webhook failed (non-fatal)", e);
+  }
+
+  // 2. Send email via Resend directly to the referrer
+  if (isEmailConfigured() && referrerUser?.email) {
+    const baseUrl =
+      process.env.NEXT_PUBLIC_APP_URL || "https://itsalwaysfun-rental.vercel.app";
+    const tmpl = renderReferralEmail({
+      firstName: referrerMeta.first_name || referrerUser.email.split("@")[0],
+      commissionEarned: commissionCents,
+      referredCustomerEmail: customer.email!,
+      totalPendingCommission: newPendingCents,
+      portalUrl: `${baseUrl}/portal/referrals`,
+      readyForPayout,
+    });
+    const r = await sendEmail({
+      to: referrerUser.email,
+      subject: tmpl.subject,
+      html: tmpl.html,
+      text: tmpl.text,
+      tags: [{ name: "type", value: "referral_commission" }],
+    });
+    if (!r.ok) console.error("[Resend referral send failed]", r.error);
+
+    // 3. Alert admin if threshold reached
+    if (readyForPayout) {
+      const adminEmail = process.env.ADMIN_ALERT_EMAIL || "admin@itsalwaysfun.com";
+      const adminTmpl = renderAdminPayoutAlert({
+        customerName:
+          `${referrerMeta.first_name || ""} ${referrerMeta.last_name || ""}`.trim() ||
+          referrerUser.email,
+        customerEmail: referrerUser.email,
+        customerPhone: referrerMeta.phone || "",
+        totalPending: newPendingCents,
+        adminPanelUrl: `${baseUrl}/admin/loyalty/${profile.referred_by_user_id}`,
+      });
+      await sendEmail({
+        to: adminEmail,
+        subject: adminTmpl.subject,
+        html: adminTmpl.html,
+        text: adminTmpl.text,
+        tags: [{ name: "type", value: "admin_payout_alert" }],
+      });
+    }
   }
 }
 
