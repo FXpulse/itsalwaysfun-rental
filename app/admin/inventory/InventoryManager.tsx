@@ -403,19 +403,27 @@ function ItemFormModal({
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Category</label>
-            <input
+            <select
               name="category"
               required
-              list="cats"
-              defaultValue={item?.category || "Other"}
+              defaultValue={item?.category || (categories[0] ?? "Other")}
               className="input"
-              placeholder="e.g. Generators"
-            />
-            <datalist id="cats">
+            >
               {categories.map((c) => (
-                <option key={c} value={c} />
+                <option key={c} value={c}>
+                  {c}
+                </option>
               ))}
-            </datalist>
+              {/* Safety net: if editing an item whose category is no longer in the
+                  active list (deleted/hidden), surface it so the value stays valid. */}
+              {item?.category && !categories.includes(item.category) && (
+                <option value={item.category}>{item.category} (legacy)</option>
+              )}
+            </select>
+            <p className="text-[10px] text-slate-400 mt-1">
+              Need a new category? Add it in the "Manage inventory categories" panel
+              at the top of the page.
+            </p>
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Location</label>
