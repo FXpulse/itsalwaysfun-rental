@@ -21,6 +21,7 @@ import {
   HelpCircle,
   Star,
   CloudRain,
+  Hash,
 } from "lucide-react";
 
 interface Section {
@@ -509,6 +510,59 @@ export function HelpClient() {
             💡 The PDF lives in your public Supabase storage (site-assets bucket).
             That's fine — COIs aren't sensitive (they just name your insurance
             carrier + policy number).
+          </p>
+        </div>
+      ),
+    },
+    {
+      id: "unit-tracking",
+      title: "Per-unit asset tracking (which BLW-05 went where?)",
+      icon: Hash,
+      content: (
+        <div className="space-y-3 text-sm">
+          <p>
+            For valuable items where you need to know <em>which physical unit</em>{" "}
+            was on which truck (blowers, generators, large bouncers), you can
+            tag each unit individually (BLW-01, BLW-02, ...) and assign specific
+            units to a route from dispatch.
+          </p>
+
+          <p className="font-semibold">One-time setup:</p>
+          <ol className="list-decimal pl-5 space-y-1 text-xs">
+            <li>Go to <code>Inventory</code> → click the item (e.g. "Blowers")</li>
+            <li>Click <strong>Enable unit tracking</strong></li>
+            <li>Click <strong>Bulk add (auto-tag)</strong> → prefix <code>BLW</code>, count <code>14</code> → creates BLW-01 through BLW-14 instantly</li>
+            <li>Optionally edit each unit to add serial number, acquired date, notes ("cracked housing", etc.)</li>
+            <li>Physically label each unit with a sharpie / sticker matching its tag</li>
+          </ol>
+
+          <p className="font-semibold">Daily flow (per dispatch):</p>
+          <ol className="list-decimal pl-5 space-y-1 text-xs">
+            <li>Open <code>/admin/dispatch/[date]</code> → planned routes show the Truck Load section</li>
+            <li>For each item that tracks units, you'll see "no units picked" + a <strong>Pick units</strong> button</li>
+            <li>Click → modal lists every active unit with status dot (good / needs_repair / broken)</li>
+            <li>Pick the specific units going on that truck → save</li>
+            <li>The truck load card now shows tags like <code>BLW-03 BLW-07 BLW-11</code> instead of just "3× Blowers"</li>
+            <li>Units assigned to another route on a different day are flagged red so you can't double-book</li>
+          </ol>
+
+          <p className="font-semibold">When a unit comes back damaged:</p>
+          <ol className="list-decimal pl-5 space-y-1 text-xs">
+            <li>Go to <code>Inventory</code> → item → find the unit → click pencil to edit</li>
+            <li>Change condition to <code>needs_repair</code> or <code>broken</code>, add a note</li>
+            <li>The status dot in dispatch dropdown will now show amber/red so you don't accidentally assign it again</li>
+          </ol>
+
+          <p className="text-xs text-slate-500">
+            💡 Don't enable unit tracking for high-volume consumables (sandbags,
+            cables, tarps). The overhead of picking specific units per route
+            isn't worth it. Reserve it for items you'd legitimately want to
+            trace ("which generator was at the Mendez delivery when it broke?").
+          </p>
+          <p className="text-xs text-slate-500">
+            💡 Phase 2 idea: driver scans QR codes printed on each unit to
+            confirm loading/return. Worth doing once you have 30+ tracked
+            units and crew rotation issues. Ask when ready.
           </p>
         </div>
       ),

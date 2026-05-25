@@ -5,6 +5,105 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { requireStaffOrAdmin, requireDriverOrAbove } from "@/lib/auth/roles";
 import { z } from "zod";
 
+// ── Per-unit dispatch assignment ─────────────────────────────────
+/** Assign physical inventory units to a route. Replaces any prior assignment
+ *  for these units (unassigns from old routes if any). */
+export async function assignUnitsToRoute(routeId: string, unitIds: string[]) {
+  const me = await requireStaffOrAdmin();
+  if (unitIds.length === 0) return { success: true, count: 0 };
+  const supabase = createAdminClient();
+
+  // Verify route exists + get date for revalidation
+  const { data: route } = await supabase
+    .from("dispatch_routes")
+    .select("id, route_date")
+    .eq("id", routeId)
+    .single();
+  if (!route) return { error: "Route not found" };
+
+  // Find any existing active assignments for these units on OTHER routes,
+  // mark them as returned (clean handoff)
+  await supabase
+    .from("dispatch_route_units")
+    .update({ returned_at: new Date().toISOString(), return_condition: "good" })
+    .in("unit_id", unitIds)
+    .is("returned_at", null)
+    .neq("route_id", routeId);
+
+  // Insert new assignments (upsert ignores duplicates on (route_id, unit_id))
+  const rows = unitIds.map((unit_id) => ({
+    route_id: routeId,
+    unit_id,
+    assigned_by: me.email,
+  }));
+  const { error } = await supabase
+    .from("dispatch_route_units")
+    .upsert(rows, { onConflict: "route_id,unit_id" });
+  if (error) return { error: error.message };
+
+  revalidatePath(`/admin/dispatch/${route.route_date}`);
+  return { success: true, count: unitIds.length };
+}
+
+/** Unassign units from a route (removes the row entirely — use only if you
+ *  picked the wrong unit by mistake. For "returned with damage" use the
+ *  markUnitsReturned action instead). */
+export async function unassignUnitsFromRoute(routeId: string, unitIds: string[]) {
+  await requireStaffOrAdmin();
+  if (unitIds.length === 0) return { success: true };
+  const supabase = createAdminClient();
+  const { data: route } = await supabase
+    .from("dispatch_routes")
+    .select("route_date")
+    .eq("id", routeId)
+    .single();
+  const { error } = await supabase
+    .from("dispatch_route_units")
+    .delete()
+    .eq("route_id", routeId)
+    .in("unit_id", unitIds);
+  if (error) return { error: error.message };
+  if (route?.route_date) revalidatePath(`/admin/dispatch/${route.route_date}`);
+  return { success: true };
+}
+
+/** Mark units returned with optional condition + note. Used after pickup. */
+export async function markUnitsReturned(
+  routeId: string,
+  returns: { unit_id: string; condition: "good" | "needs_repair" | "broken"; note?: string }[],
+) {
+  await requireDriverOrAbove();
+  if (returns.length === 0) return { success: true };
+  const supabase = createAdminClient();
+  const { data: route } = await supabase
+    .from("dispatch_routes")
+    .select("route_date")
+    .eq("id", routeId)
+    .single();
+  const now = new Date().toISOString();
+  for (const r of returns) {
+    await supabase
+      .from("dispatch_route_units")
+      .update({
+        returned_at: now,
+        return_condition: r.condition,
+        return_note: r.note || null,
+      })
+      .eq("route_id", routeId)
+      .eq("unit_id", r.unit_id)
+      .is("returned_at", null);
+    // If returned condition is not 'good', also update the unit's own condition
+    if (r.condition !== "good") {
+      await supabase
+        .from("inventory_units")
+        .update({ condition: r.condition })
+        .eq("id", r.unit_id);
+    }
+  }
+  if (route?.route_date) revalidatePath(`/admin/dispatch/${route.route_date}`);
+  return { success: true };
+}
+
 const CreateRouteSchema = z.object({
   route_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   vehicle_id: z.string().uuid(),

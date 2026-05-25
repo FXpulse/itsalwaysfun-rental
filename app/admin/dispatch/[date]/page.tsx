@@ -87,6 +87,99 @@ export default async function DispatchDatePage({
     loadByRoute.set(rid, await getRouteLoad(rid));
   }
 
+  // Per-unit data: which units are assigned to each route + which units are
+  // available for each inventory_item the truck load needs.
+  // Collect inventory_item_ids needed across all routes (those with tracks_units)
+  const neededItemIds = new Set<string>();
+  for (const load of loadByRoute.values()) {
+    for (const it of load.items || []) neededItemIds.add(it.inventory_item_id);
+  }
+  let trackedItemIds = new Set<string>();
+  let unitsByItem = new Map<string, any[]>();      // inventory_item_id → all units
+  let assignmentsByRoute = new Map<string, any[]>(); // route_id → assigned units (with tag/condition/item)
+  let unitToBlockingRoute = new Map<string, { route_id: string; route_date: string }>();
+  if (neededItemIds.size > 0) {
+    const { data: trackedItems } = await supabase
+      .from("inventory_items")
+      .select("id")
+      .in("id", Array.from(neededItemIds))
+      .eq("tracks_units", true);
+    trackedItemIds = new Set((trackedItems || []).map((r: any) => r.id));
+
+    if (trackedItemIds.size > 0) {
+      const { data: allUnits } = await supabase
+        .from("inventory_units")
+        .select("id, inventory_item_id, tag, condition, is_active")
+        .in("inventory_item_id", Array.from(trackedItemIds))
+        .eq("is_active", true)
+        .order("tag");
+      for (const u of (allUnits as any[]) || []) {
+        if (!unitsByItem.has(u.inventory_item_id)) unitsByItem.set(u.inventory_item_id, []);
+        unitsByItem.get(u.inventory_item_id)!.push(u);
+      }
+
+      // Active assignments across ALL routes (so we can flag which units are taken elsewhere)
+      const unitIds = (allUnits || []).map((u: any) => u.id);
+      if (unitIds.length > 0) {
+        const { data: assigns } = await supabase
+          .from("dispatch_route_units")
+          .select("route_id, unit_id, dispatch_routes(route_date)")
+          .is("returned_at", null)
+          .in("unit_id", unitIds);
+        for (const a of (assigns as any[]) || []) {
+          // Bucket by route for "what's assigned to MY route"
+          if (!assignmentsByRoute.has(a.route_id)) assignmentsByRoute.set(a.route_id, []);
+          const unit = (allUnits || []).find((u: any) => u.id === a.unit_id);
+          if (unit) {
+            assignmentsByRoute.get(a.route_id)!.push({
+              unit_id: a.unit_id,
+              tag: unit.tag,
+              condition: unit.condition,
+              inventory_item_id: unit.inventory_item_id,
+            });
+          }
+          // Track which units are blocked on OTHER routes (different from this date)
+          if (a.dispatch_routes?.route_date && a.dispatch_routes.route_date !== params.date) {
+            unitToBlockingRoute.set(a.unit_id, {
+              route_id: a.route_id,
+              route_date: a.dispatch_routes.route_date,
+            });
+          }
+        }
+      }
+    }
+  }
+
+  // Per-route, per-item: list of available units (includes blocked-elsewhere flag)
+  // Shape: routeUnits[route_id][inventory_item_id] = { assigned: [], available: [] }
+  const routeUnits: Record<string, Record<string, { assigned: any[]; available: any[] }>> = {};
+  for (const rid of routeIds) {
+    routeUnits[rid] = {};
+    const load = loadByRoute.get(rid);
+    const myAssignments = assignmentsByRoute.get(rid) || [];
+    for (const it of load?.items || []) {
+      if (!trackedItemIds.has(it.inventory_item_id)) continue;
+      const allUnitsForItem = unitsByItem.get(it.inventory_item_id) || [];
+      const assignedHere = myAssignments.filter((a) => a.inventory_item_id === it.inventory_item_id);
+      const assignedHereIds = new Set(assignedHere.map((a) => a.unit_id));
+      const available = allUnitsForItem.map((u: any) => {
+        const blocking = unitToBlockingRoute.get(u.id);
+        return {
+          unit_id: u.id,
+          tag: u.tag,
+          condition: u.condition,
+          // Block if assigned to a route on a different date AND not assigned here
+          blocked_on_other_route_id: !assignedHereIds.has(u.id) && blocking ? blocking.route_id : null,
+          blocked_on_other_route_date: !assignedHereIds.has(u.id) && blocking ? blocking.route_date : null,
+        };
+      });
+      routeUnits[rid][it.inventory_item_id] = {
+        assigned: assignedHere,
+        available,
+      };
+    }
+  }
+
   // Map booking → assigned route ID (for THIS route_type only — booking can be
   // in delivery + pickup independently)
   const bookingRouteMap = new Map<string, string>();
@@ -158,6 +251,7 @@ export default async function DispatchDatePage({
         vehicles={(vehicles as any[]) || []}
         trailers={(trailers as any[]) || []}
         bookingRouteMap={Object.fromEntries(bookingRouteMap)}
+        routeUnits={routeUnits}
       />
     </div>
   );

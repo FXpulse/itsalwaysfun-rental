@@ -26,6 +26,16 @@ import {
   unassignBookingFromRoute,
   reorderStop,
 } from "../actions";
+import { RouteUnitAssignment, type UnitOption } from "./RouteUnitAssignment";
+
+interface RouteUnitsMap {
+  [routeId: string]: {
+    [inventoryItemId: string]: {
+      assigned: { unit_id: string; tag: string; condition: string }[];
+      available: UnitOption[];
+    };
+  };
+}
 
 interface Booking {
   id: string;
@@ -91,6 +101,7 @@ export function DispatchClient({
   vehicles,
   trailers,
   bookingRouteMap,
+  routeUnits = {},
 }: {
   routeDate: string;
   routeType?: "delivery" | "pickup";
@@ -99,6 +110,7 @@ export function DispatchClient({
   vehicles: Vehicle[];
   trailers: Trailer[];
   bookingRouteMap: Record<string, string>;
+  routeUnits?: RouteUnitsMap;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -396,6 +408,7 @@ export function DispatchClient({
                 onStatusChange={(s) => handleStatus(r.id, s)}
                 onUnassign={(bid) => handleUnassign(bid)}
                 onReorder={(stopId, dir) => handleReorder(stopId, r.id, dir)}
+                unitsForItems={routeUnits[r.id] || {}}
               />
             ))}
           </div>
@@ -412,6 +425,7 @@ function RouteCard({
   onStatusChange,
   onUnassign,
   onReorder,
+  unitsForItems = {},
 }: {
   route: RouteWithLoad;
   pending: boolean;
@@ -419,6 +433,12 @@ function RouteCard({
   onStatusChange: (s: string) => void;
   onUnassign: (bookingId: string) => void;
   onReorder: (stopId: string, dir: "up" | "down") => void;
+  unitsForItems?: {
+    [inventoryItemId: string]: {
+      assigned: { unit_id: string; tag: string; condition: string }[];
+      available: UnitOption[];
+    };
+  };
 }) {
   return (
     <div className="card">
@@ -540,15 +560,31 @@ function RouteCard({
           <h4 className="text-xs font-bold uppercase tracking-wide text-amber-900 mb-2 flex items-center gap-1">
             <Package className="h-3 w-3" /> Truck load (aggregated)
           </h4>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-x-3 gap-y-1 text-sm">
-            {route.load.items.map((it) => (
-              <div key={it.inventory_item_id} className="flex items-baseline gap-2">
-                <span className="font-mono font-bold text-amber-900">
-                  {it.total_quantity}×
-                </span>
-                <span className="text-slate-700 truncate">{it.inventory_name}</span>
-              </div>
-            ))}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-3 gap-y-2 text-sm">
+            {route.load.items.map((it) => {
+              const unitData = unitsForItems[it.inventory_item_id];
+              const tracksUnits = !!unitData;
+              return (
+                <div key={it.inventory_item_id} className="border-b border-amber-100 pb-1.5 last:border-0">
+                  <div className="flex items-baseline gap-2">
+                    <span className="font-mono font-bold text-amber-900">
+                      {it.total_quantity}×
+                    </span>
+                    <span className="text-slate-700 truncate flex-1">{it.inventory_name}</span>
+                  </div>
+                  {tracksUnits && (
+                    <RouteUnitAssignment
+                      routeId={route.id}
+                      inventoryItemId={it.inventory_item_id}
+                      inventoryItemName={it.inventory_name}
+                      quantityNeeded={it.total_quantity}
+                      assignedUnits={unitData.assigned}
+                      availableUnits={unitData.available}
+                    />
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
       )}

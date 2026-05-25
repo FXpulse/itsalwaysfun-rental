@@ -5,6 +5,7 @@ import { getCurrentUserRole } from "@/lib/auth/roles";
 import { formatCurrency } from "@/lib/utils";
 import { ArrowLeft, Package, Wrench } from "lucide-react";
 import { MaintenanceLog } from "./MaintenanceLog";
+import { UnitsPanel, type UnitRow } from "./UnitsPanel";
 
 export const dynamic = "force-dynamic";
 
@@ -25,16 +26,47 @@ export default async function InventoryDetailPage({
   if (!me) redirect("/admin/login");
 
   const supabase = createAdminClient();
-  const [{ data: item }, { data: history }] = await Promise.all([
+  const [{ data: item }, { data: history }, { data: allUnits }] = await Promise.all([
     supabase.from("inventory_items").select("*").eq("id", params.id).single(),
     supabase
       .from("inventory_maintenance")
       .select("*")
       .eq("inventory_item_id", params.id)
       .order("performed_at", { ascending: false }),
+    supabase
+      .from("inventory_units")
+      .select("id, tag, serial_number, condition, notes, acquired_date, retired_at, is_active")
+      .eq("inventory_item_id", params.id)
+      .order("tag"),
   ]);
 
   if (!item) notFound();
+
+  // Build current-assignment map: { unit_id → { route_id, route_date } | null }
+  const unitIds = ((allUnits as any[]) || []).map((u) => u.id);
+  const { data: activeAssignments } = unitIds.length
+    ? await supabase
+        .from("dispatch_route_units")
+        .select("unit_id, route_id, dispatch_routes ( route_date )")
+        .is("returned_at", null)
+        .in("unit_id", unitIds)
+    : { data: [] };
+  const assignmentMap = new Map<string, { route_id: string; route_date: string }>();
+  for (const a of (activeAssignments as any[]) || []) {
+    assignmentMap.set(a.unit_id, {
+      route_id: a.route_id,
+      route_date: a.dispatch_routes?.route_date,
+    });
+  }
+
+  const units: UnitRow[] = ((allUnits as any[]) || []).map((u) => {
+    const assign = assignmentMap.get(u.id);
+    return {
+      ...u,
+      current_route_id: assign?.route_id || null,
+      current_route_date: assign?.route_date || null,
+    };
+  });
 
   const entries = (history as any[]) || [];
   const totalSpent = entries.reduce((s, e) => s + (e.cost_cents || 0), 0);
@@ -103,6 +135,25 @@ export default async function InventoryDetailPage({
             )}
           </div>
         </div>
+      )}
+
+      {/* Per-unit tracking (admin only) */}
+      {me.role === "admin" && (
+        <UnitsPanel
+          itemId={item.id}
+          itemName={item.name}
+          tracksUnits={item.tracks_units || false}
+          prefixSuggestion={
+            (item.unit_tag_prefix as string) ||
+            item.name
+              .split(/\s+/)
+              .map((w: string) => w[0]?.toUpperCase() || "")
+              .join("")
+              .slice(0, 4) ||
+            "ITEM"
+          }
+          units={units}
+        />
       )}
 
       {/* Maintenance log */}
