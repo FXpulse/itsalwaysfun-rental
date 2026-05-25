@@ -25,6 +25,7 @@ export interface Product {
   outlets_required: number;
   age_group: string | null;
   is_addon: boolean;
+  cost_cents: number;
   created_at: string;
 }
 

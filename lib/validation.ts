@@ -24,6 +24,7 @@ export const ProductInputSchema = z.object({
   outlets_required: z.number().int().min(0).max(10).optional(),
   age_group: z.string().max(100).optional().nullable(),
   is_addon: z.boolean().optional(),
+  cost_cents: z.number().int().min(0).optional(),
 });
 
 export type ProductInput = z.infer<typeof ProductInputSchema>;

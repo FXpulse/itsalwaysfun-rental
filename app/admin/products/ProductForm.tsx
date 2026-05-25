@@ -134,6 +134,23 @@ export function ProductForm({ product, action, submitLabel = "Save", categories 
         </div>
 
         <div>
+          <label className="block text-sm font-medium text-slate-700 mb-1">
+            Cost <span className="text-xs text-slate-400">(USD, internal — not shown to customer)</span>
+          </label>
+          <input
+            name="cost_dollars"
+            type="number"
+            min={0}
+            step="0.01"
+            defaultValue={product ? (product.cost_cents / 100).toFixed(2) : "0"}
+            className="input"
+            disabled={pending}
+            placeholder="What it cost you to acquire"
+          />
+          <ErrorMsg name="cost_cents" />
+        </div>
+
+        <div>
           <label className="block text-sm font-medium text-slate-700 mb-1">Stock</label>
           <input
             name="stock"

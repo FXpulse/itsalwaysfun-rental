@@ -33,6 +33,7 @@ export async function createProduct(formData: FormData) {
     outlets_required: parseInt(String(formData.get("outlets_required") || "1"), 10),
     age_group: String(formData.get("age_group") || "") || null,
     is_addon: formData.get("is_addon") === "on",
+    cost_cents: Math.round(parseFloat(String(formData.get("cost_dollars") || "0")) * 100),
   };
 
   const parsed = ProductInputSchema.safeParse(raw);
@@ -68,6 +69,7 @@ export async function updateProduct(id: string, formData: FormData) {
     outlets_required: parseInt(String(formData.get("outlets_required") || "1"), 10),
     age_group: String(formData.get("age_group") || "") || null,
     is_addon: formData.get("is_addon") === "on",
+    cost_cents: Math.round(parseFloat(String(formData.get("cost_dollars") || "0")) * 100),
   };
 
   const parsed = ProductInputSchema.safeParse(raw);
