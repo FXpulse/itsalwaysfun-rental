@@ -83,6 +83,7 @@ const STATUS_STYLES: Record<string, string> = {
 
 export function DispatchClient({
   routeDate,
+  routeType = "delivery",
   bookings,
   routes,
   vehicles,
@@ -90,6 +91,7 @@ export function DispatchClient({
   bookingRouteMap,
 }: {
   routeDate: string;
+  routeType?: "delivery" | "pickup";
   bookings: Booking[];
   routes: RouteWithLoad[];
   vehicles: Vehicle[];
@@ -127,6 +129,7 @@ export function DispatchClient({
     if (trailerId) fd.append("trailer_id", trailerId);
     if (driverName) fd.append("driver_name", driverName);
     if (notes) fd.append("notes", notes);
+    fd.append("route_type", routeType);
 
     startTransition(async () => {
       const r = await createRoute(fd);
@@ -203,7 +206,7 @@ export function DispatchClient({
           onClick={() => setCreating(true)}
           className="btn-primary inline-flex items-center gap-2"
         >
-          <Plus className="h-4 w-4" /> Add route
+          <Plus className="h-4 w-4" /> Add {routeType} route
         </button>
       )}
 
@@ -211,7 +214,8 @@ export function DispatchClient({
       {creating && (
         <form onSubmit={handleCreate} className="card bg-blue-50 border-blue-200 space-y-3">
           <h2 className="font-bold text-brand-navy flex items-center gap-2">
-            <Truck className="h-4 w-4" /> New route for {routeDate}
+            <Truck className="h-4 w-4" />
+            New {routeType} route for {routeDate}
           </h2>
           <div className="grid grid-cols-2 gap-3">
             <div>

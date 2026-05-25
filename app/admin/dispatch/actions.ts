@@ -11,6 +11,7 @@ const CreateRouteSchema = z.object({
   trailer_id: z.string().uuid().optional().nullable(),
   driver_name: z.string().max(200).optional().nullable(),
   notes: z.string().max(1000).optional().nullable(),
+  route_type: z.enum(["delivery", "pickup"]).default("delivery"),
 });
 
 export async function createRoute(formData: FormData) {
@@ -21,6 +22,7 @@ export async function createRoute(formData: FormData) {
     trailer_id: (formData.get("trailer_id") as string) || null,
     driver_name: (formData.get("driver_name") as string) || null,
     notes: (formData.get("notes") as string) || null,
+    route_type: (formData.get("route_type") as string) || "delivery",
   });
   if (!parsed.success) {
     return { error: parsed.error.errors.map((e) => e.message).join(", ") };
@@ -35,6 +37,7 @@ export async function createRoute(formData: FormData) {
       trailer_id: parsed.data.trailer_id,
       driver_name: parsed.data.driver_name,
       notes: parsed.data.notes,
+      route_type: parsed.data.route_type,
       status: "planned",
     })
     .select("id")
@@ -76,8 +79,27 @@ export async function assignBookingToRoute(
   await requireStaffOrAdmin();
   const supabase = createAdminClient();
 
-  // Remove from any existing route first (unique on booking_id)
-  await supabase.from("dispatch_stops").delete().eq("booking_id", bookingId);
+  // Get target route_type so we only remove SAME-TYPE existing stops
+  const { data: targetRoute } = await supabase
+    .from("dispatch_routes")
+    .select("route_type")
+    .eq("id", routeId)
+    .single();
+  if (!targetRoute) return { error: "Route not found" };
+  const targetType = targetRoute.route_type;
+
+  // Find existing stops for this booking + their route_type
+  const { data: existingStops } = await supabase
+    .from("dispatch_stops")
+    .select("id, dispatch_routes!inner(route_type)")
+    .eq("booking_id", bookingId);
+
+  const sameTypeIds = ((existingStops as any[]) || [])
+    .filter((s) => s.dispatch_routes?.route_type === targetType)
+    .map((s) => s.id);
+  if (sameTypeIds.length > 0) {
+    await supabase.from("dispatch_stops").delete().in("id", sameTypeIds);
+  }
 
   // Get the max order in this route + 1
   const { data: maxRow } = await supabase
@@ -100,10 +122,18 @@ export async function assignBookingToRoute(
   return { success: true };
 }
 
-export async function unassignBookingFromRoute(bookingId: string, routeDate: string) {
+/** Unassign from ONE route — pass routeId to remove only that specific stop.
+ *  If routeId omitted, removes ALL stops for the booking (any type). */
+export async function unassignBookingFromRoute(
+  bookingId: string,
+  routeDate: string,
+  routeId?: string,
+) {
   await requireStaffOrAdmin();
   const supabase = createAdminClient();
-  const { error } = await supabase.from("dispatch_stops").delete().eq("booking_id", bookingId);
+  let query = supabase.from("dispatch_stops").delete().eq("booking_id", bookingId);
+  if (routeId) query = query.eq("route_id", routeId);
+  const { error } = await query;
   if (error) return { error: error.message };
   revalidatePath(`/admin/dispatch/${routeDate}`);
   return { success: true };
