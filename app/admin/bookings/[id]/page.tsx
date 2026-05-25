@@ -4,6 +4,8 @@ import { ChevronLeft } from "lucide-react";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { BookingActions } from "./BookingActions";
+import { DeliveryChecklist } from "./DeliveryChecklist";
+import { getDeliveryChecklist } from "@/lib/delivery-checklist";
 import type { Booking } from "@/types/database";
 import { z } from "zod";
 
@@ -26,7 +28,14 @@ export default async function BookingDetailPage({
     .single();
 
   if (!booking) notFound();
-  const b = booking as Booking & { payment_method?: string };
+  const b = booking as Booking & {
+    payment_method?: string;
+    delivery_checked_at?: string | null;
+    delivery_checked_by?: string | null;
+  };
+
+  // Compute delivery checklist from product inventory requirements
+  const checklist = await getDeliveryChecklist(params.id);
 
   return (
     <div className="max-w-4xl">
@@ -146,6 +155,16 @@ export default async function BookingDetailPage({
           </dl>
         </div>
       </div>
+
+      {/* Delivery checklist (internal — inventory items to load on truck) */}
+      <DeliveryChecklist
+        bookingId={b.id}
+        items={checklist.items}
+        surfaceType={checklist.surfaceType}
+        needsPowerSupply={checklist.needsPowerSupply}
+        deliveryCheckedAt={b.delivery_checked_at || null}
+        deliveryCheckedBy={b.delivery_checked_by || null}
+      />
 
       {/* Actions */}
       <BookingActions booking={b} />

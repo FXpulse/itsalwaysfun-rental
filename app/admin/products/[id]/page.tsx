@@ -4,6 +4,7 @@ import { ChevronLeft } from "lucide-react";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { ProductForm } from "../ProductForm";
 import { ProductImageUploader } from "./ProductImageUploader";
+import { InventoryRequirements } from "./InventoryRequirements";
 import { updateProduct } from "../actions";
 import type { Product } from "@/types/database";
 import { z } from "zod";
@@ -19,12 +20,36 @@ export default async function EditProductPage({
   if (!idParse.success) notFound();
 
   const supabase = createAdminClient();
-  const [{ data: product, error }, { data: categories }] = await Promise.all([
+  const [{ data: product, error }, { data: categories }, { data: inventory }, { data: reqs }] = await Promise.all([
     supabase.from("products").select("*").eq("id", params.id).single(),
     supabase.from("categories").select("name").eq("is_active", true).order("display_order"),
+    supabase
+      .from("inventory_items")
+      .select("id, name, category")
+      .eq("is_active", true)
+      .order("category")
+      .order("name"),
+    supabase
+      .from("product_inventory_requirements")
+      .select(`
+        id, inventory_item_id, quantity, surface_types, only_when_needs_power, notes,
+        inventory_items (name, category)
+      `)
+      .eq("product_id", params.id),
   ]);
 
   if (error || !product) notFound();
+
+  const requirements = ((reqs as any[]) || []).map((r) => ({
+    id: r.id,
+    inventory_item_id: r.inventory_item_id,
+    inventory_name: r.inventory_items?.name || "(removed)",
+    inventory_category: r.inventory_items?.category || "—",
+    quantity: r.quantity,
+    surface_types: r.surface_types,
+    only_when_needs_power: r.only_when_needs_power,
+    notes: r.notes,
+  }));
 
   // Bind product ID to update action
   const boundUpdate = updateProduct.bind(null, product.id);
@@ -64,6 +89,12 @@ export default async function EditProductPage({
           categories={categories || []}
         />
       </div>
+
+      <InventoryRequirements
+        productId={product.id}
+        inventory={(inventory as any[]) || []}
+        requirements={requirements}
+      />
     </div>
   );
 }
