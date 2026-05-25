@@ -149,6 +149,7 @@ export function BookingWizard({
   });
   const [bookingResult, setBookingResult] = useState<BookingResult | null>(null);
   const [couponCode, setCouponCode] = useState("");
+  const [giftCardCode, setGiftCardCode] = useState("");
   const [redeemPoints, setRedeemPoints] = useState(0);
   // Map of addon productId → quantity (0 or missing = not selected)
   const [addonQuantities, setAddonQuantities] = useState<Record<string, number>>({});
@@ -343,6 +344,7 @@ export function BookingWizard({
               .map(([product_id, quantity]) => ({ product_id, quantity })),
             notes: customer.notes || null,
             coupon_code: couponCode.trim() || undefined,
+            gift_card_code: giftCardCode.trim() || undefined,
             redeem_points: redeemPoints > 0 ? redeemPoints : undefined,
           }),
         });
@@ -508,6 +510,8 @@ export function BookingWizard({
             totalAmount={totalAmount}
             couponCode={couponCode}
             onCouponChange={setCouponCode}
+            giftCardCode={giftCardCode}
+            onGiftCardChange={setGiftCardCode}
             availablePoints={availablePoints}
             loyaltySettings={loyaltySettings}
             redeemPoints={redeemPoints}
@@ -942,6 +946,8 @@ function CustomerInfoStep({
   totalAmount,
   couponCode,
   onCouponChange,
+  giftCardCode,
+  onGiftCardChange,
   availablePoints,
   loyaltySettings,
   redeemPoints,
@@ -980,6 +986,8 @@ function CustomerInfoStep({
   totalAmount: number;
   couponCode: string;
   onCouponChange: (s: string) => void;
+  giftCardCode: string;
+  onGiftCardChange: (s: string) => void;
   availablePoints: number;
   loyaltySettings: { points_redemption_rate: number; min_redeem_points: number } | null;
   redeemPoints: number;
@@ -1385,6 +1393,23 @@ function CustomerInfoStep({
           />
           <p className="text-xs text-slate-500 mt-1">
             We'll validate it on the next step. Invalid/expired codes are ignored.
+          </p>
+        </div>
+
+        {/* Gift card code */}
+        <div className="bg-purple-50 rounded p-3 border border-purple-200">
+          <label className="block text-sm font-medium text-slate-700 mb-1">
+            🎁 Gift card code <span className="text-xs text-slate-400">(optional)</span>
+          </label>
+          <input
+            value={giftCardCode}
+            onChange={(e) => onGiftCardChange(e.target.value.toUpperCase())}
+            placeholder="GIFT-XXXX-XXXX"
+            className="input font-mono"
+            disabled={pending}
+          />
+          <p className="text-xs text-slate-500 mt-1">
+            Balance applies up to the total. Remaining balance stays on the card for future bookings.
           </p>
         </div>
 

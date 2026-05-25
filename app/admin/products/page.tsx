@@ -4,6 +4,8 @@ import { formatCurrency } from "@/lib/utils";
 import { Plus, Edit, Calendar, Eye, EyeOff } from "lucide-react";
 import type { Product } from "@/types/database";
 import { ProductActiveToggle } from "./ProductActiveToggle";
+import { BulkUploadButton } from "@/components/admin/BulkUploadButton";
+import { bulkUploadProducts } from "../bulk-upload/actions";
 
 export const dynamic = "force-dynamic";
 
@@ -34,9 +36,17 @@ export default async function AdminProductsPage() {
             {products?.length || 0} total products · manage inventory + pricing
           </p>
         </div>
-        <Link href="/admin/products/new" className="btn-accent inline-flex items-center gap-2">
-          <Plus className="h-4 w-4" /> Add product
-        </Link>
+        <div className="flex gap-2">
+          <BulkUploadButton
+            label="Bulk upload"
+            templateUrl="/api/templates/products"
+            uploadAction={bulkUploadProducts}
+            description="Bulk add products from a CSV. Each row = 1 product."
+          />
+          <Link href="/admin/products/new" className="btn-accent inline-flex items-center gap-2">
+            <Plus className="h-4 w-4" /> Add product
+          </Link>
+        </div>
       </div>
 
       {Object.entries(grouped).map(([category, items]) => (

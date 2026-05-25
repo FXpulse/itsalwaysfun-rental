@@ -2,6 +2,8 @@ import { redirect } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUserRole } from "@/lib/auth/roles";
 import { InventoryManager } from "./InventoryManager";
+import { BulkUploadButton } from "@/components/admin/BulkUploadButton";
+import { bulkUploadInventory } from "../bulk-upload/actions";
 
 export const dynamic = "force-dynamic";
 
@@ -54,7 +56,16 @@ export default async function AdminInventoryPage() {
 
   return (
     <div className="max-w-6xl">
-      <h1 className="text-2xl font-bold text-brand-navy mb-1">Inventory</h1>
+      <div className="flex items-start justify-between mb-1">
+        <h1 className="text-2xl font-bold text-brand-navy">Inventory</h1>
+        {me.role === "admin" && (
+          <BulkUploadButton
+            templateUrl="/api/templates/inventory"
+            uploadAction={bulkUploadInventory}
+            description="Bulk add operational gear from a CSV."
+          />
+        )}
+      </div>
       <p className="text-sm text-slate-500 mb-6">
         Operational gear (generators, blowers, anchors, supplies, vehicles, tools).
         For rental products (bounce houses, accessories), use the Products page.

@@ -34,6 +34,7 @@ const BodySchema = z
       address: z.string().max(500).optional(),
     }),
     coupon_code: z.string().max(50).optional(),
+    gift_card_code: z.string().max(50).optional(),
     surface_type: z
       .enum(["dirt", "grass", "concrete", "paver", "asphalt", "other"])
       .nullable()
@@ -314,6 +315,30 @@ export async function POST(request: Request) {
     }
   }
 
+  // 4a-2. Apply gift card if code provided
+  let giftCardCodeApplied: string | null = null;
+  let giftCardCents = 0;
+  if (parsed.data.gift_card_code) {
+    const code = parsed.data.gift_card_code.trim().toUpperCase();
+    const { data: card } = await supabase
+      .from("gift_cards")
+      .select("*")
+      .eq("code", code)
+      .maybeSingle();
+    if (card && card.is_active && card.balance_cents > 0) {
+      const expired = card.expires_at && new Date(card.expires_at) < new Date();
+      if (!expired) {
+        const apply = Math.min(card.balance_cents, totalAmount);
+        if (apply > 0) {
+          giftCardCents = apply;
+          giftCardCodeApplied = card.code;
+          totalAmount = Math.max(0, totalAmount - apply);
+          discountAmount += apply;
+        }
+      }
+    }
+  }
+
   // 4b. Apply loyalty points redemption (if user is logged in + requested)
   let pointsRedeemed = 0;
   let pointsDiscountCents = 0;
@@ -367,6 +392,8 @@ export async function POST(request: Request) {
       damage_protection_cents: protectionCents,
       addons: addonLineItems,
       addons_total_cents: addonsTotal,
+      gift_card_code: giftCardCodeApplied,
+      gift_card_amount_cents: giftCardCents,
       notes: parsed.data.notes || null,
       stripe_payment_status: "pending",
       booking_status: "pending_payment",
@@ -419,6 +446,30 @@ export async function POST(request: Request) {
         { error: "Payment setup failed", details: e.message },
         { status: 500 }
       );
+    }
+  }
+
+  // Decrement gift card balance + log redemption (best-effort)
+  if (giftCardCodeApplied && giftCardCents > 0 && booking?.id) {
+    try {
+      const { data: card } = await supabase
+        .from("gift_cards")
+        .select("id, balance_cents")
+        .eq("code", giftCardCodeApplied)
+        .single();
+      if (card) {
+        const newBalance = Math.max(0, card.balance_cents - giftCardCents);
+        const updates: any = { balance_cents: newBalance };
+        if (newBalance === 0) updates.fully_redeemed_at = new Date().toISOString();
+        await supabase.from("gift_cards").update(updates).eq("id", card.id);
+        await supabase.from("gift_card_redemptions").insert({
+          gift_card_id: card.id,
+          booking_id: booking.id,
+          amount_cents: giftCardCents,
+        });
+      }
+    } catch (e) {
+      console.error("[gift card redemption failed]", e);
     }
   }
 

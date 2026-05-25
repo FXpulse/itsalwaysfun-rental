@@ -1,5 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { CategoriesManager } from "./CategoriesManager";
+import { BulkUploadButton } from "@/components/admin/BulkUploadButton";
+import { bulkUploadCategories } from "../bulk-upload/actions";
 
 export const dynamic = "force-dynamic";
 
@@ -33,7 +35,14 @@ export default async function AdminCategoriesPage() {
 
   return (
     <div className="max-w-4xl">
-      <h1 className="text-2xl font-bold text-brand-navy mb-1">Categories</h1>
+      <div className="flex items-start justify-between mb-1">
+        <h1 className="text-2xl font-bold text-brand-navy">Categories</h1>
+        <BulkUploadButton
+          templateUrl="/api/templates/categories"
+          uploadAction={bulkUploadCategories}
+          description="Bulk add categories from a CSV."
+        />
+      </div>
       <p className="text-sm text-slate-500 mb-6">
         Manage rental categories shown on the website. Active categories appear in
         navigation and home page. Inactive ones are hidden but kept for reference.

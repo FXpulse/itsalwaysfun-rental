@@ -1,0 +1,456 @@
+"use client";
+
+import { useState } from "react";
+import {
+  Download,
+  ChevronDown,
+  ChevronRight,
+  Settings,
+  Package,
+  Boxes,
+  Tag,
+  Truck,
+  Users,
+  Mail,
+  Smartphone,
+  Sparkles,
+  ShieldCheck,
+  Ticket,
+  Image as ImageIcon,
+  FileText,
+  HelpCircle,
+} from "lucide-react";
+
+interface Section {
+  id: string;
+  title: string;
+  icon: any;
+  content: React.ReactNode;
+}
+
+const TEMPLATES = [
+  { name: "Products", url: "/api/templates/products", icon: Package, desc: "Bouncy houses, slides, add-ons" },
+  { name: "Inventory", url: "/api/templates/inventory", icon: Boxes, desc: "Generators, blowers, anchors, supplies" },
+  { name: "Categories", url: "/api/templates/categories", icon: Tag, desc: "Product categories" },
+  { name: "Vehicles", url: "/api/templates/vehicles", icon: Truck, desc: "Fleet vehicles" },
+  { name: "Trailers", url: "/api/templates/trailers", icon: Truck, desc: "Fleet trailers" },
+];
+
+export function HelpClient() {
+  const [openSection, setOpenSection] = useState<string | null>("intro");
+
+  const sections: Section[] = [
+    {
+      id: "intro",
+      title: "Welcome — what this platform does",
+      icon: Sparkles,
+      content: (
+        <div className="space-y-3 text-sm">
+          <p>
+            This is your complete rental management system for It's Always Fun. It
+            handles bookings, payments, customers, inventory, dispatch, drivers,
+            damages — everything end-to-end.
+          </p>
+          <p>The platform is split into <strong>4 sections</strong>:</p>
+          <ul className="list-disc pl-5 space-y-1">
+            <li><strong>/admin</strong> — you (admin) and your staff manage the business</li>
+            <li><strong>/portal</strong> — customers log in to see their bookings + earn points</li>
+            <li><strong>/driver</strong> — your crew sees today's routes on their phone</li>
+            <li><strong>/</strong> (public) — where customers book online</li>
+          </ul>
+          <p className="bg-amber-50 border border-amber-200 rounded p-3 mt-3">
+            ⏱ <strong>Time to first booking:</strong> Setup takes ~1 hour if you bulk-upload
+            your products/inventory. After that, customers can book online + pay 24/7.
+          </p>
+        </div>
+      ),
+    },
+    {
+      id: "products",
+      title: "Step 1 — Add your rental products",
+      icon: Package,
+      content: (
+        <div className="space-y-3 text-sm">
+          <p>
+            Products are what customers rent: bounce houses, slides, accessories.
+          </p>
+          <div className="bg-slate-50 border border-slate-200 rounded p-3 space-y-2">
+            <p className="font-semibold">Option A: One by one</p>
+            <ol className="list-decimal pl-5 space-y-1 text-xs">
+              <li>Go to <code className="bg-white px-1 rounded">Products</code> → click <strong>+ Add product</strong></li>
+              <li>Fill name, slug (auto), category, price/day, cost (internal), stock, image URL</li>
+              <li>Optional: weekend rate, setup area, age group</li>
+              <li>Save</li>
+            </ol>
+          </div>
+          <div className="bg-slate-50 border border-slate-200 rounded p-3 space-y-2">
+            <p className="font-semibold">Option B: Bulk via CSV (faster for 5+ products)</p>
+            <ol className="list-decimal pl-5 space-y-1 text-xs">
+              <li>Go to <code>Products</code> → click <strong>Bulk upload</strong></li>
+              <li>Click <strong>Download CSV template</strong></li>
+              <li>Open in Excel/Google Sheets, fill rows, save as <code>.csv</code></li>
+              <li>Upload + import. Errors show inline per row.</li>
+            </ol>
+            <p className="text-xs text-slate-600">
+              💡 <strong>Pro tip:</strong> Use bulk upload for the initial 14-product seed,
+              then edit individuals as needed.
+            </p>
+          </div>
+        </div>
+      ),
+    },
+    {
+      id: "inventory",
+      title: "Step 2 — Track operational gear (inventory)",
+      icon: Boxes,
+      content: (
+        <div className="space-y-3 text-sm">
+          <p>
+            <strong>Inventory ≠ Products.</strong> Inventory is operational gear (generators,
+            blowers, anchors, sandbags, cleaning supplies). Products are what
+            customers rent. Inventory is what you bring to make the rental work.
+          </p>
+          <p>Why track inventory:</p>
+          <ul className="list-disc pl-5 space-y-1 text-xs">
+            <li>Driver checklist: "Truck 1 needs 4 blowers + 12 sandbags"</li>
+            <li>Maintenance log per item (repair history, ROI)</li>
+            <li>Damage tracking</li>
+          </ul>
+          <div className="bg-slate-50 border border-slate-200 rounded p-3">
+            <p className="font-semibold mb-1">Setup:</p>
+            <ol className="list-decimal pl-5 space-y-1 text-xs">
+              <li>Go to <code>Inventory</code> → use Bulk upload or Add item</li>
+              <li>For each Product, go to <code>Products → Edit → Inventory checklist</code></li>
+              <li>Add what the product needs (e.g. Game On = 1 blower + 6 stakes if grass)</li>
+              <li>Use "Copy from another product" to clone settings between similar bouncys</li>
+            </ol>
+          </div>
+        </div>
+      ),
+    },
+    {
+      id: "categories",
+      title: "Step 3 — Organize with categories",
+      icon: Tag,
+      content: (
+        <div className="space-y-3 text-sm">
+          <p>
+            Categories group your products on the public website (e.g. "Bounce
+            Houses", "Slides", "Add-ons").
+          </p>
+          <ol className="list-decimal pl-5 space-y-1 text-xs">
+            <li>Go to <code>Categories</code> → Add or Bulk upload</li>
+            <li>Each category: name, optional image, display order, active flag</li>
+            <li>"Active" categories show in public navigation; inactive are hidden</li>
+          </ol>
+          <p className="bg-amber-50 border border-amber-200 rounded p-2 text-xs">
+            ⚠ Category <strong>"Add-ons"</strong> is special: products in it (with is_addon=true)
+            are hidden from public catalog but available as upsells at checkout (chairs, tables, generator).
+          </p>
+        </div>
+      ),
+    },
+    {
+      id: "fleet",
+      title: "Step 4 — Set up your fleet (vehicles + trailers)",
+      icon: Truck,
+      content: (
+        <div className="space-y-3 text-sm">
+          <p>Required for dispatch route planning.</p>
+          <ol className="list-decimal pl-5 space-y-1 text-xs">
+            <li>Go to <code>Fleet</code></li>
+            <li>Add each <strong>Vehicle</strong>: name, type (truck/van/pickup), needs trailer? capacity</li>
+            <li>Add each <strong>Trailer</strong>: name, capacity</li>
+            <li>Or use Bulk upload buttons</li>
+          </ol>
+          <p className="text-xs">
+            Later, when you plan dispatch routes for a day, you pick a vehicle and
+            (if it needs one) a trailer per route.
+          </p>
+        </div>
+      ),
+    },
+    {
+      id: "users",
+      title: "Step 5 — Add your team (staff + drivers)",
+      icon: Users,
+      content: (
+        <div className="space-y-3 text-sm">
+          <p>3 roles available:</p>
+          <table className="text-xs w-full border-collapse">
+            <thead>
+              <tr className="bg-slate-100">
+                <th className="text-left p-2">Role</th>
+                <th className="text-left p-2">What they can do</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr className="border-b">
+                <td className="p-2 font-semibold">Admin</td>
+                <td className="p-2">Everything (you, owner)</td>
+              </tr>
+              <tr className="border-b">
+                <td className="p-2 font-semibold">Staff</td>
+                <td className="p-2">Bookings, Customers, Inventory, Dispatch, Calendar, Availability</td>
+              </tr>
+              <tr className="border-b">
+                <td className="p-2 font-semibold">Driver</td>
+                <td className="p-2">ONLY their day's routes (mobile-optimized) + capture proofs</td>
+              </tr>
+            </tbody>
+          </table>
+          <ol className="list-decimal pl-5 space-y-1 text-xs">
+            <li>Go to <code>Users</code> → <strong>New user</strong></li>
+            <li>Enter email, temp password, role</li>
+            <li>Share credentials with the team member</li>
+            <li>They log in at <code>/admin/login</code> → drivers auto-redirect to <code>/driver</code></li>
+          </ol>
+        </div>
+      ),
+    },
+    {
+      id: "stripe",
+      title: "Step 6 — Connect Stripe for payments",
+      icon: ShieldCheck,
+      content: (
+        <div className="space-y-3 text-sm">
+          <p>Right now you're in <strong>Stripe test mode</strong>. For real payments:</p>
+          <ol className="list-decimal pl-5 space-y-1 text-xs">
+            <li>Wait for Stripe business verification approval</li>
+            <li>Get live keys from Stripe Dashboard → Developers → API Keys</li>
+            <li>In Vercel → Settings → Env vars:
+              <ul className="list-disc pl-5 mt-1">
+                <li>Update <code>STRIPE_SECRET_KEY</code> (starts with sk_live_)</li>
+                <li>Update <code>NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY</code> (starts with pk_live_)</li>
+                <li>Update <code>STRIPE_WEBHOOK_SECRET</code> (regenerate after pointing webhook to live)</li>
+              </ul>
+            </li>
+            <li>Redeploy from Vercel</li>
+          </ol>
+        </div>
+      ),
+    },
+    {
+      id: "emails",
+      title: "Step 7 — Email setup (Resend)",
+      icon: Mail,
+      content: (
+        <div className="space-y-3 text-sm">
+          <p>
+            Resend handles 10 automated emails (booking confirmation, reminders,
+            quotes, etc.). Already configured — domain <code>itsalwaysfun.com</code> verified.
+          </p>
+          <p>To customize email templates:</p>
+          <ol className="list-decimal pl-5 space-y-1 text-xs">
+            <li>Go to <code>Email templates</code></li>
+            <li>Click any template (e.g. "Booking confirmation")</li>
+            <li>Edit subject, header, HTML body, plain-text fallback</li>
+            <li>Use <code>{`{{firstName}}`}</code>, <code>{`{{productName}}`}</code>, etc.</li>
+            <li><strong>Preview</strong> + <strong>Send test</strong> to yourself before saving</li>
+          </ol>
+        </div>
+      ),
+    },
+    {
+      id: "sms",
+      title: "Step 8 — SMS setup (Twilio)",
+      icon: Smartphone,
+      content: (
+        <div className="space-y-3 text-sm">
+          <p>SMS auto-sends for booking confirmation + reminder (3 days before event).</p>
+          <p>If not working yet, paste these env vars in Vercel:</p>
+          <ul className="list-disc pl-5 space-y-1 text-xs font-mono bg-slate-50 p-2 rounded">
+            <li>TWILIO_ACCOUNT_SID</li>
+            <li>TWILIO_AUTH_TOKEN</li>
+            <li>TWILIO_FROM_NUMBER (E.164 format, e.g. +18336604284)</li>
+          </ul>
+          <p className="text-xs">Twilio cost: ~$0.0075 per SMS US + $1.15/month per number.</p>
+        </div>
+      ),
+    },
+    {
+      id: "loyalty",
+      title: "Step 9 — Loyalty + referrals",
+      icon: Sparkles,
+      content: (
+        <div className="space-y-3 text-sm">
+          <p>
+            Customers earn points for bookings + commission for referrals.
+            Configure in <code>Website content → Loyalty & referrals</code>.
+          </p>
+          <table className="text-xs w-full border-collapse">
+            <tbody>
+              <tr className="border-b"><td className="p-1 font-semibold">Points per $1</td><td>1 (default)</td></tr>
+              <tr className="border-b"><td className="p-1 font-semibold">Points → $1</td><td>100 (default)</td></tr>
+              <tr className="border-b"><td className="p-1 font-semibold">Referral commission</td><td>10% of referred 1st booking</td></tr>
+              <tr className="border-b"><td className="p-1 font-semibold">Payout threshold</td><td>$50 (alert admin)</td></tr>
+            </tbody>
+          </table>
+          <p className="text-xs">
+            Pay out commission manually via <code>Loyalty</code> → click customer → Record payout.
+          </p>
+        </div>
+      ),
+    },
+    {
+      id: "coupons-gifts",
+      title: "Step 10 — Coupons + Gift cards",
+      icon: Ticket,
+      content: (
+        <div className="space-y-3 text-sm">
+          <p><strong>Coupons</strong> — discount codes (percent or fixed amount):</p>
+          <ol className="list-decimal pl-5 space-y-1 text-xs">
+            <li>Go to <code>Coupons</code> → Add</li>
+            <li>Customer enters code at checkout</li>
+            <li>Create <code>LOYAL10</code> → auto-shown to returning customers in /portal</li>
+          </ol>
+          <p className="mt-3"><strong>Gift cards</strong>:</p>
+          <ol className="list-decimal pl-5 space-y-1 text-xs">
+            <li>Go to <code>Gift cards</code> → Issue gift card</li>
+            <li>Enter amount + recipient email</li>
+            <li>System emails recipient the code automatically</li>
+            <li>Recipient enters code at checkout in the 🎁 field</li>
+            <li>Balance auto-decreases; remaining stays on the card</li>
+          </ol>
+        </div>
+      ),
+    },
+    {
+      id: "site",
+      title: "Step 11 — Customize the public site",
+      icon: ImageIcon,
+      content: (
+        <div className="space-y-3 text-sm">
+          <p>Go to <code>Website content</code> to edit ALL public copy + colors:</p>
+          <ul className="list-disc pl-5 space-y-1 text-xs">
+            <li>Hero title + subtitle</li>
+            <li>Section titles</li>
+            <li>Trust strip copy</li>
+            <li>Footer description</li>
+            <li>Per-zone colors + fonts (Hero, Categories, Featured, Trust, Footer)</li>
+          </ul>
+          <p>Go to <code>Home banners</code> to upload carousel images (1920×600 recommended).</p>
+        </div>
+      ),
+    },
+    {
+      id: "daily-ops",
+      title: "Daily operations — what to do each day",
+      icon: Settings,
+      content: (
+        <div className="space-y-3 text-sm">
+          <p className="font-semibold">Morning routine:</p>
+          <ol className="list-decimal pl-5 space-y-1 text-xs">
+            <li>Open <code>Dashboard</code> → see alerts (pending payments, damages, payouts)</li>
+            <li>Open <code>Calendar</code> or <code>Bookings</code> → review today's events</li>
+            <li>Open <code>Dispatch → today's routes</code> → make sure drivers know assignments</li>
+          </ol>
+          <p className="font-semibold mt-3">Day before each event:</p>
+          <ol className="list-decimal pl-5 space-y-1 text-xs">
+            <li><code>Dispatch → Plan tomorrow</code> → create routes + assign bookings</li>
+            <li>Each route shows aggregated truck load (what to bring)</li>
+            <li>Send driver the <strong>Driver view</strong> link via WhatsApp</li>
+          </ol>
+          <p className="font-semibold mt-3">After event (pickup day):</p>
+          <ol className="list-decimal pl-5 space-y-1 text-xs">
+            <li>Driver captures pickup proof + records any damages</li>
+            <li>Admin reviews damages in <code>Bookings → [id]</code> → mark customer responsible / covered by protection / charged</li>
+          </ol>
+        </div>
+      ),
+    },
+    {
+      id: "tests",
+      title: "Testing checklist",
+      icon: HelpCircle,
+      content: (
+        <div className="space-y-2 text-sm">
+          <p>Before going live, test these end-to-end:</p>
+          <ul className="space-y-1 text-xs">
+            <li>☐ Public booking → Stripe test card <code>4242 4242 4242 4242</code> → check email + SMS arrive</li>
+            <li>☐ Create quote → send → approve as customer → pay</li>
+            <li>☐ Login to portal → see bookings → cancel one → confirm email goes out</li>
+            <li>☐ Refund a booking from admin → check Stripe + email</li>
+            <li>☐ Issue gift card → use in another booking → check balance decreases</li>
+            <li>☐ Create staff + driver users → login as each → verify role gating</li>
+            <li>☐ Driver marks stop delivered → captures proof photos + signature</li>
+            <li>☐ Record damage with protection vs without → check chargeable amounts</li>
+          </ul>
+        </div>
+      ),
+    },
+  ];
+
+  return (
+    <div className="space-y-4">
+      {/* Downloadable templates */}
+      <div className="card bg-amber-50 border-amber-200">
+        <h2 className="font-bold text-brand-navy flex items-center gap-2 mb-3">
+          <Download className="h-5 w-5" /> CSV Templates for bulk upload
+        </h2>
+        <p className="text-xs text-slate-600 mb-3">
+          Download each template, fill in your data in Excel/Google Sheets,
+          save as CSV, then upload via the "Bulk upload" button on the relevant
+          admin page.
+        </p>
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+          {TEMPLATES.map((t) => {
+            const Icon = t.icon;
+            return (
+              <a
+                key={t.name}
+                href={t.url}
+                download
+                className="block bg-white border border-slate-200 rounded p-2 hover:border-brand-navy hover:shadow-sm transition"
+              >
+                <div className="flex items-center gap-2">
+                  <Icon className="h-4 w-4 text-brand-navy" />
+                  <div className="font-semibold text-sm">{t.name}</div>
+                  <Download className="h-3 w-3 text-slate-400 ml-auto" />
+                </div>
+                <p className="text-[10px] text-slate-500 mt-1">{t.desc}</p>
+              </a>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Manual sections */}
+      <div className="space-y-2">
+        {sections.map((s) => {
+          const isOpen = openSection === s.id;
+          const Icon = s.icon;
+          return (
+            <div key={s.id} className="card p-0">
+              <button
+                onClick={() => setOpenSection(isOpen ? null : s.id)}
+                className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-slate-50 transition"
+              >
+                {isOpen ? (
+                  <ChevronDown className="h-4 w-4 text-slate-400 flex-shrink-0" />
+                ) : (
+                  <ChevronRight className="h-4 w-4 text-slate-400 flex-shrink-0" />
+                )}
+                <Icon className="h-5 w-5 text-brand-navy flex-shrink-0" />
+                <span className="font-semibold text-brand-navy flex-1">{s.title}</span>
+              </button>
+              {isOpen && (
+                <div className="px-4 pb-4 pt-1 border-t border-slate-100 ml-7">
+                  {s.content}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Footer help */}
+      <div className="card text-center text-slate-500 text-sm">
+        <p>
+          Need help with something not covered here? Email <strong>admin@itsalwaysfun.com</strong>{" "}
+          or check the GitHub repo for technical details.
+        </p>
+      </div>
+    </div>
+  );
+}
