@@ -26,6 +26,7 @@ export interface Product {
   age_group: string | null;
   is_addon: boolean;
   cost_cents: number;
+  weekend_price_per_day: number | null;
   created_at: string;
 }
 

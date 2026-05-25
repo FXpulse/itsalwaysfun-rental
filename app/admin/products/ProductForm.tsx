@@ -151,6 +151,27 @@ export function ProductForm({ product, action, submitLabel = "Save", categories 
         </div>
 
         <div>
+          <label className="block text-sm font-medium text-slate-700 mb-1">
+            Weekend rate <span className="text-xs text-slate-400">(USD, Sat/Sun — blank = use weekday price)</span>
+          </label>
+          <input
+            name="weekend_price_per_day_dollars"
+            type="number"
+            min={0}
+            step={1}
+            defaultValue={
+              product && product.weekend_price_per_day
+                ? Math.round(product.weekend_price_per_day / 100)
+                : ""
+            }
+            className="input"
+            disabled={pending}
+            placeholder="e.g. 349"
+          />
+          <ErrorMsg name="weekend_price_per_day" />
+        </div>
+
+        <div>
           <label className="block text-sm font-medium text-slate-700 mb-1">Stock</label>
           <input
             name="stock"

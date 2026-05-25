@@ -10,7 +10,7 @@ import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { getStripe, isStripeConfigured } from "@/lib/stripe/server";
-import { multiDayTotal, applyCoupon } from "@/lib/pricing";
+import { multiDayTotal, multiDayBreakdown, applyCoupon } from "@/lib/pricing";
 import { redeemPoints as doRedeemPoints } from "@/lib/loyalty";
 
 export const dynamic = "force-dynamic";
@@ -182,8 +182,13 @@ export async function POST(request: Request) {
     );
   }
 
-  // 4. Calculate subtotal — multi-day: base + 30% × (days-1) × base
-  const productSubtotal = multiDayTotal(product.price_per_day, days.length);
+  // 4. Calculate subtotal — multi-day with optional weekend pricing
+  // Per-day breakdown: weekday or weekend rate, with 30% surcharge on day 2+
+  const { total: productSubtotal } = multiDayBreakdown(
+    days,
+    product.price_per_day,
+    (product as any).weekend_price_per_day || null,
+  );
 
   // Power Supply add-on (flat per-day, no surcharge — it's an operational fee)
   let powerSupplyCents = 0;

@@ -30,6 +30,7 @@ import {
 } from "lucide-react";
 import { useCart } from "@/lib/cart/context";
 import { formatCurrency } from "@/lib/utils";
+import { multiDayBreakdown } from "@/lib/pricing";
 import { PaymentStep } from "./PaymentStep";
 import type { Product } from "@/types/database";
 
@@ -244,13 +245,34 @@ export function BookingWizard({
     setStep(s);
   }
 
-  // Multi-day formula: base + 30% × (days-1) × base
-  const productTotal = useMemo(() => {
-    if (!selectedProduct || numDays < 1) return 0;
-    if (numDays === 1) return selectedProduct.price_per_day;
-    const surcharge = selectedProduct.price_per_day * 0.30 * (numDays - 1);
-    return Math.round(selectedProduct.price_per_day + surcharge);
-  }, [selectedProduct, numDays]);
+  // Build list of dates in range (for weekend pricing breakdown)
+  const dateList = useMemo(() => {
+    if (!eventDate) return [];
+    const out: string[] = [];
+    const start = new Date(eventDate + "T00:00:00");
+    const end = new Date((eventEndDate || eventDate) + "T00:00:00");
+    const cur = new Date(start);
+    while (cur <= end) {
+      out.push(cur.toISOString().split("T")[0]);
+      cur.setDate(cur.getDate() + 1);
+    }
+    return out;
+  }, [eventDate, eventEndDate]);
+
+  // Multi-day total with optional weekend pricing.
+  // Each day uses weekend_price if Sat/Sun (when set), else price_per_day.
+  // Day 1 = full; Day 2+ = 30% surcharge of that day's base.
+  const priceBreakdown = useMemo(() => {
+    if (!selectedProduct || dateList.length === 0) {
+      return { breakdown: [], total: 0 };
+    }
+    return multiDayBreakdown(
+      dateList,
+      selectedProduct.price_per_day,
+      selectedProduct.weekend_price_per_day || null,
+    );
+  }, [selectedProduct, dateList]);
+  const productTotal = priceBreakdown.total;
 
   // Power supply add-on: flat per-day cost (no 30% surcharge — it's an operational fee)
   const needsPowerSupply = customer.powerSource === "no";
@@ -437,6 +459,7 @@ export function BookingWizard({
             eventEndDate={effectiveEndDate}
             numDays={numDays}
             productTotal={productTotal}
+            priceBreakdown={priceBreakdown.breakdown}
             powerSupply={powerSupply}
             powerSupplyCost={powerSupplyCost}
             totalAmount={totalAmount}
@@ -843,6 +866,7 @@ function CustomerInfoStep({
   eventEndDate,
   numDays,
   productTotal,
+  priceBreakdown,
   powerSupply,
   powerSupplyCost,
   totalAmount,
@@ -866,6 +890,13 @@ function CustomerInfoStep({
   eventEndDate: string | null;
   numDays: number;
   productTotal: number;
+  priceBreakdown: Array<{
+    date: string;
+    isWeekend: boolean;
+    basePriceCents: number;
+    appliedPriceCents: number;
+    isFirstDay: boolean;
+  }>;
   powerSupply: Product | null | undefined;
   powerSupplyCost: number;
   totalAmount: number;
@@ -1088,6 +1119,47 @@ function CustomerInfoStep({
             </div>
           </div>
         )}
+
+        {/* Weekend pricing breakdown — shown when the range includes weekend
+            days and the product has a different weekend rate */}
+        {priceBreakdown.length > 0 &&
+          priceBreakdown.some((d) => d.basePriceCents !== priceBreakdown[0].basePriceCents) && (
+            <div className="bg-blue-50 rounded p-3 border border-blue-200 text-sm">
+              <div className="font-semibold text-brand-navy mb-2">
+                Per-day pricing (weekend rate applied)
+              </div>
+              {priceBreakdown.map((d) => {
+                const dt = new Date(d.date + "T00:00:00");
+                const label = dt.toLocaleDateString("en-US", {
+                  weekday: "short",
+                  month: "short",
+                  day: "numeric",
+                });
+                return (
+                  <div key={d.date} className="flex justify-between text-xs text-slate-700">
+                    <span>
+                      {label}
+                      {d.isWeekend && (
+                        <span className="ml-1 text-[10px] bg-yellow-200 text-yellow-900 rounded px-1">
+                          weekend
+                        </span>
+                      )}
+                      {!d.isFirstDay && <span className="ml-1 text-slate-400">+30%</span>}
+                    </span>
+                    <span className="font-mono">
+                      {d.isFirstDay
+                        ? formatCurrency(d.appliedPriceCents)
+                        : `+${formatCurrency(d.appliedPriceCents)}`}
+                    </span>
+                  </div>
+                );
+              })}
+              <div className="flex justify-between border-t border-blue-300 pt-2 mt-2 font-bold text-brand-navy">
+                <span>Rental subtotal</span>
+                <span className="font-mono">{formatCurrency(productTotal)}</span>
+              </div>
+            </div>
+          )}
 
         {/* Cost breakdown when power supply selected */}
         {customer.powerSource === "no" && powerSupply && (

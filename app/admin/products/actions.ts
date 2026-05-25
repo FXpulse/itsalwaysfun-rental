@@ -34,6 +34,12 @@ export async function createProduct(formData: FormData) {
     age_group: String(formData.get("age_group") || "") || null,
     is_addon: formData.get("is_addon") === "on",
     cost_cents: Math.round(parseFloat(String(formData.get("cost_dollars") || "0")) * 100),
+    weekend_price_per_day: (() => {
+      const raw = String(formData.get("weekend_price_per_day_dollars") || "").trim();
+      if (!raw) return null;
+      const n = parseFloat(raw);
+      return Number.isNaN(n) ? null : Math.round(n * 100);
+    })(),
   };
 
   const parsed = ProductInputSchema.safeParse(raw);
@@ -70,6 +76,12 @@ export async function updateProduct(id: string, formData: FormData) {
     age_group: String(formData.get("age_group") || "") || null,
     is_addon: formData.get("is_addon") === "on",
     cost_cents: Math.round(parseFloat(String(formData.get("cost_dollars") || "0")) * 100),
+    weekend_price_per_day: (() => {
+      const raw = String(formData.get("weekend_price_per_day_dollars") || "").trim();
+      if (!raw) return null;
+      const n = parseFloat(raw);
+      return Number.isNaN(n) ? null : Math.round(n * 100);
+    })(),
   };
 
   const parsed = ProductInputSchema.safeParse(raw);

@@ -22,6 +22,52 @@ export function additionalDaysCost(pricePerDayCents: number, days: number): numb
   return Math.round(pricePerDayCents * ADDITIONAL_DAY_SURCHARGE * (days - 1));
 }
 
+/** True if YYYY-MM-DD falls on Saturday or Sunday. */
+export function isWeekendDate(dateStr: string): boolean {
+  const d = new Date(dateStr + "T00:00:00");
+  const day = d.getDay(); // 0 = Sun, 6 = Sat
+  return day === 0 || day === 6;
+}
+
+export interface DayBreakdown {
+  date: string;
+  isWeekend: boolean;
+  basePriceCents: number;       // weekday or weekend price
+  appliedPriceCents: number;    // after surcharge for day 2+
+  isFirstDay: boolean;
+}
+
+/** Compute per-day pricing for a multi-day rental, optionally honoring weekend rate.
+ *
+ *  Rule: each day uses its own base (weekend_price if Sat/Sun else weekday_price).
+ *  Day 1 = 100% of that day's base; Day 2+ = 30% surcharge of that day's base.
+ *
+ *  When weekendPriceCents is null/undefined, weekday price is used for ALL days
+ *  (backwards-compatible with the original formula). */
+export function multiDayBreakdown(
+  dates: string[],
+  weekdayPriceCents: number,
+  weekendPriceCents: number | null | undefined,
+): { breakdown: DayBreakdown[]; total: number } {
+  const useWeekend =
+    typeof weekendPriceCents === "number" && weekendPriceCents > 0;
+  const breakdown: DayBreakdown[] = dates.map((date, i) => {
+    const isWeekend = isWeekendDate(date);
+    const base = useWeekend && isWeekend ? weekendPriceCents! : weekdayPriceCents;
+    const isFirstDay = i === 0;
+    const applied = isFirstDay ? base : Math.round(base * ADDITIONAL_DAY_SURCHARGE);
+    return {
+      date,
+      isWeekend,
+      basePriceCents: base,
+      appliedPriceCents: applied,
+      isFirstDay,
+    };
+  });
+  const total = breakdown.reduce((s, d) => s + d.appliedPriceCents, 0);
+  return { breakdown, total };
+}
+
 /** Apply coupon discount to a total. Returns new total + applied discount (cents). */
 export function applyCoupon(
   subtotalCents: number,
