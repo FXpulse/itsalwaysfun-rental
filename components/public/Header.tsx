@@ -25,6 +25,7 @@ const NAV_ITEMS = [
 
 const INFO_ITEMS = [
   { href: "/info/faqs", label: "FAQs" },
+  { href: "/reviews", label: "Reviews" },
   { href: "/info/privacy-policy", label: "Privacy Policy" },
   { href: "/info/terms-of-service", label: "Terms of Service" },
 ];

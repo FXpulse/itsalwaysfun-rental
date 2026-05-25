@@ -19,6 +19,7 @@ import {
   Image as ImageIcon,
   FileText,
   HelpCircle,
+  Star,
 } from "lucide-react";
 
 interface Section {
@@ -434,6 +435,43 @@ export function HelpClient() {
             💡 This is different from <code>/admin/categories</code>, which controls
             rental product categories that show on the public site. Inventory
             categories are internal — customers never see them.
+          </p>
+        </div>
+      ),
+    },
+    {
+      id: "reviews",
+      title: "Customer reviews + Google link",
+      icon: Star,
+      content: (
+        <div className="space-y-3 text-sm">
+          <p>
+            Reviews shown on the public site are curated manually — you decide
+            what appears. Manage them at <code>/admin/reviews</code>.
+          </p>
+          <p className="font-semibold">How it works:</p>
+          <ol className="list-decimal pl-5 space-y-1 text-xs">
+            <li>Copy the text of a review from Google/Facebook/Yelp/email</li>
+            <li>In <code>/admin/reviews</code> click <strong>Add review</strong> → paste it, set name, rating, source, optional photo + date</li>
+            <li>Toggle <strong>Featured</strong> to put it in the homepage carousel (limit 3 visible at a time, they auto-rotate every 7s)</li>
+            <li>Toggle <strong>Visible</strong> off to hide without deleting</li>
+          </ol>
+          <p className="font-semibold">Where they show up:</p>
+          <ul className="list-disc pl-5 text-xs space-y-1">
+            <li><strong>Homepage carousel</strong> above the trust strip — only "Featured + Active" ones, max 12 in rotation</li>
+            <li><strong>/reviews page</strong> — ALL active reviews, sorted Featured first, then most recent</li>
+            <li>Linked from the public header (Info → Reviews)</li>
+          </ul>
+          <p className="text-xs text-slate-500">
+            💡 The <strong>"Leave us a Google review"</strong> CTA on both pages
+            uses the <code>google_review_url</code> setting (default points to
+            your maps.app.goo.gl link). Edit it in <code>/admin/site</code>
+            under the "reviews" category if your Google place ID changes.
+          </p>
+          <p className="text-xs text-slate-500">
+            💡 Phase 2 idea: auto-sync from Google Places API so new reviews
+            appear without manual copy-paste. Requires Google Cloud project +
+            API key + billing. Ask when you want to set this up.
           </p>
         </div>
       ),

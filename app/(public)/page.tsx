@@ -5,6 +5,7 @@ import { getSiteSettings } from "@/lib/site-settings";
 import { formatCurrency } from "@/lib/utils";
 import { Calendar, Sparkles, ArrowRight } from "lucide-react";
 import { HomeBanners } from "@/components/public/HomeBanners";
+import { ReviewsCarousel } from "@/components/public/ReviewsCarousel";
 import type { Product } from "@/types/database";
 
 export const revalidate = 60;
@@ -12,7 +13,7 @@ export const revalidate = 60;
 export default async function HomePage() {
   const supabase = createAdminClient();
 
-  const [productsResult, categoriesResult, settings, bannersResult] = await Promise.all([
+  const [productsResult, categoriesResult, settings, bannersResult, reviewsResult, reviewSettingsResult] = await Promise.all([
     supabase
       .from("products")
       .select("id, name, slug, category, price_per_day, image_url, description")
@@ -30,9 +31,28 @@ export default async function HomePage() {
       .select("id, image_url, alt_text, link_url")
       .eq("is_active", true)
       .order("sort_order", { ascending: true }),
+    supabase
+      .from("customer_reviews")
+      .select("id, customer_name, customer_location, review_text, rating, photo_url, source, reviewed_at")
+      .eq("is_active", true)
+      .eq("is_featured", true)
+      .order("sort_order")
+      .order("reviewed_at", { ascending: false, nullsFirst: false })
+      .limit(12),
+    supabase
+      .from("site_settings")
+      .select("key, value")
+      .in("key", ["google_review_url", "reviews_carousel_enabled", "reviews_section_title"]),
   ]);
 
   const banners = bannersResult.data || [];
+  const featuredReviews = reviewsResult.data || [];
+  const reviewSettingsMap = new Map(
+    (reviewSettingsResult.data as any[] || []).map((r) => [r.key, r.value]),
+  );
+  const reviewsEnabled = (reviewSettingsMap.get("reviews_carousel_enabled") || "true").toLowerCase() !== "false";
+  const googleReviewUrl = reviewSettingsMap.get("google_review_url") || "";
+  const reviewsTitle = reviewSettingsMap.get("reviews_section_title") || "What Our Customers Are Saying";
 
   const list = (productsResult.data as Product[]) || [];
   const allCategories = categoriesResult.data || [];
@@ -211,6 +231,15 @@ export default async function HomePage() {
           </div>
         </div>
       </section>
+
+      {/* Customer reviews carousel (above footer, only if enabled + has featured) */}
+      {reviewsEnabled && featuredReviews.length > 0 && (
+        <ReviewsCarousel
+          reviews={featuredReviews as any}
+          title={reviewsTitle}
+          googleReviewUrl={googleReviewUrl}
+        />
+      )}
 
       {/* Trust strip */}
       <section className="bg-brand-yellow text-brand-navy py-8" style={trustStyle}>
