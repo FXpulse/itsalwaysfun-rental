@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   Plus,
   Trash2,
@@ -15,6 +16,7 @@ import {
   Clock,
   AlertTriangle,
   Link as LinkIcon,
+  Smartphone,
 } from "lucide-react";
 import {
   createRoute,
@@ -438,6 +440,13 @@ function RouteCard({
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <Link
+            href={`/admin/dispatch/route/${route.id}`}
+            className="inline-flex items-center gap-1 text-xs bg-brand-yellow text-brand-navy font-semibold rounded px-3 py-1 hover:bg-yellow-300"
+            title="Open mobile-friendly driver view"
+          >
+            <Smartphone className="h-3 w-3" /> Driver view
+          </Link>
           <select
             value={route.status}
             onChange={(e) => onStatusChange(e.target.value)}

@@ -139,6 +139,30 @@ export async function unassignBookingFromRoute(
   return { success: true };
 }
 
+export async function markStopDelivered(stopId: string, routeId: string) {
+  await requireStaffOrAdmin();
+  const supabase = createAdminClient();
+  const { error } = await supabase
+    .from("dispatch_stops")
+    .update({ delivered_at: new Date().toISOString() })
+    .eq("id", stopId);
+  if (error) return { error: error.message };
+  revalidatePath(`/admin/dispatch/route/${routeId}`);
+  return { success: true };
+}
+
+export async function clearStopDelivered(stopId: string, routeId: string) {
+  await requireStaffOrAdmin();
+  const supabase = createAdminClient();
+  const { error } = await supabase
+    .from("dispatch_stops")
+    .update({ delivered_at: null })
+    .eq("id", stopId);
+  if (error) return { error: error.message };
+  revalidatePath(`/admin/dispatch/route/${routeId}`);
+  return { success: true };
+}
+
 export async function reorderStop(
   stopId: string,
   direction: "up" | "down",
