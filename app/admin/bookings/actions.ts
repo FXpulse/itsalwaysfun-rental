@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getStripe, isStripeConfigured } from "@/lib/stripe/server";
 import { awardForPaidBooking } from "@/lib/loyalty";
 import { sendBookingConfirmation } from "@/lib/email/scheduled-emails";
+import { sendBookingRefunded, sendBookingCancelled } from "@/lib/email/booking-lifecycle";
 import { z } from "zod";
 
 async function requireAdmin() {
