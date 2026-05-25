@@ -41,6 +41,7 @@ interface NavItem {
 const ALL_NAV: NavItem[] = [
   { href: "/admin/dashboard", label: "Dashboard", icon: Home, minRole: "staff" },
   { href: "/admin/bookings", label: "Bookings", icon: BookOpen, minRole: "staff" },
+  { href: "/admin/calendar", label: "Calendar", icon: Calendar, minRole: "staff" },
   { href: "/admin/dispatch", label: "Dispatch", icon: Truck, minRole: "staff" },
   { href: "/admin/quotes", label: "Quotes", icon: FileText, minRole: "admin" },
   { href: "/admin/customers", label: "Customers", icon: UserCircle, minRole: "staff" },
