@@ -8,7 +8,7 @@ import { z } from "zod";
 const CreateUserSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8, "Password must be at least 8 characters"),
-  role: z.enum(["admin", "staff"]),
+  role: z.enum(["admin", "staff", "driver"]),
 });
 
 export async function createUser(formData: FormData) {
@@ -55,7 +55,7 @@ export async function createUser(formData: FormData) {
 
 const UpdateRoleSchema = z.object({
   user_id: z.string().uuid(),
-  role: z.enum(["admin", "staff"]),
+  role: z.enum(["admin", "staff", "driver"]),
 });
 
 export async function updateUserRole(formData: FormData) {

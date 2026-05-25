@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 export interface UserRow {
   user_id: string;
   email: string;
-  role: "admin" | "staff";
+  role: "admin" | "staff" | "driver";
   is_active: boolean;
   created_at: string;
   last_sign_in_at: string | null;

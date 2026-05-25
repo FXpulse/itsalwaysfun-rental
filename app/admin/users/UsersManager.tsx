@@ -161,6 +161,7 @@ export function UsersManager({
                       >
                         <option value="admin">Admin</option>
                         <option value="staff">Staff</option>
+                        <option value="driver">Driver</option>
                       </select>
                     </td>
                     <td className="px-4 py-3">
@@ -274,7 +275,8 @@ export function UsersManager({
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Role</label>
               <select name="role" defaultValue="staff" className="input">
-                <option value="staff">Staff (Bookings, Inventory, Availability)</option>
+                <option value="staff">Staff (Bookings, Inventory, Availability, Dispatch)</option>
+                <option value="driver">Driver (only today's routes — for crew in the field)</option>
                 <option value="admin">Admin (everything)</option>
               </select>
             </div>

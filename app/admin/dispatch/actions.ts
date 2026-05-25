@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { requireStaffOrAdmin } from "@/lib/auth/roles";
+import { requireStaffOrAdmin, requireDriverOrAbove } from "@/lib/auth/roles";
 import { z } from "zod";
 
 const CreateRouteSchema = z.object({
@@ -140,7 +140,7 @@ export async function unassignBookingFromRoute(
 }
 
 export async function markStopDelivered(stopId: string, routeId: string) {
-  await requireStaffOrAdmin();
+  await requireDriverOrAbove();
   const supabase = createAdminClient();
   const { error } = await supabase
     .from("dispatch_stops")
@@ -152,7 +152,7 @@ export async function markStopDelivered(stopId: string, routeId: string) {
 }
 
 export async function clearStopDelivered(stopId: string, routeId: string) {
-  await requireStaffOrAdmin();
+  await requireDriverOrAbove();
   const supabase = createAdminClient();
   const { error } = await supabase
     .from("dispatch_stops")

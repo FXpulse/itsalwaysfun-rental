@@ -7,7 +7,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
-export type UserRole = "admin" | "staff";
+export type UserRole = "admin" | "staff" | "driver";
 
 export interface UserWithRole {
   id: string;
@@ -65,9 +65,27 @@ export async function requireStaffOrAdmin() {
   return role;
 }
 
+/** Throws if user is not driver/staff/admin. Used for dispatch operations
+ *  drivers need to perform from the field (mark stops delivered, capture proofs). */
+export async function requireDriverOrAbove() {
+  const role = await getCurrentUserRole();
+  if (!role) throw new Error("Sign in required");
+  return role; // any active role passes
+}
+
 /** True if the current user is allowed to access a given admin route. */
 export function canAccessRoute(role: UserRole, path: string): boolean {
   if (role === "admin") return true;
+  if (role === "driver") {
+    // Drivers can ONLY access: their /driver landing + dispatch route view +
+    // individual booking detail (for proof capture)
+    const allowed = [
+      "/driver",
+      "/admin/dispatch/route",
+      "/admin/bookings",
+    ];
+    return allowed.some((p) => path === p || path.startsWith(p + "/"));
+  }
   // Staff scope: bookings + inventory + dashboard (read-only data they need)
   const staffAllowedPrefixes = [
     "/admin/dashboard",

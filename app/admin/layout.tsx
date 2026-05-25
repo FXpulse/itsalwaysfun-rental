@@ -88,6 +88,11 @@ export default async function AdminLayout({
     redirect("/admin/login?error=no_role");
   }
 
+  // Drivers go to their dedicated /driver landing — NOT the admin shell
+  if (userRole.role === "driver") {
+    redirect("/driver");
+  }
+
   const nav = visibleNav(userRole.role);
   const roleBadge =
     userRole.role === "admin" ? (
