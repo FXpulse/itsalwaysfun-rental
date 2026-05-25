@@ -3,7 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin } from "@/lib/auth/roles";
-import { sendEmail, isEmailConfigured } from "@/lib/email/send";
+import { isEmailConfigured } from "@/lib/email/send";
+import { sendTemplated } from "@/lib/email/send-template";
 import { renderQuoteEmail } from "@/lib/email/templates";
 import { z } from "zod";
 
@@ -212,23 +213,39 @@ export async function sendQuote(id: string) {
     }
   }
 
-  // 2. Send the actual email via Resend
+  // 2. Send the actual email via Resend (DB template first, fallback to hardcoded)
   if (isEmailConfigured()) {
-    const tmpl = renderQuoteEmail({
-      firstName: q.customer_first_name,
-      quoteNumber: q.quote_number,
-      quoteUrl,
-      total: q.total_cents,
-      eventDate: q.event_date,
-      eventEndDate: q.event_end_date,
-      message: q.customer_message,
-      expiresAt: q.expires_at,
-    });
-    const r = await sendEmail({
+    const expiresFormatted = q.expires_at
+      ? new Date(q.expires_at).toLocaleDateString("en-US", {
+          month: "long",
+          day: "numeric",
+          year: "numeric",
+        })
+      : "";
+    const r = await sendTemplated({
+      key: "quote_sent",
       to: q.customer_email,
-      subject: tmpl.subject,
-      html: tmpl.html,
-      text: tmpl.text,
+      vars: {
+        firstName: q.customer_first_name,
+        quoteNumber: q.quote_number,
+        eventDate: q.event_date,
+        eventEndDate: q.event_end_date,
+        totalDollars: (q.total_cents / 100).toFixed(2),
+        message: q.customer_message || "",
+        quoteUrl,
+        expiresAtFormatted: expiresFormatted,
+      },
+      fallback: () =>
+        renderQuoteEmail({
+          firstName: q.customer_first_name,
+          quoteNumber: q.quote_number,
+          quoteUrl,
+          total: q.total_cents,
+          eventDate: q.event_date,
+          eventEndDate: q.event_end_date,
+          message: q.customer_message,
+          expiresAt: q.expires_at,
+        }),
       tags: [
         { name: "type", value: "quote_sent" },
         { name: "quote_number", value: q.quote_number },

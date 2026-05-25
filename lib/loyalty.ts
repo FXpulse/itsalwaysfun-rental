@@ -3,7 +3,8 @@
 // webhooks, server actions, and route handlers.
 
 import { createAdminClient } from "@/lib/supabase/admin";
-import { sendEmail, isEmailConfigured } from "@/lib/email/send";
+import { isEmailConfigured } from "@/lib/email/send";
+import { sendTemplated } from "@/lib/email/send-template";
 import { renderReferralEmail, renderAdminPayoutAlert } from "@/lib/email/templates";
 
 export interface LoyaltySettings {
@@ -248,23 +249,32 @@ export async function awardForPaidBooking(bookingId: string): Promise<void> {
     console.error("Referral webhook failed (non-fatal)", e);
   }
 
-  // 2. Send email via Resend directly to the referrer
+  // 2. Send email via Resend directly to the referrer (DB template + fallback)
   if (isEmailConfigured() && referrerUser?.email) {
     const baseUrl =
       process.env.NEXT_PUBLIC_APP_URL || "https://itsalwaysfun-rental.vercel.app";
-    const tmpl = renderReferralEmail({
-      firstName: referrerMeta.first_name || referrerUser.email.split("@")[0],
-      commissionEarned: commissionCents,
-      referredCustomerEmail: customer.email!,
-      totalPendingCommission: newPendingCents,
-      portalUrl: `${baseUrl}/portal/referrals`,
-      readyForPayout,
-    });
-    const r = await sendEmail({
+    const firstName = referrerMeta.first_name || referrerUser.email.split("@")[0];
+
+    const r = await sendTemplated({
+      key: "referral_commission",
       to: referrerUser.email,
-      subject: tmpl.subject,
-      html: tmpl.html,
-      text: tmpl.text,
+      vars: {
+        firstName,
+        commissionDollars: (commissionCents / 100).toFixed(2),
+        referredCustomerEmail: customer.email!,
+        totalPendingDollars: (newPendingCents / 100).toFixed(2),
+        portalUrl: `${baseUrl}/portal/referrals`,
+        readyForPayout: readyForPayout ? "true" : "",
+      },
+      fallback: () =>
+        renderReferralEmail({
+          firstName,
+          commissionEarned: commissionCents,
+          referredCustomerEmail: customer.email!,
+          totalPendingCommission: newPendingCents,
+          portalUrl: `${baseUrl}/portal/referrals`,
+          readyForPayout,
+        }),
       tags: [{ name: "type", value: "referral_commission" }],
     });
     if (!r.ok) console.error("[Resend referral send failed]", r.error);
@@ -272,20 +282,29 @@ export async function awardForPaidBooking(bookingId: string): Promise<void> {
     // 3. Alert admin if threshold reached
     if (readyForPayout) {
       const adminEmail = process.env.ADMIN_ALERT_EMAIL || "admin@itsalwaysfun.com";
-      const adminTmpl = renderAdminPayoutAlert({
-        customerName:
-          `${referrerMeta.first_name || ""} ${referrerMeta.last_name || ""}`.trim() ||
-          referrerUser.email,
-        customerEmail: referrerUser.email,
-        customerPhone: referrerMeta.phone || "",
-        totalPending: newPendingCents,
-        adminPanelUrl: `${baseUrl}/admin/loyalty/${profile.referred_by_user_id}`,
-      });
-      await sendEmail({
+      const customerName =
+        `${referrerMeta.first_name || ""} ${referrerMeta.last_name || ""}`.trim() ||
+        referrerUser.email;
+      const adminPanelUrl = `${baseUrl}/admin/loyalty/${profile.referred_by_user_id}`;
+
+      await sendTemplated({
+        key: "admin_payout_alert",
         to: adminEmail,
-        subject: adminTmpl.subject,
-        html: adminTmpl.html,
-        text: adminTmpl.text,
+        vars: {
+          customerName,
+          customerEmail: referrerUser.email,
+          customerPhone: referrerMeta.phone || "",
+          totalPendingDollars: (newPendingCents / 100).toFixed(2),
+          adminPanelUrl,
+        },
+        fallback: () =>
+          renderAdminPayoutAlert({
+            customerName,
+            customerEmail: referrerUser.email!,
+            customerPhone: referrerMeta.phone || "",
+            totalPending: newPendingCents,
+            adminPanelUrl,
+          }),
         tags: [{ name: "type", value: "admin_payout_alert" }],
       });
     }

@@ -5,7 +5,8 @@
 
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { sendEmail, isEmailConfigured } from "@/lib/email/send";
+import { isEmailConfigured } from "@/lib/email/send";
+import { sendTemplated } from "@/lib/email/send-template";
 import { renderAbandonedCartEmail } from "@/lib/email/templates";
 
 export const dynamic = "force-dynamic";
@@ -59,22 +60,31 @@ export async function POST(request: Request) {
     }
   }
 
-  // 2. Direct email via Resend
+  // 2. Direct email via Resend (DB template + fallback)
   if (isEmailConfigured()) {
     const baseUrl =
       process.env.NEXT_PUBLIC_APP_URL || "https://itsalwaysfun-rental.vercel.app";
-    const tmpl = renderAbandonedCartEmail({
-      firstName: parsed.data.firstName,
-      productName: parsed.data.product,
-      eventDate: parsed.data.eventDate,
-      totalPrice: Math.round(parsed.data.totalPrice * 100),
-      resumeUrl: `${baseUrl}/order-by-date?product=${encodeURIComponent(parsed.data.productSlug)}`,
-    });
-    const r = await sendEmail({
+    const resumeUrl = `${baseUrl}/order-by-date?product=${encodeURIComponent(parsed.data.productSlug)}`;
+    const totalCents = Math.round(parsed.data.totalPrice * 100);
+
+    const r = await sendTemplated({
+      key: "abandoned_cart",
       to: parsed.data.email,
-      subject: tmpl.subject,
-      html: tmpl.html,
-      text: tmpl.text,
+      vars: {
+        firstName: parsed.data.firstName,
+        productName: parsed.data.product,
+        eventDate: parsed.data.eventDate,
+        totalDollars: parsed.data.totalPrice.toFixed(2),
+        resumeUrl,
+      },
+      fallback: () =>
+        renderAbandonedCartEmail({
+          firstName: parsed.data.firstName,
+          productName: parsed.data.product,
+          eventDate: parsed.data.eventDate,
+          totalPrice: totalCents,
+          resumeUrl,
+        }),
       tags: [{ name: "type", value: "abandoned_cart" }],
     });
     results.resend = { ok: r.ok, id: r.id, error: r.error };
