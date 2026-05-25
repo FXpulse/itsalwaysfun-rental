@@ -12,6 +12,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendTemplated } from "@/lib/email/send-template";
 import { isEmailConfigured } from "@/lib/email/send";
+import { sendSms, isSmsConfigured } from "@/lib/sms/send";
 
 type EmailType =
   | "booking_confirmation"
@@ -90,11 +91,8 @@ function buildVars(b: BookingRow, extras: Record<string, any> = {}): Record<stri
   };
 }
 
-/** Send the immediate booking confirmation email. Idempotent. */
+/** Send the immediate booking confirmation email + SMS. Idempotent. */
 export async function sendBookingConfirmation(bookingId: string): Promise<void> {
-  if (!isEmailConfigured()) return;
-  if (await alreadySent(bookingId, "booking_confirmation")) return;
-
   const supabase = createAdminClient();
   const { data: booking } = await supabase
     .from("bookings")
@@ -103,17 +101,32 @@ export async function sendBookingConfirmation(bookingId: string): Promise<void> 
     .single();
   if (!booking) return;
 
-  const r = await sendTemplated({
-    key: "booking_confirmation",
-    to: (booking as BookingRow).customer_email,
-    vars: buildVars(booking as BookingRow),
-    tags: [
-      { name: "type", value: "booking_confirmation" },
-      { name: "booking_id", value: bookingId },
-    ],
-  });
+  const b = booking as BookingRow;
 
-  await recordSend(bookingId, "booking_confirmation", r.ok, r.id, r.ok ? undefined : r.error);
+  // Email (idempotent via ledger)
+  if (isEmailConfigured() && !(await alreadySent(bookingId, "booking_confirmation"))) {
+    const r = await sendTemplated({
+      key: "booking_confirmation",
+      to: b.customer_email,
+      vars: buildVars(b),
+      tags: [
+        { name: "type", value: "booking_confirmation" },
+        { name: "booking_id", value: bookingId },
+      ],
+    });
+    await recordSend(bookingId, "booking_confirmation", r.ok, r.id, r.ok ? undefined : r.error);
+  }
+
+  // SMS (best-effort, separate channel — uses customer_phone if present)
+  if (isSmsConfigured() && b.customer_phone) {
+    const dateLabel = new Date(b.event_date + "T00:00:00").toLocaleDateString("en-US", {
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+    });
+    const smsBody = `✓ Booking confirmed for ${b.product_name} on ${dateLabel}. We'll text you 1-2 days before delivery to coordinate. — It's Always Fun (904) 584-3047`;
+    await sendSms({ to: b.customer_phone, body: smsBody }).catch(() => {});
+  }
 }
 
 /** Scan all bookings and send any due scheduled emails. Called by daily cron. */
@@ -173,6 +186,16 @@ export async function processScheduledBookingEmails(): Promise<{
         });
         await recordSend(b.id, "booking_reminder_3d", r.ok, r.id, r.ok ? undefined : r.error);
         if (r.ok) summary.reminder_3d++;
+
+        // SMS reminder too (best-effort)
+        if (isSmsConfigured() && b.customer_phone) {
+          const dateLabel = new Date(b.event_date + "T00:00:00").toLocaleDateString(
+            "en-US",
+            { weekday: "short", month: "short", day: "numeric" },
+          );
+          const smsBody = `🎉 Reminder: your ${b.product_name} rental is in 3 days (${dateLabel})! We'll text again 1-2 days before. Reply or call (904) 584-3047 if anything changes.`;
+          await sendSms({ to: b.customer_phone, body: smsBody }).catch(() => {});
+        }
       } catch (e: any) {
         summary.errors.push(`reminder_3d ${b.id}: ${e.message}`);
       }

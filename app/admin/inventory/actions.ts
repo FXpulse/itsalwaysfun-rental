@@ -5,6 +5,54 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin, requireStaffOrAdmin } from "@/lib/auth/roles";
 import { z } from "zod";
 
+const MaintenanceSchema = z.object({
+  inventory_item_id: z.string().uuid(),
+  type: z.enum(["cleaning", "repair", "inspection", "replacement", "other"]),
+  description: z.string().min(1).max(500),
+  cost_dollars: z.number().min(0),
+  performed_at: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  performed_by: z.string().max(200).optional().nullable(),
+  notes: z.string().max(2000).optional().nullable(),
+});
+
+export async function logMaintenance(formData: FormData) {
+  const me = await requireStaffOrAdmin();
+  const parsed = MaintenanceSchema.safeParse({
+    inventory_item_id: String(formData.get("inventory_item_id") || ""),
+    type: String(formData.get("type") || "cleaning"),
+    description: String(formData.get("description") || ""),
+    cost_dollars: parseFloat(String(formData.get("cost_dollars") || "0")) || 0,
+    performed_at: String(formData.get("performed_at") || new Date().toISOString().split("T")[0]),
+    performed_by: (formData.get("performed_by") as string) || me.email,
+    notes: (formData.get("notes") as string) || null,
+  });
+  if (!parsed.success) return { error: parsed.error.errors.map((e) => e.message).join(", ") };
+
+  const supabase = createAdminClient();
+  const { error } = await supabase.from("inventory_maintenance").insert({
+    inventory_item_id: parsed.data.inventory_item_id,
+    type: parsed.data.type,
+    description: parsed.data.description,
+    cost_cents: Math.round(parsed.data.cost_dollars * 100),
+    performed_at: parsed.data.performed_at,
+    performed_by: parsed.data.performed_by,
+    notes: parsed.data.notes,
+  });
+  if (error) return { error: error.message };
+
+  revalidatePath("/admin/inventory");
+  return { success: true };
+}
+
+export async function deleteMaintenance(id: string) {
+  await requireStaffOrAdmin();
+  const supabase = createAdminClient();
+  const { error } = await supabase.from("inventory_maintenance").delete().eq("id", id);
+  if (error) return { error: error.message };
+  revalidatePath("/admin/inventory");
+  return { success: true };
+}
+
 const ItemInput = z.object({
   name: z.string().min(1).max(200),
   category: z.string().min(1).max(100),

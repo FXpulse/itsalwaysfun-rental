@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState, useTransition, useMemo } from "react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
@@ -12,6 +13,7 @@ import {
   Trash2,
   Pencil,
   AlertTriangle,
+  ClipboardList,
 } from "lucide-react";
 import {
   createInventoryItem,
@@ -265,10 +267,17 @@ export function InventoryManager({
                           </td>
                           <td className="px-4 py-3 text-slate-600">{item.location || "—"}</td>
                           <td className="px-4 py-3 text-right space-x-2">
+                            <Link
+                              href={`/admin/inventory/${item.id}`}
+                              className="text-xs text-slate-600 hover:text-brand-navy inline-flex items-center gap-1"
+                              title="Maintenance log + history"
+                            >
+                              <ClipboardList className="h-3 w-3" /> Log
+                            </Link>
                             <button
                               onClick={() => setConditionFor(item)}
                               className="text-xs text-slate-600 hover:text-brand-navy inline-flex items-center gap-1"
-                              title="Update condition + maintenance"
+                              title="Update condition"
                             >
                               <Wrench className="h-3 w-3" /> Condition
                             </button>
