@@ -39,6 +39,14 @@ const BodySchema = z
       .nullable()
       .optional(),
     needs_power_supply: z.boolean().optional(),
+    addons: z
+      .array(
+        z.object({
+          product_id: z.string().uuid(),
+          quantity: z.number().int().min(1).max(99),
+        }),
+      )
+      .optional(),
     notes: z.string().max(2000).nullable().optional(),
     redeem_points: z.number().int().min(0).optional(),
     ghl_contact_id: z.string().optional(),
@@ -229,7 +237,42 @@ export async function POST(request: Request) {
     }
   }
 
-  const subtotal = productSubtotal + powerSupplyCents;
+  // Customer-selected addons (chairs, tables, etc.) — flat per-day × qty × days
+  let addonsTotal = 0;
+  const addonLineItems: Array<{
+    product_id: string;
+    slug: string;
+    name: string;
+    quantity: number;
+    unit_price_cents: number;
+    line_total_cents: number;
+  }> = [];
+  if (parsed.data.addons && parsed.data.addons.length > 0) {
+    const addonIds = parsed.data.addons.map((a) => a.product_id);
+    const { data: addonProducts } = await supabase
+      .from("products")
+      .select("id, slug, name, price_per_day")
+      .in("id", addonIds)
+      .eq("is_active", true)
+      .eq("is_addon", true);
+
+    for (const a of parsed.data.addons) {
+      const p = (addonProducts as any[] || []).find((x) => x.id === a.product_id);
+      if (!p) continue; // silently skip unknown/inactive addons
+      const lineTotal = p.price_per_day * a.quantity * days.length;
+      addonLineItems.push({
+        product_id: p.id,
+        slug: p.slug,
+        name: p.name,
+        quantity: a.quantity,
+        unit_price_cents: p.price_per_day,
+        line_total_cents: lineTotal,
+      });
+      addonsTotal += lineTotal;
+    }
+  }
+
+  const subtotal = productSubtotal + powerSupplyCents + addonsTotal;
 
   // Apply coupon if provided
   let totalAmount = subtotal;
@@ -308,6 +351,8 @@ export async function POST(request: Request) {
       surface_type: parsed.data.surface_type || null,
       needs_power_supply: parsed.data.needs_power_supply || false,
       power_supply_cents: powerSupplyCents,
+      addons: addonLineItems,
+      addons_total_cents: addonsTotal,
       notes: parsed.data.notes || null,
       stripe_payment_status: "pending",
       booking_status: "pending_payment",

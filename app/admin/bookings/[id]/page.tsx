@@ -157,6 +157,32 @@ export default async function BookingDetailPage({
                 }
               />
             )}
+            {Array.isArray((b as any).addons) && (b as any).addons.length > 0 && (
+              <Row
+                label="Add-ons"
+                value={
+                  <div className="space-y-0.5">
+                    {(b as any).addons.map((a: any, i: number) => (
+                      <div key={i} className="text-xs flex justify-between gap-2">
+                        <span>
+                          <span className="font-mono font-bold mr-1">{a.quantity}×</span>
+                          {a.name}
+                        </span>
+                        <span className="font-mono text-slate-600">
+                          {formatCurrency(a.line_total_cents)}
+                        </span>
+                      </div>
+                    ))}
+                    <div className="text-xs text-slate-500 pt-0.5 border-t border-slate-100">
+                      Subtotal:{" "}
+                      <strong>
+                        {formatCurrency((b as any).addons_total_cents || 0)}
+                      </strong>
+                    </div>
+                  </div>
+                }
+              />
+            )}
           </dl>
         </div>
 

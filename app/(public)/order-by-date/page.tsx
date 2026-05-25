@@ -37,6 +37,11 @@ export default async function OrderByDatePage() {
   const products = allProducts.filter((p) => !p.is_addon);
   // Power supply add-on (used when customer says "no power source")
   const powerSupply = allProducts.find((p) => p.slug === "power-supply" && p.is_addon) || null;
+  // Other customer-selectable addons (chairs, tables, etc.) — excludes power-supply
+  // (handled separately by the Yes/No question)
+  const customerAddons = allProducts.filter(
+    (p) => p.is_addon && p.slug !== "power-supply",
+  );
   const categories = (categoriesResult.data as CategoryRow[]) || [];
 
   // Min booking lead time (hours) — disables dates within this window in the picker
@@ -132,6 +137,7 @@ export default async function OrderByDatePage() {
         products={products}
         categories={categories}
         powerSupply={powerSupply}
+        customerAddons={customerAddons}
         minLeadHours={minLeadHours}
         stripeConfigured={isStripeConfigured()}
         stripePublishableKey={process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || ""}

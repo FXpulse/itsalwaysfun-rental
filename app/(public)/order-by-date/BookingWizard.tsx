@@ -83,6 +83,7 @@ export function BookingWizard({
   products,
   categories,
   powerSupply,
+  customerAddons = [],
   minLeadHours = 48,
   stripeConfigured,
   stripePublishableKey,
@@ -93,6 +94,7 @@ export function BookingWizard({
   products: Product[];
   categories: Category[];
   powerSupply?: Product | null;
+  customerAddons?: Product[];
   minLeadHours?: number;
   stripeConfigured: boolean;
   stripePublishableKey: string;
@@ -140,6 +142,8 @@ export function BookingWizard({
   const [bookingResult, setBookingResult] = useState<BookingResult | null>(null);
   const [couponCode, setCouponCode] = useState("");
   const [redeemPoints, setRedeemPoints] = useState(0);
+  // Map of addon productId → quantity (0 or missing = not selected)
+  const [addonQuantities, setAddonQuantities] = useState<Record<string, number>>({});
   const [pending, startTransition] = useTransition();
   const [unavailableDates, setUnavailableDates] = useState<Set<string>>(new Set());
   const [loadingAvailability, setLoadingAvailability] = useState(false);
@@ -283,7 +287,16 @@ export function BookingWizard({
     return powerSupply.price_per_day * numDays;
   }, [needsPowerSupply, powerSupply, numDays]);
 
-  const totalAmount = productTotal + powerSupplyCost;
+  // Customer-selected addons: flat per-day × qty × num days (no surcharge)
+  const addonsTotal = useMemo(() => {
+    return customerAddons.reduce((sum, addon) => {
+      const qty = addonQuantities[addon.id] || 0;
+      if (qty <= 0) return sum;
+      return sum + addon.price_per_day * qty * numDays;
+    }, 0);
+  }, [customerAddons, addonQuantities, numDays]);
+
+  const totalAmount = productTotal + powerSupplyCost + addonsTotal;
 
   // For API: use end date if set, else single-day (event_date repeated)
   const effectiveEndDate = eventEndDate || eventDate;
@@ -311,6 +324,9 @@ export function BookingWizard({
             },
             surface_type: customer.surfaceType || null,
             needs_power_supply: needsPowerSupply,
+            addons: Object.entries(addonQuantities)
+              .filter(([_, qty]) => qty > 0)
+              .map(([product_id, quantity]) => ({ product_id, quantity })),
             notes: customer.notes || null,
             coupon_code: couponCode.trim() || undefined,
             redeem_points: redeemPoints > 0 ? redeemPoints : undefined,
@@ -465,6 +481,12 @@ export function BookingWizard({
             priceBreakdown={priceBreakdown.breakdown}
             powerSupply={powerSupply}
             powerSupplyCost={powerSupplyCost}
+            customerAddons={customerAddons}
+            addonQuantities={addonQuantities}
+            onAddonQtyChange={(productId, qty) =>
+              setAddonQuantities((prev) => ({ ...prev, [productId]: qty }))
+            }
+            addonsTotal={addonsTotal}
             totalAmount={totalAmount}
             couponCode={couponCode}
             onCouponChange={setCouponCode}
@@ -891,6 +913,10 @@ function CustomerInfoStep({
   priceBreakdown,
   powerSupply,
   powerSupplyCost,
+  customerAddons,
+  addonQuantities,
+  onAddonQtyChange,
+  addonsTotal,
   totalAmount,
   couponCode,
   onCouponChange,
@@ -921,6 +947,10 @@ function CustomerInfoStep({
   }>;
   powerSupply: Product | null | undefined;
   powerSupplyCost: number;
+  customerAddons: Product[];
+  addonQuantities: Record<string, number>;
+  onAddonQtyChange: (productId: string, qty: number) => void;
+  addonsTotal: number;
   totalAmount: number;
   couponCode: string;
   onCouponChange: (s: string) => void;
@@ -1186,6 +1216,68 @@ function CustomerInfoStep({
               </div>
             </div>
           )}
+
+        {/* Optional customer add-ons (chairs, tables, etc.) */}
+        {customerAddons.length > 0 && (
+          <div className="bg-slate-50 rounded p-3 border border-slate-200">
+            <div className="text-sm font-medium text-slate-700 mb-2">
+              Optional add-ons <span className="text-xs text-slate-500">(rent extras for your event)</span>
+            </div>
+            <div className="space-y-2">
+              {customerAddons.map((addon) => {
+                const qty = addonQuantities[addon.id] || 0;
+                const lineTotal = addon.price_per_day * qty * numDays;
+                return (
+                  <div
+                    key={addon.id}
+                    className={`flex items-center gap-3 p-2 rounded border ${qty > 0 ? "bg-white border-brand-yellow" : "bg-white border-slate-200"}`}
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium text-sm">{addon.name}</div>
+                      {addon.description && (
+                        <div className="text-xs text-slate-500 truncate">{addon.description}</div>
+                      )}
+                      <div className="text-xs text-slate-600 mt-0.5">
+                        ${(addon.price_per_day / 100).toFixed(2)}/day
+                        {qty > 0 && numDays > 1 && (
+                          <span className="text-slate-400"> × {numDays} days</span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => onAddonQtyChange(addon.id, Math.max(0, qty - 1))}
+                        className="h-7 w-7 rounded border border-slate-300 hover:bg-slate-50 text-slate-700 disabled:opacity-30"
+                        disabled={qty <= 0}
+                      >
+                        −
+                      </button>
+                      <span className="font-mono w-6 text-center font-semibold">
+                        {qty}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => onAddonQtyChange(addon.id, qty + 1)}
+                        className="h-7 w-7 rounded border border-slate-300 hover:bg-slate-50 text-slate-700"
+                      >
+                        +
+                      </button>
+                    </div>
+                    <div className="font-mono text-sm font-semibold text-brand-navy w-20 text-right">
+                      {qty > 0 ? `+${formatCurrency(lineTotal)}` : "—"}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            {addonsTotal > 0 && (
+              <div className="text-right text-xs text-slate-600 mt-2 pt-2 border-t border-slate-300">
+                Add-ons subtotal: <strong className="text-brand-navy">{formatCurrency(addonsTotal)}</strong>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Cost breakdown when power supply selected */}
         {customer.powerSource === "no" && powerSupply && (
