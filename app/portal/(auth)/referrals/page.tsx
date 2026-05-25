@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { ensureCustomerProfile, getLoyaltySettings } from "@/lib/loyalty";
 import { formatCurrency } from "@/lib/utils";
 import { ReferralBox } from "./ReferralBox";
+import { PayoutSection } from "./PayoutSection";
 import { Gift, Users, DollarSign } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -17,9 +18,17 @@ export default async function PortalReferralsPage() {
   const admin = createAdminClient();
   const { data: profile } = await admin
     .from("customer_profiles")
-    .select("referral_code, commission_pending_cents, commission_paid_cents")
+    .select("referral_code, commission_pending_cents, commission_paid_cents, w9_url, w9_uploaded_at, w9_tax_year")
     .eq("user_id", user.id)
     .single();
+
+  // Payout requests (current + history)
+  const { data: payoutHistory } = await admin
+    .from("payout_requests")
+    .select("id, amount_cents, payout_type, status, requested_at, approved_at, processed_at, rejected_reason")
+    .eq("user_id", user.id)
+    .order("requested_at", { ascending: false })
+    .limit(20);
 
   // List of referred users (people who used this person's code)
   const { data: referredProfiles } = await admin
@@ -102,6 +111,15 @@ export default async function PortalReferralsPage() {
 
       {/* Referral code/link box */}
       <ReferralBox code={profile?.referral_code || ""} />
+
+      {/* Payout request section */}
+      <PayoutSection
+        pendingBalance={profile?.commission_pending_cents || 0}
+        hasW9OnFile={!!profile?.w9_url}
+        w9UploadedAt={profile?.w9_uploaded_at || null}
+        w9TaxYear={profile?.w9_tax_year || null}
+        payoutHistory={(payoutHistory as any[]) || []}
+      />
 
       {/* Referred list */}
       <div>

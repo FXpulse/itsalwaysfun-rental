@@ -30,6 +30,7 @@ export async function uploadImage(opts: UploadOptions): Promise<
     "image/png",
     "image/webp",
     "image/svg+xml",
+    "application/pdf",  // For W9 forms etc.
   ];
   if (!allowedMimes.includes(file.type)) {
     return { error: `Unsupported file type: ${file.type}` };

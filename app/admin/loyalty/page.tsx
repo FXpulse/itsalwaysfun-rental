@@ -13,6 +13,7 @@ import {
   AlertTriangle,
   ArrowRight,
 } from "lucide-react";
+import { PayoutRequestsPanel } from "./PayoutRequestsPanel";
 
 export const dynamic = "force-dynamic";
 
@@ -41,6 +42,27 @@ export default async function AdminLoyaltyPage() {
   const { data: { users: authUsers } = { users: [] } } =
     await supabase.auth.admin.listUsers({ perPage: 500 });
   const emailMap = new Map((authUsers || []).map((u: any) => [u.id, u.email]));
+
+  // Fetch pending + approved payout requests (need admin attention)
+  const { data: pendingRequests } = await supabase
+    .from("payout_requests")
+    .select("*")
+    .in("status", ["pending", "approved"])
+    .order("requested_at", { ascending: false });
+
+  const payoutRequests = ((pendingRequests as any[]) || []).map((r) => {
+    const authUser = (authUsers || []).find((u: any) => u.id === r.user_id);
+    const meta = (authUser?.user_metadata as any) || {};
+    const name =
+      `${meta.first_name || ""} ${meta.last_name || ""}`.trim() ||
+      authUser?.email ||
+      "(unknown)";
+    return {
+      ...r,
+      user_email: authUser?.email || "(unknown)",
+      user_name: name,
+    };
+  });
 
   // Stats totals
   const totals = (profiles || []).reduce(
@@ -74,6 +96,9 @@ export default async function AdminLoyaltyPage() {
           <Settings className="h-3 w-3" /> Edit settings
         </Link>
       </div>
+
+      {/* Payout requests panel — only renders if there are any */}
+      <PayoutRequestsPanel requests={payoutRequests} />
 
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
