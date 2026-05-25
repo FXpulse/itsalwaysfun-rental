@@ -5,6 +5,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { BookingActions } from "./BookingActions";
 import { DeliveryChecklist } from "./DeliveryChecklist";
+import { ProofCapture } from "./ProofCapture";
+import { DamagesSection } from "./DamagesSection";
 import { getDeliveryChecklist } from "@/lib/delivery-checklist";
 import type { Booking } from "@/types/database";
 import { z } from "zod";
@@ -36,6 +38,37 @@ export default async function BookingDetailPage({
 
   // Compute delivery checklist from product inventory requirements
   const checklist = await getDeliveryChecklist(params.id);
+
+  // Load proofs (delivery + pickup) and damages in parallel
+  const [{ data: proofs }, { data: damagesRaw }, { data: inventory }] = await Promise.all([
+    supabase.from("booking_proofs").select("*").eq("booking_id", params.id),
+    supabase
+      .from("booking_damages")
+      .select(`
+        id, inventory_item_id, description, severity, cost_cents,
+        customer_responsible, charged_to_customer, resolved, photo_url,
+        recorded_at, recorded_by, notes,
+        inventory_items (name)
+      `)
+      .eq("booking_id", params.id)
+      .order("recorded_at", { ascending: false }),
+    supabase
+      .from("inventory_items")
+      .select("id, name, category")
+      .eq("is_active", true)
+      .order("category")
+      .order("name"),
+  ]);
+
+  const proofsList = (proofs as any[]) || [];
+  const deliveryProof =
+    proofsList.find((p) => p.phase === "delivery") || null;
+  const pickupProof = proofsList.find((p) => p.phase === "pickup") || null;
+
+  const damages = ((damagesRaw as any[]) || []).map((d) => ({
+    ...d,
+    inventory_name: d.inventory_items?.name || null,
+  }));
 
   return (
     <div className="max-w-4xl">
@@ -165,6 +198,21 @@ export default async function BookingDetailPage({
         deliveryCheckedAt={b.delivery_checked_at || null}
         deliveryCheckedBy={b.delivery_checked_by || null}
       />
+
+      {/* Proofs */}
+      <div className="space-y-4 mb-6">
+        <ProofCapture bookingId={b.id} phase="delivery" existing={deliveryProof} />
+        <ProofCapture bookingId={b.id} phase="pickup" existing={pickupProof} />
+      </div>
+
+      {/* Damages */}
+      <div className="mb-6">
+        <DamagesSection
+          bookingId={b.id}
+          damages={damages}
+          inventory={(inventory as any[]) || []}
+        />
+      </div>
 
       {/* Actions */}
       <BookingActions booking={b} />
