@@ -145,6 +145,7 @@ const DamageSchema = z.object({
   severity: z.enum(["minor", "moderate", "major"]),
   cost_dollars: z.number().min(0),
   customer_responsible: z.boolean(),
+  covered_by_protection: z.boolean(),
   notes: z.string().max(2000).optional().nullable(),
 });
 
@@ -157,6 +158,7 @@ export async function recordDamage(formData: FormData) {
     severity: String(formData.get("severity") || "minor"),
     cost_dollars: parseFloat(String(formData.get("cost_dollars") || "0")) || 0,
     customer_responsible: formData.get("customer_responsible") === "on",
+    covered_by_protection: formData.get("covered_by_protection") === "on",
     notes: (formData.get("notes") as string) || null,
   });
   if (!parsed.success) {
