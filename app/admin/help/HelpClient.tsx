@@ -20,6 +20,7 @@ import {
   FileText,
   HelpCircle,
   Star,
+  CloudRain,
 } from "lucide-react";
 
 interface Section {
@@ -477,6 +478,80 @@ export function HelpClient() {
       ),
     },
     {
+      id: "coi",
+      title: "Certificates of Insurance (COI) for venues",
+      icon: ShieldCheck,
+      content: (
+        <div className="space-y-3 text-sm">
+          <p>
+            Many venues (schools, parks, churches, HOAs, corporate offices)
+            require proof of insurance with them listed as additional insured
+            before they let you set up bounce houses on their property.
+          </p>
+          <p className="font-semibold">How the flow works:</p>
+          <ol className="list-decimal pl-5 space-y-1 text-xs">
+            <li>At checkout, customer checks <strong>"My venue requires a Certificate of Insurance"</strong></li>
+            <li>They fill venue name, address, who to list as additional insured, any special instructions</li>
+            <li>On booking creation, a row is added to <code>coi_requests</code> with status <strong>requested</strong></li>
+            <li>You see the request in <code>/admin/coi</code> with all the venue details</li>
+            <li>You call/email your insurance broker → they generate the COI PDF</li>
+            <li>Back in <code>/admin/coi</code>, click <strong>Upload COI</strong>, attach the PDF</li>
+            <li>Customer gets emailed automatically + the COI shows on their <code>/portal/bookings/[id]</code> page with a download button</li>
+            <li>Optionally click <strong>Mark delivered to venue</strong> after you've sent it directly to the venue contact</li>
+          </ol>
+          <p className="font-semibold">Where to manage:</p>
+          <ul className="list-disc pl-5 text-xs space-y-1">
+            <li><code>/admin/coi</code> — pending requests panel with upload</li>
+            <li>Each booking detail page links to its COI request</li>
+            <li>Disable the option at checkout by toggling <code>coi_request_enabled</code> in <code>/admin/site</code> → legal category</li>
+          </ul>
+          <p className="text-xs text-slate-500">
+            💡 The PDF lives in your public Supabase storage (site-assets bucket).
+            That's fine — COIs aren't sensitive (they just name your insurance
+            carrier + policy number).
+          </p>
+        </div>
+      ),
+    },
+    {
+      id: "weather-cancellation",
+      title: "Weather cancellation policy",
+      icon: CloudRain,
+      content: (
+        <div className="space-y-3 text-sm">
+          <p>
+            Bounce houses can't run in unsafe weather (winds 15+ mph, lightning,
+            heavy rain). Instead of refunding cash (you lose revenue + your
+            crew's reserved day), the system auto-issues a <strong>gift card
+            credit</strong> for the full paid amount, valid 1 year.
+          </p>
+          <p className="font-semibold">How the flow works (customer side):</p>
+          <ol className="list-decimal pl-5 space-y-1 text-xs">
+            <li>Customer sees a blue "Bad weather forecast?" card on their <code>/portal/bookings/[id]</code> page — only up to <strong>6 hours before</strong> event start (configurable)</li>
+            <li>They click → see the policy + the amount they'll get credited</li>
+            <li>Confirm → booking is cancelled, gift card is auto-generated, email is sent with the code</li>
+          </ol>
+          <p className="font-semibold">What you (admin) see:</p>
+          <ul className="list-disc pl-5 text-xs space-y-1">
+            <li>The booking shows <code>cancelled</code> + flag <code>cancelled_due_to_weather=true</code></li>
+            <li>The gift card appears in <code>/admin/gift-cards</code> with note "weather cancellation credit"</li>
+            <li>An audit line is appended to the booking notes</li>
+          </ul>
+          <p className="font-semibold">Tune the policy:</p>
+          <ul className="list-disc pl-5 text-xs space-y-1">
+            <li><code>weather_cancellation_enabled</code> — true/false to allow self-service at all</li>
+            <li><code>weather_cancellation_cutoff_hours</code> — default 6. Increase to 24 to close the option the day before. Decrease to 2 if you want last-minute decisions allowed.</li>
+            <li><code>weather_cancellation_policy_text</code> — full policy shown to customer in the confirmation dialog</li>
+          </ul>
+          <p className="text-xs text-slate-500">
+            💡 After the cutoff, the option disappears and customers must call
+            you. That's intentional — gives YOU the judgment call when it's
+            within hours of the event.
+          </p>
+        </div>
+      ),
+    },
+    {
       id: "waiver",
       title: "Liability waiver e-signature (legal)",
       icon: ShieldCheck,
@@ -607,6 +682,10 @@ export function HelpClient() {
             <li>☐ Toggle "Public gift card sales" OFF on <code>/admin/gift-cards</code> → confirm <code>/gift-cards</code> shows "call us" message → toggle back ON</li>
             <li>☐ As a referrer in /portal/referrals: request CREDIT payout → admin approves → recipient gets gift card email automatically</li>
             <li>☐ As a referrer: request CASH payout → upload W9 → admin clicks "View W9 form" (opens private signed PDF) → approve → mark as paid with transfer ID</li>
+            <li>☐ Book a rental as a customer → sign the liability waiver (test card 4242...) → check signed record exists by querying <code>booking_waivers</code></li>
+            <li>☐ Book a rental + check "My venue requires a COI" → fill venue info → admin sees it in <code>/admin/coi</code> → uploads PDF → customer gets email + sees download in portal</li>
+            <li>☐ As a customer with a paid booking 8+ hours out: click "Bad weather forecast?" → confirm → gift card code appears in email + booking shows cancelled</li>
+            <li>☐ Add a review in <code>/admin/reviews</code> → toggle Featured ON → check it appears in homepage carousel + on <code>/reviews</code> page</li>
             <li>☐ Create staff + driver users → login as each → verify role gating</li>
             <li>☐ Driver marks stop delivered → captures proof photos + signature</li>
             <li>☐ Record damage with protection vs without → check chargeable amounts</li>

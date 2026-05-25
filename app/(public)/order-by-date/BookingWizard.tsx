@@ -100,6 +100,7 @@ export function BookingWizard({
   waiverEnabled = false,
   waiverTitle = "Liability Waiver",
   waiverText = "",
+  coiEnabled = false,
 }: {
   products: Product[];
   categories: Category[];
@@ -115,6 +116,7 @@ export function BookingWizard({
   waiverEnabled?: boolean;
   waiverTitle?: string;
   waiverText?: string;
+  coiEnabled?: boolean;
 }) {
   const { item: cartItem, clear } = useCart();
 
@@ -164,6 +166,12 @@ export function BookingWizard({
   // Liability waiver — signed at checkout
   const [waiverAgreed, setWaiverAgreed] = useState(false);
   const [waiverSignedName, setWaiverSignedName] = useState("");
+  // COI request — venue requires Certificate of Insurance
+  const [coiRequested, setCoiRequested] = useState(false);
+  const [coiVenueName, setCoiVenueName] = useState("");
+  const [coiVenueAddress, setCoiVenueAddress] = useState("");
+  const [coiAdditionalInsured, setCoiAdditionalInsured] = useState("");
+  const [coiInstructions, setCoiInstructions] = useState("");
   const [pending, startTransition] = useTransition();
   const [unavailableDates, setUnavailableDates] = useState<Set<string>>(new Set());
   const [loadingAvailability, setLoadingAvailability] = useState(false);
@@ -358,6 +366,15 @@ export function BookingWizard({
             waiver_signature: waiverEnabled
               ? { agreed: waiverAgreed, signed_name: waiverSignedName.trim() }
               : undefined,
+            coi_request:
+              coiEnabled && coiRequested && coiVenueName.trim()
+                ? {
+                    venue_name: coiVenueName.trim(),
+                    venue_address: coiVenueAddress.trim() || null,
+                    additional_insured: coiAdditionalInsured.trim() || null,
+                    special_instructions: coiInstructions.trim() || null,
+                  }
+                : undefined,
           }),
         });
 
@@ -535,6 +552,17 @@ export function BookingWizard({
             onWaiverAgreedChange={setWaiverAgreed}
             waiverSignedName={waiverSignedName}
             onWaiverSignedNameChange={setWaiverSignedName}
+            coiEnabled={coiEnabled}
+            coiRequested={coiRequested}
+            onCoiRequestedChange={setCoiRequested}
+            coiVenueName={coiVenueName}
+            onCoiVenueNameChange={setCoiVenueName}
+            coiVenueAddress={coiVenueAddress}
+            onCoiVenueAddressChange={setCoiVenueAddress}
+            coiAdditionalInsured={coiAdditionalInsured}
+            onCoiAdditionalInsuredChange={setCoiAdditionalInsured}
+            coiInstructions={coiInstructions}
+            onCoiInstructionsChange={setCoiInstructions}
             onBack={() => goToStep("product")}
             onSubmit={handleSubmit}
             pending={pending}
@@ -978,6 +1006,17 @@ function CustomerInfoStep({
   onWaiverAgreedChange,
   waiverSignedName,
   onWaiverSignedNameChange,
+  coiEnabled,
+  coiRequested,
+  onCoiRequestedChange,
+  coiVenueName,
+  onCoiVenueNameChange,
+  coiVenueAddress,
+  onCoiVenueAddressChange,
+  coiAdditionalInsured,
+  onCoiAdditionalInsuredChange,
+  coiInstructions,
+  onCoiInstructionsChange,
   onBack,
   onSubmit,
   pending,
@@ -1025,11 +1064,23 @@ function CustomerInfoStep({
   onWaiverAgreedChange: (b: boolean) => void;
   waiverSignedName: string;
   onWaiverSignedNameChange: (s: string) => void;
+  coiEnabled: boolean;
+  coiRequested: boolean;
+  onCoiRequestedChange: (b: boolean) => void;
+  coiVenueName: string;
+  onCoiVenueNameChange: (s: string) => void;
+  coiVenueAddress: string;
+  onCoiVenueAddressChange: (s: string) => void;
+  coiAdditionalInsured: string;
+  onCoiAdditionalInsuredChange: (s: string) => void;
+  coiInstructions: string;
+  onCoiInstructionsChange: (s: string) => void;
   onBack: () => void;
   onSubmit: () => void;
   pending: boolean;
 }) {
   const waiverOk = !waiverEnabled || (waiverAgreed && waiverSignedName.trim().length >= 2);
+  const coiOk = !coiRequested || coiVenueName.trim().length > 0;
 
   const valid =
     customer.firstName.trim() &&
@@ -1041,7 +1092,8 @@ function CustomerInfoStep({
     customer.zip.trim() &&
     customer.surfaceType &&
     customer.powerSource &&
-    waiverOk;
+    waiverOk &&
+    coiOk;
 
   const rangeLabel =
     numDays > 1 && eventEndDate
@@ -1495,6 +1547,22 @@ function CustomerInfoStep({
         )}
       </div>
 
+      {/* COI request (optional — venue insurance requirement) */}
+      {coiEnabled && (
+        <CoiBlock
+          requested={coiRequested}
+          onRequestedChange={onCoiRequestedChange}
+          venueName={coiVenueName}
+          onVenueNameChange={onCoiVenueNameChange}
+          venueAddress={coiVenueAddress}
+          onVenueAddressChange={onCoiVenueAddressChange}
+          additionalInsured={coiAdditionalInsured}
+          onAdditionalInsuredChange={onCoiAdditionalInsuredChange}
+          instructions={coiInstructions}
+          onInstructionsChange={onCoiInstructionsChange}
+        />
+      )}
+
       {/* Liability waiver e-signature */}
       {waiverEnabled && waiverText && (
         <WaiverBlock
@@ -1516,6 +1584,114 @@ function CustomerInfoStep({
           {pending ? "Processing..." : "Continue to payment →"}
         </button>
       </div>
+    </div>
+  );
+}
+
+function CoiBlock({
+  requested,
+  onRequestedChange,
+  venueName,
+  onVenueNameChange,
+  venueAddress,
+  onVenueAddressChange,
+  additionalInsured,
+  onAdditionalInsuredChange,
+  instructions,
+  onInstructionsChange,
+}: {
+  requested: boolean;
+  onRequestedChange: (b: boolean) => void;
+  venueName: string;
+  onVenueNameChange: (s: string) => void;
+  venueAddress: string;
+  onVenueAddressChange: (s: string) => void;
+  additionalInsured: string;
+  onAdditionalInsuredChange: (s: string) => void;
+  instructions: string;
+  onInstructionsChange: (s: string) => void;
+}) {
+  return (
+    <div className="mt-6 border border-blue-200 bg-blue-50/30 rounded-lg p-4">
+      <label className="flex items-start gap-2 text-sm cursor-pointer">
+        <input
+          type="checkbox"
+          checked={requested}
+          onChange={(e) => onRequestedChange(e.target.checked)}
+          className="h-4 w-4 mt-0.5 flex-shrink-0"
+        />
+        <span>
+          <strong className="text-brand-navy">My venue requires a Certificate of Insurance (COI)</strong>
+          <p className="text-xs text-slate-600 mt-0.5">
+            Many schools, parks, churches, and HOAs require proof we have
+            liability insurance with them listed as additional insured. Check
+            with your venue if unsure.
+          </p>
+        </span>
+      </label>
+
+      {requested && (
+        <div className="mt-4 space-y-3 pl-6 border-l-2 border-blue-200">
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 mb-1">
+              Venue name <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              value={venueName}
+              onChange={(e) => onVenueNameChange(e.target.value)}
+              placeholder="e.g. Mandarin Community Center"
+              required
+              className="input"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 mb-1">
+              Venue address
+            </label>
+            <input
+              type="text"
+              value={venueAddress}
+              onChange={(e) => onVenueAddressChange(e.target.value)}
+              placeholder="3848 Hartley Rd, Jacksonville, FL 32257"
+              className="input"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 mb-1">
+              Who to list as "additional insured"
+            </label>
+            <input
+              type="text"
+              value={additionalInsured}
+              onChange={(e) => onAdditionalInsuredChange(e.target.value)}
+              placeholder="Exact legal name from venue contract (often differs from common name)"
+              className="input"
+            />
+            <p className="text-[10px] text-slate-500 mt-1">
+              If unsure, leave blank — we'll use the venue name. Your venue
+              should give you the exact wording.
+            </p>
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 mb-1">
+              Special instructions (optional)
+            </label>
+            <textarea
+              rows={2}
+              value={instructions}
+              onChange={(e) => onInstructionsChange(e.target.value)}
+              placeholder="e.g. Email to facilities@school.edu by Friday, need $2M aggregate, etc."
+              className="input"
+            />
+          </div>
+          <p className="text-xs text-blue-900 bg-blue-100/50 rounded p-2">
+            ℹ️ We'll request the COI from our insurance broker after you book
+            and email it to you within 1–2 business days. You can also see the
+            status + download it from <strong>My Account → bookings</strong>.
+          </p>
+        </div>
+      )}
     </div>
   );
 }

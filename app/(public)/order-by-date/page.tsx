@@ -63,6 +63,7 @@ export default async function OrderByDatePage() {
       "waiver_enabled",
       "waiver_title",
       "waiver_text",
+      "coi_request_enabled",
     ]);
   const settingsMap = new Map(
     (extraSettings as any[] || []).map((s) => [s.key, s.value]),
@@ -78,6 +79,7 @@ export default async function OrderByDatePage() {
   const waiverEnabled = (settingsMap.get("waiver_enabled") || "true").toLowerCase() !== "false";
   const waiverTitle = settingsMap.get("waiver_title") || "Liability Waiver";
   const waiverText = settingsMap.get("waiver_text") || "";
+  const coiEnabled = (settingsMap.get("coi_request_enabled") || "true").toLowerCase() !== "false";
 
   // Detect portal-authenticated customer + pull profile to prefill the wizard
   const authClient = createClient();
@@ -175,6 +177,7 @@ export default async function OrderByDatePage() {
         waiverEnabled={waiverEnabled}
         waiverTitle={waiverTitle}
         waiverText={waiverText}
+        coiEnabled={coiEnabled}
       />
     </div>
   );

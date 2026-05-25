@@ -13,6 +13,7 @@ import {
   CheckCircle2,
 } from "lucide-react";
 import { BookingActionsCustomer } from "./BookingActionsCustomer";
+import { WeatherCancelPanel } from "./WeatherCancelPanel";
 
 export const dynamic = "force-dynamic";
 
@@ -68,6 +69,28 @@ export default async function PortalBookingDetail({
 
   const isPaid = booking.stripe_payment_status === "paid";
   const isCancelled = booking.booking_status === "cancelled";
+
+  // Weather cancellation settings
+  const { data: weatherRows } = await admin
+    .from("site_settings")
+    .select("key, value")
+    .in("key", [
+      "weather_cancellation_enabled",
+      "weather_cancellation_cutoff_hours",
+      "weather_cancellation_policy_text",
+    ]);
+  const weatherMap = new Map((weatherRows as any[] || []).map((r) => [r.key, r.value]));
+  const weatherEnabled =
+    (weatherMap.get("weather_cancellation_enabled") || "true").toLowerCase() !== "false";
+  const weatherCutoff = parseInt(weatherMap.get("weather_cancellation_cutoff_hours") || "6", 10) || 6;
+  const weatherPolicy = weatherMap.get("weather_cancellation_policy_text") || "";
+
+  // COI request status for this booking (if any)
+  const { data: coiRow } = await admin
+    .from("coi_requests")
+    .select("status, venue_name, coi_file_url, uploaded_at")
+    .eq("booking_id", booking.id)
+    .maybeSingle();
 
   return (
     <div className="max-w-3xl">
@@ -179,7 +202,7 @@ export default async function PortalBookingDetail({
       </div>
 
       {/* Customer actions: confirm / modify date / cancel */}
-      <div className="mb-6">
+      <div className="mb-6 space-y-3">
         <BookingActionsCustomer
           bookingId={booking.id}
           eventDate={booking.event_date}
@@ -188,6 +211,69 @@ export default async function PortalBookingDetail({
           bookingStatus={booking.booking_status}
           customerConfirmedAt={booking.customer_confirmed_at || null}
         />
+        {weatherEnabled && (
+          <WeatherCancelPanel
+            bookingId={booking.id}
+            eventDate={booking.event_date}
+            startTime={booking.start_time}
+            bookingStatus={booking.booking_status}
+            paidAmount={booking.total_amount}
+            paymentStatus={booking.stripe_payment_status}
+            cutoffHours={weatherCutoff}
+            policyText={weatherPolicy}
+          />
+        )}
+        {booking.cancelled_due_to_weather && booking.weather_credit_cents > 0 && (
+          <div className="card bg-blue-50 border-blue-200">
+            <p className="text-sm text-blue-900">
+              <strong>Weather cancellation processed.</strong> Your{" "}
+              {formatCurrency(booking.weather_credit_cents)} gift card credit
+              was emailed to you and is valid for 1 year.
+            </p>
+          </div>
+        )}
+
+        {coiRow && (
+          <div className="card border-blue-200 bg-blue-50/50">
+            <div className="flex items-start gap-3">
+              <div className="text-2xl">📄</div>
+              <div className="flex-1">
+                <h3 className="font-bold text-brand-navy mb-1">
+                  Certificate of Insurance — {coiRow.venue_name}
+                </h3>
+                {coiRow.status === "requested" && (
+                  <p className="text-sm text-amber-800">
+                    <strong>Requested.</strong> We're generating it with our
+                    broker — usually ready within 1-2 business days. You'll get
+                    an email when it's ready.
+                  </p>
+                )}
+                {(coiRow.status === "uploaded" || coiRow.status === "delivered_to_venue") && coiRow.coi_file_url && (
+                  <>
+                    <p className="text-sm text-green-800 mb-2">
+                      <strong>Ready!</strong> Uploaded{" "}
+                      {coiRow.uploaded_at && new Date(coiRow.uploaded_at).toLocaleDateString()}.
+                      Download below and forward to your venue.
+                    </p>
+                    <a
+                      href={coiRow.coi_file_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 bg-brand-navy text-white text-sm font-semibold rounded px-3 py-1.5 hover:bg-brand-navy-dark"
+                    >
+                      Download COI →
+                    </a>
+                  </>
+                )}
+                {coiRow.status === "cancelled" && (
+                  <p className="text-sm text-slate-600">
+                    Request was cancelled. Call us if you still need a COI.
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Rebook CTA */}

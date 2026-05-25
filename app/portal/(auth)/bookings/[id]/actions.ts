@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { sendBookingCancelled } from "@/lib/email/booking-lifecycle";
+import { sendTemplated } from "@/lib/email/send-template";
+import { isEmailConfigured } from "@/lib/email/send";
 import { z } from "zod";
 
 const CUTOFF_HOURS = 48;
@@ -225,6 +227,145 @@ export async function cancelBookingByCustomer(bookingId: string, formData: FormD
     revalidatePath(`/portal/bookings`);
     revalidatePath(`/admin/bookings/${bookingId}`);
     return { success: true };
+  } catch (e: any) {
+    return { error: e.message || "Failed to cancel" };
+  }
+}
+
+/** Weather cancellation: customer self-cancels close to event due to unsafe
+ *  weather. Auto-issues a gift card for the paid amount (revenue preserved,
+ *  customer can rebook). Different cutoff than regular cancellation (configurable,
+ *  default 6h) since weather is decided last-minute. */
+export async function cancelBookingDueToWeather(bookingId: string) {
+  try {
+    const { admin, booking } = await loadOwnBooking(bookingId);
+
+    if (booking.booking_status === "cancelled") {
+      return { error: "Already cancelled" };
+    }
+
+    // Load weather settings
+    const { data: settingRows } = await admin
+      .from("site_settings")
+      .select("key, value")
+      .in("key", ["weather_cancellation_enabled", "weather_cancellation_cutoff_hours"]);
+    const settingMap = new Map(
+      (settingRows as { key: string; value: string }[] | null || []).map((s) => [s.key, s.value]),
+    );
+    const enabled = (settingMap.get("weather_cancellation_enabled") || "true").toLowerCase() !== "false";
+    if (!enabled) {
+      return { error: "Weather cancellation is not available — call (904) 584-3047." };
+    }
+    const cutoff = parseInt(settingMap.get("weather_cancellation_cutoff_hours") || "6", 10) || 6;
+
+    const hoursLeft = hoursUntilEvent(booking);
+    if (hoursLeft < cutoff) {
+      return {
+        error: `Weather cancellation closes ${cutoff}h before event. You're inside that window — call (904) 584-3047.`,
+      };
+    }
+    if (hoursLeft < 0) {
+      return { error: "Event has already started" };
+    }
+
+    // Only paid bookings get a credit. Unpaid → just cancel.
+    const paidCents = booking.stripe_payment_status === "paid" ? booking.total_amount : 0;
+    if (paidCents <= 0) {
+      // Just cancel without credit
+      const auditNote = `[${new Date().toISOString().split("T")[0]}] Weather cancellation (no payment to credit)`;
+      const newNotes = booking.notes ? `${booking.notes}\n${auditNote}` : auditNote;
+      await admin
+        .from("bookings")
+        .update({
+          booking_status: "cancelled",
+          cancelled_due_to_weather: true,
+          notes: newNotes,
+        })
+        .eq("id", bookingId);
+      revalidatePath(`/portal/bookings/${bookingId}`);
+      return { success: true, credited: false };
+    }
+
+    // Issue gift card for the paid amount (good for 1 year)
+    const { data: codeRow } = await admin.rpc("generate_gift_card_code");
+    const code = codeRow as string;
+    if (!code) return { error: "Failed to generate credit code — try again or call us." };
+
+    const oneYearFromNow = new Date();
+    oneYearFromNow.setFullYear(oneYearFromNow.getFullYear() + 1);
+
+    const { data: card, error: cardErr } = await admin
+      .from("gift_cards")
+      .insert({
+        code,
+        original_amount_cents: paidCents,
+        balance_cents: paidCents,
+        recipient_email: booking.customer_email,
+        recipient_name: `${booking.customer_first_name} ${booking.customer_last_name}`.trim(),
+        purchaser_name: "It's Always Fun (weather cancellation credit)",
+        message: `Credit for your ${booking.event_date} booking that was cancelled due to weather. Apply at checkout when you rebook.`,
+        expires_at: oneYearFromNow.toISOString(),
+        is_active: true,
+      })
+      .select("id, code")
+      .single();
+    if (cardErr || !card) {
+      return { error: `Failed to issue credit: ${cardErr?.message}` };
+    }
+
+    // Update booking
+    const auditNote = `[${new Date().toISOString().split("T")[0]}] Weather cancellation — gift card ${card.code} issued for $${(paidCents / 100).toFixed(2)}`;
+    const newNotes = booking.notes ? `${booking.notes}\n${auditNote}` : auditNote;
+    await admin
+      .from("bookings")
+      .update({
+        booking_status: "cancelled",
+        cancelled_due_to_weather: true,
+        weather_credit_gift_card_id: card.id,
+        weather_credit_cents: paidCents,
+        notes: newNotes,
+      })
+      .eq("id", bookingId);
+
+    // Email customer
+    if (isEmailConfigured()) {
+      const baseUrl =
+        process.env.NEXT_PUBLIC_APP_URL || "https://itsalwaysfun-rental.vercel.app";
+      const amountDollars = (paidCents / 100).toFixed(2);
+      try {
+        await sendTemplated({
+          key: "weather_cancellation_credit",
+          to: booking.customer_email,
+          vars: {
+            firstName: booking.customer_first_name,
+            eventDate: booking.event_date,
+            amount: amountDollars,
+            code: card.code,
+            expiresAt: oneYearFromNow.toLocaleDateString(),
+            bookingUrl: `${baseUrl}/order-by-date`,
+          },
+          fallback: () => ({
+            subject: `Weather credit issued — $${amountDollars} for ${booking.event_date}`,
+            html: `<p>Hi ${booking.customer_first_name},</p>
+<p>Sorry the weather isn't cooperating for your ${booking.event_date} booking. We've cancelled it and issued you a gift card credit:</p>
+<p>Code: <strong style="font-family:monospace;font-size:18px;background:#FFD700;padding:6px 12px;border-radius:4px;">${card.code}</strong></p>
+<p>Amount: <strong>$${amountDollars}</strong> · Expires: ${oneYearFromNow.toLocaleDateString()}</p>
+<p>Use it at checkout when you rebook: <a href="${baseUrl}/order-by-date">${baseUrl}/order-by-date</a></p>
+<p>Stay safe — we look forward to setting you up on a better day.</p>
+<p>— The It's Always Fun team</p>`,
+            text: `Weather credit: ${card.code} ($${amountDollars}) — valid 1 year. Use at ${baseUrl}/order-by-date`,
+          }),
+          tags: [{ name: "type", value: "weather_cancellation_credit" }],
+        });
+      } catch (e) {
+        console.error("[weather credit email failed, non-fatal]", e);
+      }
+    }
+
+    revalidatePath(`/portal/bookings/${bookingId}`);
+    revalidatePath(`/portal/bookings`);
+    revalidatePath(`/admin/bookings/${bookingId}`);
+    return { success: true, credited: true, code: card.code, amount_cents: paidCents };
   } catch (e: any) {
     return { error: e.message || "Failed to cancel" };
   }

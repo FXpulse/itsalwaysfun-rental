@@ -61,6 +61,15 @@ const BodySchema = z
       })
       .optional()
       .nullable(),
+    coi_request: z
+      .object({
+        venue_name: z.string().min(1).max(200),
+        venue_address: z.string().max(500).optional().nullable(),
+        additional_insured: z.string().max(300).optional().nullable(),
+        special_instructions: z.string().max(1000).optional().nullable(),
+      })
+      .optional()
+      .nullable(),
   })
   .refine((d) => d.product_slug || d.product_id, {
     message: "product_slug or product_id is required",
@@ -441,6 +450,24 @@ export async function POST(request: Request) {
       { error: "Failed to create booking", details: bookErr?.message },
       { status: 500 }
     );
+  }
+
+  // 5b1. Persist COI request if customer asked for one
+  if (parsed.data.coi_request && parsed.data.coi_request.venue_name) {
+    const coi = parsed.data.coi_request;
+    const { error: coiErr } = await supabase.from("coi_requests").insert({
+      booking_id: booking.id,
+      venue_name: coi.venue_name.trim(),
+      venue_address: coi.venue_address?.trim() || null,
+      additional_insured: coi.additional_insured?.trim() || null,
+      special_instructions: coi.special_instructions?.trim() || null,
+      requested_by_email: parsed.data.customer.email,
+      status: "requested",
+    });
+    if (coiErr) {
+      // Non-fatal — admin can manually create from booking detail
+      console.error("[coi insert failed, non-fatal]", coiErr);
+    }
   }
 
   // 5b. Persist signed waiver (snapshot the exact text the customer agreed to)

@@ -29,6 +29,7 @@ import {
   Truck as TruckIcon,
   Gift,
   Star,
+  ShieldCheck,
 } from "lucide-react";
 
 type Role = "admin" | "staff";
@@ -59,6 +60,7 @@ const ALL_NAV: NavItem[] = [
   { href: "/admin/reports", label: "Reports", icon: BarChart3, minRole: "admin" },
   { href: "/admin/site", label: "Website content", icon: Globe, minRole: "admin" },
   { href: "/admin/waiver", label: "Liability waiver", icon: FileText, minRole: "admin" },
+  { href: "/admin/coi", label: "COI requests", icon: ShieldCheck, minRole: "admin" },
   { href: "/admin/reviews", label: "Reviews", icon: Star, minRole: "admin" },
   { href: "/admin/banners", label: "Home banners", icon: Images, minRole: "admin" },
   { href: "/admin/email-templates", label: "Email templates", icon: Mail, minRole: "admin" },
