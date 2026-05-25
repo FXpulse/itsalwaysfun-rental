@@ -57,6 +57,7 @@ const ALL_NAV: NavItem[] = [
   { href: "/admin/loyalty", label: "Loyalty", icon: Sparkles, minRole: "admin" },
   { href: "/admin/reports", label: "Reports", icon: BarChart3, minRole: "admin" },
   { href: "/admin/site", label: "Website content", icon: Globe, minRole: "admin" },
+  { href: "/admin/waiver", label: "Liability waiver", icon: FileText, minRole: "admin" },
   { href: "/admin/banners", label: "Home banners", icon: Images, minRole: "admin" },
   { href: "/admin/email-templates", label: "Email templates", icon: Mail, minRole: "admin" },
   { href: "/admin/faqs", label: "FAQs", icon: HelpCircle, minRole: "admin" },

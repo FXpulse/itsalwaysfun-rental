@@ -6,6 +6,7 @@
 // range must be available and total = price_per_day × num_days.
 
 import { NextResponse } from "next/server";
+import { headers } from "next/headers";
 import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
@@ -53,6 +54,13 @@ const BodySchema = z
     redeem_points: z.number().int().min(0).optional(),
     ghl_contact_id: z.string().optional(),
     ghl_opportunity_id: z.string().optional(),
+    waiver_signature: z
+      .object({
+        agreed: z.boolean(),
+        signed_name: z.string().min(2).max(200),
+      })
+      .optional()
+      .nullable(),
   })
   .refine((d) => d.product_slug || d.product_id, {
     message: "product_slug or product_id is required",
@@ -108,14 +116,40 @@ export async function POST(request: Request) {
 
   const supabase = createAdminClient();
 
-  // Enforce minimum lead time (default 48h, configurable in site_settings).
-  // Compares startDate@09:00 vs now.
-  const { data: leadSetting } = await supabase
+  // Load lead time + waiver settings together
+  const { data: settingRows } = await supabase
     .from("site_settings")
-    .select("value")
-    .eq("key", "min_booking_lead_hours")
-    .maybeSingle();
-  const minLeadHours = parseInt((leadSetting?.value as string) || "48", 10) || 48;
+    .select("key, value")
+    .in("key", [
+      "min_booking_lead_hours",
+      "waiver_enabled",
+      "waiver_title",
+      "waiver_text",
+    ]);
+  const settingMap = new Map(
+    (settingRows as { key: string; value: string }[] | null || []).map((s) => [s.key, s.value]),
+  );
+  const minLeadHours = parseInt((settingMap.get("min_booking_lead_hours") as string) || "48", 10) || 48;
+  const waiverEnabled = (settingMap.get("waiver_enabled") || "true").toLowerCase() !== "false";
+  const waiverTitle = settingMap.get("waiver_title") || "Liability Waiver";
+  const waiverText = settingMap.get("waiver_text") || "";
+
+  // If waiver is enabled, validate the signature payload
+  if (waiverEnabled) {
+    const sig = parsed.data.waiver_signature;
+    if (!sig || !sig.agreed) {
+      return NextResponse.json(
+        { error: "You must read and agree to the liability waiver before booking." },
+        { status: 400 },
+      );
+    }
+    if (!sig.signed_name || sig.signed_name.trim().length < 2) {
+      return NextResponse.json(
+        { error: "Please type your full legal name as your signature." },
+        { status: 400 },
+      );
+    }
+  }
   if (minLeadHours > 0) {
     const startDt = new Date(`${startDate}T09:00:00`);
     const hoursUntil = (startDt.getTime() - Date.now()) / (1000 * 60 * 60);
@@ -407,6 +441,30 @@ export async function POST(request: Request) {
       { error: "Failed to create booking", details: bookErr?.message },
       { status: 500 }
     );
+  }
+
+  // 5b. Persist signed waiver (snapshot the exact text the customer agreed to)
+  if (waiverEnabled && parsed.data.waiver_signature) {
+    const hdrs = headers();
+    const ipAddress =
+      hdrs.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+      hdrs.get("x-real-ip") ||
+      null;
+    const userAgent = hdrs.get("user-agent") || null;
+    const { error: waiverErr } = await supabase.from("booking_waivers").insert({
+      booking_id: booking.id,
+      signed_name: parsed.data.waiver_signature.signed_name.trim(),
+      signed_email: parsed.data.customer.email,
+      ip_address: ipAddress,
+      user_agent: userAgent,
+      waiver_title_snapshot: waiverTitle,
+      waiver_text_snapshot: waiverText,
+    });
+    if (waiverErr) {
+      // Don't fail the booking — log and continue. The signed checkbox is
+      // already evidence of intent. Admin can request re-sign if needed.
+      console.error("[waiver insert failed, non-fatal]", waiverErr);
+    }
   }
 
   // 6. Stripe Payment Intent

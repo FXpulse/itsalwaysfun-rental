@@ -439,6 +439,50 @@ export function HelpClient() {
       ),
     },
     {
+      id: "waiver",
+      title: "Liability waiver e-signature (legal)",
+      icon: ShieldCheck,
+      content: (
+        <div className="space-y-3 text-sm">
+          <p>
+            Every customer signs a liability waiver at checkout. The waiver text
+            you have set in <code>/admin/waiver</code> is what they see and what
+            gets snapshotted per booking (so editing it later doesn't change
+            past signatures — keeps them legally defensible).
+          </p>
+          <div className="bg-red-50 border-l-4 border-red-400 rounded p-3 text-xs">
+            <p className="font-semibold text-red-900 mb-1">
+              ⚠ Get this reviewed by a Florida attorney before going live
+            </p>
+            <p className="text-red-900">
+              The default text is built from common bounce-house industry
+              language but isn't legal advice. Wrong wording can be unenforceable
+              under Florida law.
+            </p>
+          </div>
+          <p className="font-semibold">Where to manage it:</p>
+          <ul className="list-disc pl-5 text-xs space-y-1">
+            <li><code>/admin/waiver</code> — edit text, toggle on/off, see signed count</li>
+            <li><code>/info/waiver</code> — public page customers can save/print before booking</li>
+            <li>Linked from the public site footer alongside Privacy/Terms</li>
+          </ul>
+          <p className="font-semibold">What gets recorded per signature:</p>
+          <ul className="list-disc pl-5 text-xs space-y-1">
+            <li>Booking ID + customer's full legal name (typed)</li>
+            <li>Email + IP address + browser user agent</li>
+            <li>Exact waiver title + text shown at that moment</li>
+            <li>Timestamp</li>
+          </ul>
+          <p className="text-xs text-slate-500">
+            💡 If you ever need a defensible record for a claim, query the
+            <code> booking_waivers </code> table by booking_id — every field is
+            captured. Future enhancement: download as PDF directly from the
+            booking detail page.
+          </p>
+        </div>
+      ),
+    },
+    {
       id: "fleet-vin-tag",
       title: "Step 10d — Fleet: VIN + license tag",
       icon: Truck,

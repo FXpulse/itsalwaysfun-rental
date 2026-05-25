@@ -52,26 +52,32 @@ export default async function OrderByDatePage() {
     .maybeSingle();
   const minLeadHours = parseInt((leadSetting?.value as string) || "48", 10) || 48;
 
-  // Damage protection settings
-  const { data: protectionSettings } = await supabase
+  // Damage protection + waiver settings
+  const { data: extraSettings } = await supabase
     .from("site_settings")
     .select("key, value")
     .in("key", [
       "damage_protection_enabled",
       "damage_protection_price_cents",
       "damage_protection_coverage_cents",
+      "waiver_enabled",
+      "waiver_title",
+      "waiver_text",
     ]);
-  const protectionMap = new Map(
-    (protectionSettings as any[] || []).map((s) => [s.key, s.value]),
+  const settingsMap = new Map(
+    (extraSettings as any[] || []).map((s) => [s.key, s.value]),
   );
   const damageProtection = {
-    enabled: protectionMap.get("damage_protection_enabled") === "true",
-    priceCents: parseInt(protectionMap.get("damage_protection_price_cents") || "2500", 10),
+    enabled: settingsMap.get("damage_protection_enabled") === "true",
+    priceCents: parseInt(settingsMap.get("damage_protection_price_cents") || "2500", 10),
     coverageCents: parseInt(
-      protectionMap.get("damage_protection_coverage_cents") || "50000",
+      settingsMap.get("damage_protection_coverage_cents") || "50000",
       10,
     ),
   };
+  const waiverEnabled = (settingsMap.get("waiver_enabled") || "true").toLowerCase() !== "false";
+  const waiverTitle = settingsMap.get("waiver_title") || "Liability Waiver";
+  const waiverText = settingsMap.get("waiver_text") || "";
 
   // Detect portal-authenticated customer + pull profile to prefill the wizard
   const authClient = createClient();
@@ -166,6 +172,9 @@ export default async function OrderByDatePage() {
         prefillCustomer={prefill}
         availablePoints={availablePoints}
         loyaltySettings={loyaltySettings}
+        waiverEnabled={waiverEnabled}
+        waiverTitle={waiverTitle}
+        waiverText={waiverText}
       />
     </div>
   );

@@ -97,6 +97,9 @@ export function BookingWizard({
   prefillCustomer,
   availablePoints = 0,
   loyaltySettings = null,
+  waiverEnabled = false,
+  waiverTitle = "Liability Waiver",
+  waiverText = "",
 }: {
   products: Product[];
   categories: Category[];
@@ -109,6 +112,9 @@ export function BookingWizard({
   prefillCustomer?: PrefillCustomer | null;
   availablePoints?: number;
   loyaltySettings?: LoyaltyConfig | null;
+  waiverEnabled?: boolean;
+  waiverTitle?: string;
+  waiverText?: string;
 }) {
   const { item: cartItem, clear } = useCart();
 
@@ -155,6 +161,9 @@ export function BookingWizard({
   const [addonQuantities, setAddonQuantities] = useState<Record<string, number>>({});
   // Damage protection opt-in (one-time fee, not per day)
   const [wantsProtection, setWantsProtection] = useState(false);
+  // Liability waiver — signed at checkout
+  const [waiverAgreed, setWaiverAgreed] = useState(false);
+  const [waiverSignedName, setWaiverSignedName] = useState("");
   const [pending, startTransition] = useTransition();
   const [unavailableDates, setUnavailableDates] = useState<Set<string>>(new Set());
   const [loadingAvailability, setLoadingAvailability] = useState(false);
@@ -346,6 +355,9 @@ export function BookingWizard({
             coupon_code: couponCode.trim() || undefined,
             gift_card_code: giftCardCode.trim() || undefined,
             redeem_points: redeemPoints > 0 ? redeemPoints : undefined,
+            waiver_signature: waiverEnabled
+              ? { agreed: waiverAgreed, signed_name: waiverSignedName.trim() }
+              : undefined,
           }),
         });
 
@@ -516,6 +528,13 @@ export function BookingWizard({
             loyaltySettings={loyaltySettings}
             redeemPoints={redeemPoints}
             onRedeemPointsChange={setRedeemPoints}
+            waiverEnabled={waiverEnabled}
+            waiverTitle={waiverTitle}
+            waiverText={waiverText}
+            waiverAgreed={waiverAgreed}
+            onWaiverAgreedChange={setWaiverAgreed}
+            waiverSignedName={waiverSignedName}
+            onWaiverSignedNameChange={setWaiverSignedName}
             onBack={() => goToStep("product")}
             onSubmit={handleSubmit}
             pending={pending}
@@ -952,6 +971,13 @@ function CustomerInfoStep({
   loyaltySettings,
   redeemPoints,
   onRedeemPointsChange,
+  waiverEnabled,
+  waiverTitle,
+  waiverText,
+  waiverAgreed,
+  onWaiverAgreedChange,
+  waiverSignedName,
+  onWaiverSignedNameChange,
   onBack,
   onSubmit,
   pending,
@@ -992,10 +1018,19 @@ function CustomerInfoStep({
   loyaltySettings: { points_redemption_rate: number; min_redeem_points: number } | null;
   redeemPoints: number;
   onRedeemPointsChange: (n: number) => void;
+  waiverEnabled: boolean;
+  waiverTitle: string;
+  waiverText: string;
+  waiverAgreed: boolean;
+  onWaiverAgreedChange: (b: boolean) => void;
+  waiverSignedName: string;
+  onWaiverSignedNameChange: (s: string) => void;
   onBack: () => void;
   onSubmit: () => void;
   pending: boolean;
 }) {
+  const waiverOk = !waiverEnabled || (waiverAgreed && waiverSignedName.trim().length >= 2);
+
   const valid =
     customer.firstName.trim() &&
     customer.lastName.trim() &&
@@ -1005,7 +1040,8 @@ function CustomerInfoStep({
     customer.city.trim() &&
     customer.zip.trim() &&
     customer.surfaceType &&
-    customer.powerSource;
+    customer.powerSource &&
+    waiverOk;
 
   const rangeLabel =
     numDays > 1 && eventEndDate
@@ -1459,6 +1495,19 @@ function CustomerInfoStep({
         )}
       </div>
 
+      {/* Liability waiver e-signature */}
+      {waiverEnabled && waiverText && (
+        <WaiverBlock
+          title={waiverTitle}
+          text={waiverText}
+          agreed={waiverAgreed}
+          onAgreedChange={onWaiverAgreedChange}
+          signedName={waiverSignedName}
+          onSignedNameChange={onWaiverSignedNameChange}
+          defaultName={`${customer.firstName} ${customer.lastName}`.trim()}
+        />
+      )}
+
       <div className="flex justify-between mt-6">
         <button onClick={onBack} className="px-4 py-2 text-slate-600 hover:text-slate-900" disabled={pending}>
           ← Back
@@ -1466,6 +1515,92 @@ function CustomerInfoStep({
         <button onClick={onSubmit} disabled={!valid || pending} className="btn-primary disabled:opacity-50">
           {pending ? "Processing..." : "Continue to payment →"}
         </button>
+      </div>
+    </div>
+  );
+}
+
+function WaiverBlock({
+  title,
+  text,
+  agreed,
+  onAgreedChange,
+  signedName,
+  onSignedNameChange,
+  defaultName,
+}: {
+  title: string;
+  text: string;
+  agreed: boolean;
+  onAgreedChange: (b: boolean) => void;
+  signedName: string;
+  onSignedNameChange: (s: string) => void;
+  defaultName: string;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  return (
+    <div className="mt-6 border-2 border-amber-300 bg-amber-50/50 rounded-lg p-4">
+      <h3 className="font-bold text-brand-navy mb-2 flex items-center gap-2">
+        <span className="text-amber-600">⚠</span> {title}{" "}
+        <span className="text-xs font-normal text-red-600">* required</span>
+      </h3>
+      <div
+        className={`text-xs text-slate-700 bg-white border border-slate-200 rounded p-3 overflow-y-auto whitespace-pre-line font-sans ${
+          expanded ? "max-h-[500px]" : "max-h-40"
+        }`}
+      >
+        {text}
+      </div>
+      <button
+        type="button"
+        onClick={() => setExpanded((v) => !v)}
+        className="text-xs text-brand-navy hover:underline mt-1"
+      >
+        {expanded ? "Collapse ↑" : "Read full waiver ↓"}
+      </button>
+
+      <div className="mt-3 space-y-2">
+        <label className="flex items-start gap-2 text-sm cursor-pointer">
+          <input
+            type="checkbox"
+            checked={agreed}
+            onChange={(e) => onAgreedChange(e.target.checked)}
+            className="h-4 w-4 mt-0.5 flex-shrink-0"
+          />
+          <span>
+            <strong>I have read and agree</strong> to the Rental Agreement &
+            Liability Waiver above. I am at least 18 years old and have legal
+            authority to sign on behalf of all participants at my event.
+          </span>
+        </label>
+        <div>
+          <label className="block text-xs font-semibold text-slate-700 mb-1">
+            Type your full legal name as your signature{" "}
+            <span className="text-red-500">*</span>
+          </label>
+          <input
+            type="text"
+            value={signedName}
+            onChange={(e) => onSignedNameChange(e.target.value)}
+            placeholder={defaultName || "First Last"}
+            className="input font-serif italic"
+            disabled={!agreed}
+          />
+          {!signedName && defaultName && agreed && (
+            <button
+              type="button"
+              onClick={() => onSignedNameChange(defaultName)}
+              className="text-xs text-brand-navy hover:underline mt-1"
+            >
+              Use "{defaultName}"
+            </button>
+          )}
+          <p className="text-[10px] text-slate-500 mt-1">
+            By typing your name and clicking "Continue to payment", you sign this
+            agreement electronically. We record your name, IP address, timestamp,
+            and the exact text shown above.
+          </p>
+        </div>
       </div>
     </div>
   );

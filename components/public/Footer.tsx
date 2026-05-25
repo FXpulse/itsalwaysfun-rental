@@ -103,6 +103,7 @@ export function Footer({
             <li><Link href="/contact" className="hover:text-brand-yellow transition">Contact Us</Link></li>
             <li><Link href="/info/privacy-policy" className="hover:text-brand-yellow transition">Privacy Policy</Link></li>
             <li><Link href="/info/terms-of-service" className="hover:text-brand-yellow transition">Terms of Service</Link></li>
+            <li><Link href="/info/waiver" className="hover:text-brand-yellow transition">Liability Waiver</Link></li>
           </ul>
         </div>
       </div>
