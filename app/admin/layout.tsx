@@ -27,6 +27,7 @@ import {
   Mail,
   Truck,
   Truck as TruckIcon,
+  Gift,
 } from "lucide-react";
 
 type Role = "admin" | "staff";
@@ -49,8 +50,10 @@ const ALL_NAV: NavItem[] = [
   { href: "/admin/fleet", label: "Fleet", icon: TruckIcon, minRole: "admin" },
   { href: "/admin/availability", label: "Availability", icon: Calendar, minRole: "staff" },
   { href: "/admin/products", label: "Products", icon: Package, minRole: "admin" },
+  { href: "/admin/packages", label: "Packages", icon: Package, minRole: "admin" },
   { href: "/admin/categories", label: "Categories", icon: Tag, minRole: "admin" },
   { href: "/admin/coupons", label: "Coupons", icon: Ticket, minRole: "admin" },
+  { href: "/admin/gift-cards", label: "Gift cards", icon: Gift, minRole: "admin" },
   { href: "/admin/loyalty", label: "Loyalty", icon: Sparkles, minRole: "admin" },
   { href: "/admin/reports", label: "Reports", icon: BarChart3, minRole: "admin" },
   { href: "/admin/site", label: "Website content", icon: Globe, minRole: "admin" },

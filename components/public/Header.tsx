@@ -19,6 +19,7 @@ const NAV_ITEMS = [
   { href: "/", label: "Home" },
   { href: "/order-by-date", label: "Order by Date" },
   { href: "/rentals", label: "Rentals" },
+  { href: "/packages", label: "Packages" },
 ];
 
 const INFO_ITEMS = [
