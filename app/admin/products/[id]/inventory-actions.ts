@@ -76,6 +76,52 @@ export async function markDeliveryChecked(bookingId: string) {
   return { success: true };
 }
 
+/** Copy ALL requirements from a source product to a target product.
+ *  If `replace = true`, clears the target's existing requirements first. */
+export async function copyRequirementsFromProduct(
+  targetProductId: string,
+  sourceProductId: string,
+  replace: boolean,
+) {
+  await requireAdmin();
+  if (targetProductId === sourceProductId) {
+    return { error: "Can't copy from the same product" };
+  }
+  const supabase = createAdminClient();
+
+  const { data: sourceReqs, error: srcErr } = await supabase
+    .from("product_inventory_requirements")
+    .select("inventory_item_id, quantity, surface_types, only_when_needs_power, notes")
+    .eq("product_id", sourceProductId);
+  if (srcErr) return { error: srcErr.message };
+  if (!sourceReqs || sourceReqs.length === 0) {
+    return { error: "Source product has no requirements to copy" };
+  }
+
+  if (replace) {
+    const { error: delErr } = await supabase
+      .from("product_inventory_requirements")
+      .delete()
+      .eq("product_id", targetProductId);
+    if (delErr) return { error: delErr.message };
+  }
+
+  const newRows = sourceReqs.map((r: any) => ({
+    product_id: targetProductId,
+    inventory_item_id: r.inventory_item_id,
+    quantity: r.quantity,
+    surface_types: r.surface_types,
+    only_when_needs_power: r.only_when_needs_power,
+    notes: r.notes,
+  }));
+
+  const { error } = await supabase.from("product_inventory_requirements").insert(newRows);
+  if (error) return { error: error.message };
+
+  revalidatePath(`/admin/products/${targetProductId}`);
+  return { success: true, copied: newRows.length };
+}
+
 /** Clears the delivery check (e.g., re-doing it). */
 export async function clearDeliveryCheck(bookingId: string) {
   await requireStaffOrAdmin();

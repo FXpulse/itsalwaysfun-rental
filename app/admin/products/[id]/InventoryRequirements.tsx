@@ -3,8 +3,12 @@
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
-import { Plus, Trash2, AlertCircle } from "lucide-react";
-import { addInventoryRequirement, deleteInventoryRequirement } from "./inventory-actions";
+import { Plus, Trash2, AlertCircle, Copy } from "lucide-react";
+import {
+  addInventoryRequirement,
+  deleteInventoryRequirement,
+  copyRequirementsFromProduct,
+} from "./inventory-actions";
 
 export interface InventoryOption {
   id: string;
@@ -32,25 +36,76 @@ const SURFACE_OPTIONS = [
   { value: "other", label: "Other" },
 ];
 
+interface OtherProductOption {
+  id: string;
+  name: string;
+}
+
 export function InventoryRequirements({
   productId,
   inventory,
   requirements,
+  otherProducts,
 }: {
   productId: string;
   inventory: InventoryOption[];
   requirements: RequirementRow[];
+  otherProducts: OtherProductOption[];
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [adding, setAdding] = useState(false);
+  const [copying, setCopying] = useState(false);
 
-  // Form state
+  // Add-form state
   const [itemId, setItemId] = useState("");
   const [quantity, setQuantity] = useState("1");
   const [surfaces, setSurfaces] = useState<string[]>([]);
   const [onlyWithPower, setOnlyWithPower] = useState(false);
   const [notes, setNotes] = useState("");
+
+  // Copy-form state
+  const [sourceProductId, setSourceProductId] = useState("");
+  const [copyMode, setCopyMode] = useState<"replace" | "append">(
+    requirements.length === 0 ? "append" : "replace",
+  );
+
+  function handleCopy() {
+    if (!sourceProductId) {
+      toast.error("Pick a source product");
+      return;
+    }
+    const sourceName =
+      otherProducts.find((p) => p.id === sourceProductId)?.name || "product";
+    const verb =
+      copyMode === "replace"
+        ? "REPLACE all current requirements with"
+        : "APPEND";
+    if (
+      !confirm(
+        `${verb} requirements from "${sourceName}"?\n\n${copyMode === "replace" ? "Current items will be deleted first." : "Existing items stay; new ones added on top."}`,
+      )
+    ) {
+      return;
+    }
+    startTransition(async () => {
+      const r = await copyRequirementsFromProduct(
+        productId,
+        sourceProductId,
+        copyMode === "replace",
+      );
+      if (r.error) {
+        toast.error(r.error);
+        return;
+      }
+      toast.success(
+        `Copied ${r.copied} requirement${r.copied === 1 ? "" : "s"} from "${sourceName}"`,
+      );
+      setCopying(false);
+      setSourceProductId("");
+      router.refresh();
+    });
+  }
 
   function reset() {
     setItemId("");
@@ -113,16 +168,109 @@ export function InventoryRequirements({
             Internal use — what to load on the truck for each delivery. Customer doesn't see this.
           </p>
         </div>
-        {!adding && (
-          <button
-            type="button"
-            onClick={() => setAdding(true)}
-            className="btn-primary text-sm inline-flex items-center gap-2"
-          >
-            <Plus className="h-4 w-4" /> Add item
-          </button>
+        {!adding && !copying && (
+          <div className="flex gap-2">
+            {otherProducts.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setCopying(true)}
+                className="text-sm inline-flex items-center gap-2 border border-slate-300 rounded-md px-3 py-2 text-slate-700 hover:bg-slate-50"
+              >
+                <Copy className="h-4 w-4" /> Copy from...
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => setAdding(true)}
+              className="btn-primary text-sm inline-flex items-center gap-2"
+            >
+              <Plus className="h-4 w-4" /> Add item
+            </button>
+          </div>
         )}
       </div>
+
+      {/* Copy from form */}
+      {copying && (
+        <div className="bg-blue-50 border border-blue-200 rounded p-3 mb-4 space-y-3">
+          <h3 className="text-sm font-semibold text-brand-navy flex items-center gap-2">
+            <Copy className="h-4 w-4" /> Copy requirements from another product
+          </h3>
+          <div>
+            <label className="block text-xs text-slate-600 mb-1">
+              Source product *
+            </label>
+            <select
+              value={sourceProductId}
+              onChange={(e) => setSourceProductId(e.target.value)}
+              className="input"
+              disabled={pending}
+            >
+              <option value="">Select a product to copy from…</option>
+              {otherProducts.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs text-slate-600 mb-1">
+              If this product already has requirements:
+            </label>
+            <div className="flex gap-3 text-sm">
+              <label className="inline-flex items-center gap-2">
+                <input
+                  type="radio"
+                  name="copyMode"
+                  value="replace"
+                  checked={copyMode === "replace"}
+                  onChange={() => setCopyMode("replace")}
+                />
+                <span>
+                  <strong>Replace</strong> existing items
+                </span>
+              </label>
+              <label className="inline-flex items-center gap-2">
+                <input
+                  type="radio"
+                  name="copyMode"
+                  value="append"
+                  checked={copyMode === "append"}
+                  onChange={() => setCopyMode("append")}
+                />
+                <span>
+                  <strong>Append</strong> to existing
+                </span>
+              </label>
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={handleCopy}
+              disabled={pending || !sourceProductId}
+              className="btn-primary text-sm"
+            >
+              {pending ? "Copying..." : "Copy now"}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setCopying(false);
+                setSourceProductId("");
+              }}
+              className="text-sm text-slate-600 hover:text-slate-900 px-3 py-2"
+            >
+              Cancel
+            </button>
+          </div>
+          <p className="text-xs text-slate-500">
+            💡 Tip: After copying, you can edit quantities (e.g. change 6 sandbags
+            to 12) by deleting and re-adding the row.
+          </p>
+        </div>
+      )}
 
       {inventory.length === 0 && (
         <div className="bg-amber-50 border border-amber-200 rounded p-3 text-sm text-amber-800 flex items-start gap-2">
