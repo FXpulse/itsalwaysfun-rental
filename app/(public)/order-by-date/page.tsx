@@ -39,6 +39,14 @@ export default async function OrderByDatePage() {
   const powerSupply = allProducts.find((p) => p.slug === "power-supply" && p.is_addon) || null;
   const categories = (categoriesResult.data as CategoryRow[]) || [];
 
+  // Min booking lead time (hours) — disables dates within this window in the picker
+  const { data: leadSetting } = await supabase
+    .from("site_settings")
+    .select("value")
+    .eq("key", "min_booking_lead_hours")
+    .maybeSingle();
+  const minLeadHours = parseInt((leadSetting?.value as string) || "48", 10) || 48;
+
   // Detect portal-authenticated customer + pull profile to prefill the wizard
   const authClient = createClient();
   const {
@@ -124,6 +132,7 @@ export default async function OrderByDatePage() {
         products={products}
         categories={categories}
         powerSupply={powerSupply}
+        minLeadHours={minLeadHours}
         stripeConfigured={isStripeConfigured()}
         stripePublishableKey={process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || ""}
         prefillCustomer={prefill}

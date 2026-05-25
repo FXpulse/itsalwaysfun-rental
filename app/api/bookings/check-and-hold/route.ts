@@ -98,6 +98,27 @@ export async function POST(request: Request) {
 
   const supabase = createAdminClient();
 
+  // Enforce minimum lead time (default 48h, configurable in site_settings).
+  // Compares startDate@09:00 vs now.
+  const { data: leadSetting } = await supabase
+    .from("site_settings")
+    .select("value")
+    .eq("key", "min_booking_lead_hours")
+    .maybeSingle();
+  const minLeadHours = parseInt((leadSetting?.value as string) || "48", 10) || 48;
+  if (minLeadHours > 0) {
+    const startDt = new Date(`${startDate}T09:00:00`);
+    const hoursUntil = (startDt.getTime() - Date.now()) / (1000 * 60 * 60);
+    if (hoursUntil < minLeadHours) {
+      return NextResponse.json(
+        {
+          error: `Bookings require at least ${minLeadHours}h notice. Pick a later date or call (904) 584-3047 for urgent requests.`,
+        },
+        { status: 400 }
+      );
+    }
+  }
+
   // 1. Resolve product
   let productQuery = supabase
     .from("products")

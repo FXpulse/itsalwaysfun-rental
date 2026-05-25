@@ -83,6 +83,7 @@ export function BookingWizard({
   products,
   categories,
   powerSupply,
+  minLeadHours = 48,
   stripeConfigured,
   stripePublishableKey,
   prefillCustomer,
@@ -92,6 +93,7 @@ export function BookingWizard({
   products: Product[];
   categories: Category[];
   powerSupply?: Product | null;
+  minLeadHours?: number;
   stripeConfigured: boolean;
   stripePublishableKey: string;
   prefillCustomer?: PrefillCustomer | null;
@@ -421,6 +423,7 @@ export function BookingWizard({
             totalAmount={totalAmount}
             onNext={() => goToStep("category")}
             unavailableDates={selectedProductSlug ? unavailableDates : new Set()}
+            minLeadHours={minLeadHours}
           />
         )}
 
@@ -523,6 +526,7 @@ function DatePickerStep({
   totalAmount,
   onNext,
   unavailableDates,
+  minLeadHours = 48,
 }: {
   startDate: string | null;
   endDate: string | null;
@@ -532,6 +536,7 @@ function DatePickerStep({
   totalAmount: number;
   onNext: () => void;
   unavailableDates: Set<string>;
+  minLeadHours?: number;
 }) {
   const [cursor, setCursor] = useState(startDate ? new Date(startDate) : new Date());
 
@@ -591,10 +596,17 @@ function DatePickerStep({
   return (
     <div>
       <h2 className="text-xl font-bold text-brand-navy mb-1">When is your event?</h2>
-      <p className="text-sm text-slate-500 mb-6">
+      <p className="text-sm text-slate-500 mb-2">
         Click a date to set the <strong>start</strong>. Click another to set the
         <strong> end</strong> (multi-day). Click again to reset.
       </p>
+      {minLeadHours > 0 && (
+        <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-3 py-2 mb-4">
+          ⏰ <strong>Bookings require {minLeadHours}h notice.</strong> Dates within
+          the next {minLeadHours} hours are disabled — call (904) 584-3047 for
+          urgent / last-minute requests.
+        </p>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Calendar — takes 2/3 on desktop */}
@@ -624,8 +636,12 @@ function DatePickerStep({
               const isStart = startDate === iso;
               const isEnd = endDate === iso;
               const isUnavail = unavailableDates.has(iso);
+              // Lead time check: day must be at least minLeadHours from now
+              const dayDt = new Date(`${iso}T09:00:00`);
+              const hoursAway = (dayDt.getTime() - Date.now()) / (1000 * 60 * 60);
+              const tooSoon = hoursAway < minLeadHours;
 
-              const disabled = !inMonth || isPast || isUnavail;
+              const disabled = !inMonth || isPast || isUnavail || tooSoon;
               const isInRange = rangeSet.has(iso) && !isStart && !isEnd;
 
               return (
@@ -633,10 +649,16 @@ function DatePickerStep({
                   key={iso}
                   onClick={() => !disabled && handleDayClick(iso)}
                   disabled={disabled}
+                  title={
+                    tooSoon && !isPast
+                      ? `Bookings require ${minLeadHours}h notice — call (904) 584-3047 for urgent`
+                      : undefined
+                  }
                   className={`aspect-square rounded text-sm font-medium transition relative
                     ${!inMonth ? "text-slate-300" : ""}
                     ${isPast ? "text-slate-300 cursor-not-allowed" : ""}
-                    ${isUnavail && inMonth && !isPast ? "bg-red-50 text-red-300 cursor-not-allowed line-through" : ""}
+                    ${tooSoon && inMonth && !isPast ? "bg-slate-100 text-slate-400 cursor-not-allowed" : ""}
+                    ${isUnavail && inMonth && !isPast && !tooSoon ? "bg-red-50 text-red-300 cursor-not-allowed line-through" : ""}
                     ${isStart || isEnd ? "bg-brand-navy text-white ring-2 ring-brand-yellow font-bold" : ""}
                     ${isInRange ? "bg-brand-yellow/40 text-brand-navy font-semibold" : ""}
                     ${!disabled && !isStart && !isEnd && !isInRange ? "hover:bg-brand-yellow/30 text-brand-navy" : ""}
