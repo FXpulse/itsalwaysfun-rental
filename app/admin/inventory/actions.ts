@@ -176,6 +176,127 @@ export async function adjustInUse(id: string, delta: number) {
   return { success: true, new_in_use: newInUse };
 }
 
+// ── Inventory categories CRUD ───────────────────────────────────────
+const CategorySchema = z.object({
+  name: z.string().min(1).max(100).trim(),
+  description: z.string().max(500).optional().nullable(),
+  sort_order: z.number().int().min(0).max(9999).optional(),
+});
+
+export async function createInventoryCategory(formData: FormData) {
+  await requireAdmin();
+  const parsed = CategorySchema.safeParse({
+    name: String(formData.get("name") || "").trim(),
+    description: (formData.get("description") as string) || null,
+    sort_order: formData.get("sort_order")
+      ? parseInt(String(formData.get("sort_order")), 10)
+      : 100,
+  });
+  if (!parsed.success) {
+    return { error: parsed.error.errors.map((e) => e.message).join(", ") };
+  }
+  const supabase = createAdminClient();
+  const { error } = await supabase.from("inventory_categories").insert({
+    name: parsed.data.name,
+    description: parsed.data.description || null,
+    sort_order: parsed.data.sort_order ?? 100,
+    is_active: true,
+  });
+  if (error) {
+    if (error.code === "23505") return { error: "A category with that name already exists" };
+    return { error: error.message };
+  }
+  revalidatePath("/admin/inventory");
+  return { success: true };
+}
+
+/** Renames a category. Cascades the rename to all inventory_items that use it. */
+export async function renameInventoryCategory(id: string, newName: string) {
+  await requireAdmin();
+  const trimmed = newName.trim();
+  if (!trimmed) return { error: "Name required" };
+  if (trimmed.length > 100) return { error: "Name too long (max 100 chars)" };
+
+  const supabase = createAdminClient();
+  const { data: existing } = await supabase
+    .from("inventory_categories")
+    .select("name")
+    .eq("id", id)
+    .single();
+  if (!existing) return { error: "Category not found" };
+  if (existing.name === trimmed) return { success: true };
+
+  const { error: renameErr } = await supabase
+    .from("inventory_categories")
+    .update({ name: trimmed })
+    .eq("id", id);
+  if (renameErr) {
+    if (renameErr.code === "23505") return { error: "Another category already uses that name" };
+    return { error: renameErr.message };
+  }
+
+  // Cascade rename to inventory_items.category (free-text reference)
+  const { error: cascadeErr } = await supabase
+    .from("inventory_items")
+    .update({ category: trimmed })
+    .eq("category", existing.name);
+  if (cascadeErr) return { error: `Renamed but item cascade failed: ${cascadeErr.message}` };
+
+  revalidatePath("/admin/inventory");
+  return { success: true };
+}
+
+export async function setInventoryCategoryActive(id: string, isActive: boolean) {
+  await requireAdmin();
+  const supabase = createAdminClient();
+  const { error } = await supabase
+    .from("inventory_categories")
+    .update({ is_active: isActive })
+    .eq("id", id);
+  if (error) return { error: error.message };
+  revalidatePath("/admin/inventory");
+  return { success: true };
+}
+
+/** Delete a category. Blocks if any inventory item is still using it —
+ *  rename or archive items first, or pass force=true to reassign them
+ *  to "Other". */
+export async function deleteInventoryCategory(id: string, force = false) {
+  await requireAdmin();
+  const supabase = createAdminClient();
+
+  const { data: cat } = await supabase
+    .from("inventory_categories")
+    .select("name")
+    .eq("id", id)
+    .single();
+  if (!cat) return { error: "Category not found" };
+
+  const { count } = await supabase
+    .from("inventory_items")
+    .select("id", { count: "exact", head: true })
+    .eq("category", cat.name);
+
+  if ((count || 0) > 0) {
+    if (!force) {
+      return {
+        error: `${count} item${count === 1 ? " is" : "s are"} still using "${cat.name}". Move them first or confirm to reassign to "Other".`,
+        items_using: count,
+      };
+    }
+    // Force: reassign to "Other"
+    await supabase
+      .from("inventory_items")
+      .update({ category: "Other" })
+      .eq("category", cat.name);
+  }
+
+  const { error } = await supabase.from("inventory_categories").delete().eq("id", id);
+  if (error) return { error: error.message };
+  revalidatePath("/admin/inventory");
+  return { success: true };
+}
+
 const ConditionSchema = z.enum(["good", "needs_repair", "broken", "retired"]);
 
 /** Staff/admin can mark condition + add a maintenance note. */

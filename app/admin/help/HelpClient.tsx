@@ -414,6 +414,31 @@ export function HelpClient() {
       ),
     },
     {
+      id: "inventory-categories",
+      title: "Step 10c — Manage inventory categories",
+      icon: Tag,
+      content: (
+        <div className="space-y-3 text-sm">
+          <p>
+            Inventory categories (Generators, Blowers, Tools…) live in the
+            <code> Manage inventory categories </code> panel at the top of the
+            <code> Inventory </code> page (admin only — click to expand).
+          </p>
+          <ol className="list-decimal pl-5 space-y-1 text-xs">
+            <li><strong>Add</strong> a category → it immediately shows up in the dropdown when creating/editing items</li>
+            <li><strong>Rename</strong> → the change cascades to every item that uses it (no orphans)</li>
+            <li><strong>Hide</strong> → keeps it on existing items but removes it from the dropdown (use for deprecated categories you don't want new items to land in)</li>
+            <li><strong>Delete</strong> → blocks if items are still using it. Confirm to reassign those items to "Other" then delete.</li>
+          </ol>
+          <p className="text-xs text-slate-500">
+            💡 This is different from <code>/admin/categories</code>, which controls
+            rental product categories that show on the public site. Inventory
+            categories are internal — customers never see them.
+          </p>
+        </div>
+      ),
+    },
+    {
       id: "site",
       title: "Step 11 — Customize the public site",
       icon: ImageIcon,
