@@ -52,6 +52,27 @@ export default async function OrderByDatePage() {
     .maybeSingle();
   const minLeadHours = parseInt((leadSetting?.value as string) || "48", 10) || 48;
 
+  // Damage protection settings
+  const { data: protectionSettings } = await supabase
+    .from("site_settings")
+    .select("key, value")
+    .in("key", [
+      "damage_protection_enabled",
+      "damage_protection_price_cents",
+      "damage_protection_coverage_cents",
+    ]);
+  const protectionMap = new Map(
+    (protectionSettings as any[] || []).map((s) => [s.key, s.value]),
+  );
+  const damageProtection = {
+    enabled: protectionMap.get("damage_protection_enabled") === "true",
+    priceCents: parseInt(protectionMap.get("damage_protection_price_cents") || "2500", 10),
+    coverageCents: parseInt(
+      protectionMap.get("damage_protection_coverage_cents") || "50000",
+      10,
+    ),
+  };
+
   // Detect portal-authenticated customer + pull profile to prefill the wizard
   const authClient = createClient();
   const {
@@ -139,6 +160,7 @@ export default async function OrderByDatePage() {
         powerSupply={powerSupply}
         customerAddons={customerAddons}
         minLeadHours={minLeadHours}
+        damageProtection={damageProtection}
         stripeConfigured={isStripeConfigured()}
         stripePublishableKey={process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || ""}
         prefillCustomer={prefill}

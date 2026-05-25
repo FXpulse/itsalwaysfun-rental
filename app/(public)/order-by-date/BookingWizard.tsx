@@ -79,12 +79,19 @@ interface LoyaltyConfig {
   min_redeem_points: number;
 }
 
+interface DamageProtection {
+  enabled: boolean;
+  priceCents: number;
+  coverageCents: number;
+}
+
 export function BookingWizard({
   products,
   categories,
   powerSupply,
   customerAddons = [],
   minLeadHours = 48,
+  damageProtection,
   stripeConfigured,
   stripePublishableKey,
   prefillCustomer,
@@ -96,6 +103,7 @@ export function BookingWizard({
   powerSupply?: Product | null;
   customerAddons?: Product[];
   minLeadHours?: number;
+  damageProtection?: DamageProtection;
   stripeConfigured: boolean;
   stripePublishableKey: string;
   prefillCustomer?: PrefillCustomer | null;
@@ -144,6 +152,8 @@ export function BookingWizard({
   const [redeemPoints, setRedeemPoints] = useState(0);
   // Map of addon productId → quantity (0 or missing = not selected)
   const [addonQuantities, setAddonQuantities] = useState<Record<string, number>>({});
+  // Damage protection opt-in (one-time fee, not per day)
+  const [wantsProtection, setWantsProtection] = useState(false);
   const [pending, startTransition] = useTransition();
   const [unavailableDates, setUnavailableDates] = useState<Set<string>>(new Set());
   const [loadingAvailability, setLoadingAvailability] = useState(false);
@@ -296,7 +306,10 @@ export function BookingWizard({
     }, 0);
   }, [customerAddons, addonQuantities, numDays]);
 
-  const totalAmount = productTotal + powerSupplyCost + addonsTotal;
+  const protectionCost =
+    damageProtection?.enabled && wantsProtection ? damageProtection.priceCents : 0;
+
+  const totalAmount = productTotal + powerSupplyCost + addonsTotal + protectionCost;
 
   // For API: use end date if set, else single-day (event_date repeated)
   const effectiveEndDate = eventEndDate || eventDate;
@@ -324,6 +337,7 @@ export function BookingWizard({
             },
             surface_type: customer.surfaceType || null,
             needs_power_supply: needsPowerSupply,
+            damage_protection: wantsProtection,
             addons: Object.entries(addonQuantities)
               .filter(([_, qty]) => qty > 0)
               .map(([product_id, quantity]) => ({ product_id, quantity })),
@@ -487,6 +501,10 @@ export function BookingWizard({
               setAddonQuantities((prev) => ({ ...prev, [productId]: qty }))
             }
             addonsTotal={addonsTotal}
+            damageProtection={damageProtection}
+            wantsProtection={wantsProtection}
+            onProtectionChange={setWantsProtection}
+            protectionCost={protectionCost}
             totalAmount={totalAmount}
             couponCode={couponCode}
             onCouponChange={setCouponCode}
@@ -917,6 +935,10 @@ function CustomerInfoStep({
   addonQuantities,
   onAddonQtyChange,
   addonsTotal,
+  damageProtection,
+  wantsProtection,
+  onProtectionChange,
+  protectionCost,
   totalAmount,
   couponCode,
   onCouponChange,
@@ -951,6 +973,10 @@ function CustomerInfoStep({
   addonQuantities: Record<string, number>;
   onAddonQtyChange: (productId: string, qty: number) => void;
   addonsTotal: number;
+  damageProtection?: DamageProtection;
+  wantsProtection: boolean;
+  onProtectionChange: (b: boolean) => void;
+  protectionCost: number;
   totalAmount: number;
   couponCode: string;
   onCouponChange: (s: string) => void;
@@ -1276,6 +1302,43 @@ function CustomerInfoStep({
                 Add-ons subtotal: <strong className="text-brand-navy">{formatCurrency(addonsTotal)}</strong>
               </div>
             )}
+          </div>
+        )}
+
+        {/* Damage protection opt-in */}
+        {damageProtection?.enabled && (
+          <div
+            className={`rounded p-3 border-2 cursor-pointer transition ${
+              wantsProtection
+                ? "bg-green-50 border-green-400"
+                : "bg-slate-50 border-slate-200 hover:border-slate-400"
+            }`}
+            onClick={() => onProtectionChange(!wantsProtection)}
+          >
+            <label className="flex items-start gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={wantsProtection}
+                onChange={(e) => onProtectionChange(e.target.checked)}
+                className="h-5 w-5 mt-0.5 rounded border-slate-300 text-green-600 focus:ring-green-600"
+              />
+              <div className="flex-1">
+                <div className="flex items-center justify-between gap-3">
+                  <strong className="text-sm text-brand-navy">
+                    🛡 Damage protection (recommended)
+                  </strong>
+                  <span className="font-mono font-bold text-brand-navy">
+                    +${(damageProtection.priceCents / 100).toFixed(2)}
+                  </span>
+                </div>
+                <p className="text-xs text-slate-600 mt-1">
+                  One-time fee. Covers accidental damage up to{" "}
+                  <strong>${(damageProtection.coverageCents / 100).toFixed(0)}</strong> —
+                  no out-of-pocket charges if something happens during normal use.
+                  Without this, you may be responsible for damage repair costs.
+                </p>
+              </div>
+            </label>
           </div>
         )}
 

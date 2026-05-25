@@ -39,6 +39,7 @@ const BodySchema = z
       .nullable()
       .optional(),
     needs_power_supply: z.boolean().optional(),
+    damage_protection: z.boolean().optional(),
     addons: z
       .array(
         z.object({
@@ -272,7 +273,18 @@ export async function POST(request: Request) {
     }
   }
 
-  const subtotal = productSubtotal + powerSupplyCents + addonsTotal;
+  // Damage protection (one-time fee, not per-day). Lookup setting for price.
+  let protectionCents = 0;
+  if (parsed.data.damage_protection) {
+    const { data: priceSetting } = await supabase
+      .from("site_settings")
+      .select("value")
+      .eq("key", "damage_protection_price_cents")
+      .maybeSingle();
+    protectionCents = parseInt((priceSetting?.value as string) || "2500", 10) || 2500;
+  }
+
+  const subtotal = productSubtotal + powerSupplyCents + addonsTotal + protectionCents;
 
   // Apply coupon if provided
   let totalAmount = subtotal;
@@ -351,6 +363,8 @@ export async function POST(request: Request) {
       surface_type: parsed.data.surface_type || null,
       needs_power_supply: parsed.data.needs_power_supply || false,
       power_supply_cents: powerSupplyCents,
+      damage_protection_purchased: parsed.data.damage_protection || false,
+      damage_protection_cents: protectionCents,
       addons: addonLineItems,
       addons_total_cents: addonsTotal,
       notes: parsed.data.notes || null,
