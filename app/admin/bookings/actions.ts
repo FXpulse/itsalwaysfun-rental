@@ -60,6 +60,15 @@ export async function updateBookingStatus(bookingId: string, newStatus: string) 
 
   if (error) return { error: error.message };
 
+  // Cancellation email when admin sets status to cancelled
+  if (parsed.data === "cancelled") {
+    try {
+      await sendBookingCancelled(bookingId, null);
+    } catch (e) {
+      console.error("[cancellation email failed, non-fatal]", e);
+    }
+  }
+
   revalidatePath("/admin/bookings");
   revalidatePath(`/admin/bookings/${bookingId}`);
   return { success: true };
@@ -125,6 +134,13 @@ export async function refundBooking(bookingId: string, note: string) {
     .eq("id", bookingId);
 
   if (error) return { error: error.message };
+
+  // Refund email (idempotent)
+  try {
+    await sendBookingRefunded(bookingId, booking.total_amount || 0, methodLabel);
+  } catch (e) {
+    console.error("[refund email failed, non-fatal]", e);
+  }
 
   revalidatePath("/admin/bookings");
   revalidatePath(`/admin/bookings/${bookingId}`);

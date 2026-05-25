@@ -12,6 +12,7 @@ import {
   Repeat,
   CheckCircle2,
 } from "lucide-react";
+import { BookingActionsCustomer } from "./BookingActionsCustomer";
 
 export const dynamic = "force-dynamic";
 
@@ -175,6 +176,18 @@ export default async function PortalBookingDetail({
             </div>
           </div>
         </div>
+      </div>
+
+      {/* Customer actions: confirm / modify date / cancel */}
+      <div className="mb-6">
+        <BookingActionsCustomer
+          bookingId={booking.id}
+          eventDate={booking.event_date}
+          eventEndDate={booking.event_end_date}
+          startTime={booking.start_time}
+          bookingStatus={booking.booking_status}
+          customerConfirmedAt={booking.customer_confirmed_at || null}
+        />
       </div>
 
       {/* Rebook CTA */}
