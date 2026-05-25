@@ -109,7 +109,10 @@ export function Footer({
 
       <div className="border-t border-white/10">
         <div className="max-w-7xl mx-auto px-4 py-4 text-xs text-white/60 text-center">
-          © {year} {businessName} · All rights reserved
+          © {year} {businessName} · All rights reserved ·{" "}
+          <Link href="/admin/login" className="text-white/40 hover:text-brand-yellow transition">
+            Staff sign in
+          </Link>
         </div>
       </div>
     </footer>

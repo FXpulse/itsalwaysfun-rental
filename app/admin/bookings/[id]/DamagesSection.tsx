@@ -12,10 +12,12 @@ import {
   X,
   CheckCircle2,
   Wrench,
+  Shield,
 } from "lucide-react";
 import {
   recordDamage,
   toggleDamageCharged,
+  toggleDamageCovered,
   toggleDamageResolved,
   deleteDamage,
 } from "./proof-actions";
@@ -36,6 +38,7 @@ export interface DamageRow {
   cost_cents: number;
   customer_responsible: boolean;
   charged_to_customer: boolean;
+  covered_by_protection: boolean;
   resolved: boolean;
   photo_url: string | null;
   recorded_at: string;
@@ -53,10 +56,14 @@ export function DamagesSection({
   bookingId,
   damages,
   inventory,
+  hasProtection = false,
+  protectionCoverageCents = 0,
 }: {
   bookingId: string;
   damages: DamageRow[];
   inventory: InventoryOption[];
+  hasProtection?: boolean;
+  protectionCoverageCents?: number;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -68,6 +75,8 @@ export function DamagesSection({
   const [severity, setSeverity] = useState<"minor" | "moderate" | "major">("minor");
   const [costDollars, setCostDollars] = useState("0");
   const [customerResponsible, setCustomerResponsible] = useState(false);
+  // Default to true when booking has protection AND customer is marked responsible
+  const [coveredByProtection, setCoveredByProtection] = useState(false);
   const [photo, setPhoto] = useState<File | null>(null);
   const [notes, setNotes] = useState("");
 
@@ -77,6 +86,7 @@ export function DamagesSection({
     setSeverity("minor");
     setCostDollars("0");
     setCustomerResponsible(false);
+    setCoveredByProtection(false);
     setPhoto(null);
     setNotes("");
     setRecording(false);
@@ -95,6 +105,7 @@ export function DamagesSection({
     fd.append("severity", severity);
     fd.append("cost_dollars", costDollars || "0");
     if (customerResponsible) fd.append("customer_responsible", "on");
+    if (coveredByProtection) fd.append("covered_by_protection", "on");
     if (notes) fd.append("notes", notes);
     if (photo) fd.append("photo", photo);
 
@@ -118,6 +129,14 @@ export function DamagesSection({
     });
   }
 
+  function handleToggleCovered(d: DamageRow) {
+    startTransition(async () => {
+      const r = await toggleDamageCovered(d.id, bookingId, d.covered_by_protection);
+      if (r.error) toast.error(r.error);
+      router.refresh();
+    });
+  }
+
   function handleToggleResolved(d: DamageRow) {
     startTransition(async () => {
       const r = await toggleDamageResolved(d.id, bookingId, d.resolved);
@@ -136,8 +155,14 @@ export function DamagesSection({
   }
 
   const totalCost = damages.reduce((s, d) => s + d.cost_cents, 0);
+  const coveredCost = damages
+    .filter((d) => d.covered_by_protection)
+    .reduce((s, d) => s + d.cost_cents, 0);
   const chargeable = damages
-    .filter((d) => d.customer_responsible && !d.charged_to_customer)
+    .filter(
+      (d) =>
+        d.customer_responsible && !d.charged_to_customer && !d.covered_by_protection,
+    )
     .reduce((s, d) => s + d.cost_cents, 0);
 
   return (
@@ -246,6 +271,28 @@ export function DamagesSection({
             </div>
           </div>
 
+          {/* Protection coverage — only relevant if booking has protection */}
+          {hasProtection && (
+            <div className="bg-green-50 border border-green-200 rounded p-2">
+              <label className="inline-flex items-center gap-2 text-sm cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={coveredByProtection}
+                  onChange={(e) => setCoveredByProtection(e.target.checked)}
+                  className="h-4 w-4 text-green-600 focus:ring-green-600"
+                />
+                <Shield className="h-4 w-4 text-green-700" />
+                <span className="text-green-900">
+                  <strong>Covered by protection</strong> — customer purchased damage
+                  protection at checkout ({protectionCoverageCents > 0
+                    ? `up to ${formatCurrency(protectionCoverageCents)}`
+                    : "coverage limit"}
+                  ). Marking this excludes the damage from chargeable amount.
+                </span>
+              </label>
+            </div>
+          )}
+
           <div>
             <label className="block text-xs text-slate-600 mb-1">Photo (optional)</label>
             <input
@@ -318,6 +365,11 @@ export function DamagesSection({
                         ✓ Charged
                       </span>
                     )}
+                    {d.covered_by_protection && (
+                      <span className="text-xs bg-green-100 text-green-800 rounded px-2 py-0.5 inline-flex items-center gap-1">
+                        <Shield className="h-3 w-3" /> Covered
+                      </span>
+                    )}
                     {d.resolved && (
                       <span className="text-xs bg-blue-100 text-blue-800 rounded px-2 py-0.5">
                         ✓ Resolved
@@ -352,6 +404,20 @@ export function DamagesSection({
                 <div className="text-right">
                   <div className="font-bold text-red-700">{formatCurrency(d.cost_cents)}</div>
                   <div className="flex gap-1 mt-2 justify-end">
+                    {hasProtection && (
+                      <button
+                        onClick={() => handleToggleCovered(d)}
+                        disabled={pending}
+                        className="text-xs text-slate-600 hover:text-green-700 p-1"
+                        title={
+                          d.covered_by_protection
+                            ? "Remove protection coverage"
+                            : "Mark covered by protection"
+                        }
+                      >
+                        <Shield className="h-3 w-3" />
+                      </button>
+                    )}
                     {d.customer_responsible && (
                       <button
                         onClick={() => handleToggleCharged(d)}
@@ -387,6 +453,16 @@ export function DamagesSection({
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {coveredCost > 0 && (
+        <div className="mt-3 bg-green-50 border border-green-200 rounded p-2 text-sm flex items-center gap-2">
+          <Shield className="h-4 w-4 text-green-700" />
+          <span className="text-green-900">
+            <strong>{formatCurrency(coveredCost)}</strong> covered by protection
+            plan (no charge to customer)
+          </span>
         </div>
       )}
 

@@ -184,6 +184,7 @@ export async function recordDamage(formData: FormData) {
     severity: parsed.data.severity,
     cost_cents: Math.round(parsed.data.cost_dollars * 100),
     customer_responsible: parsed.data.customer_responsible,
+    covered_by_protection: parsed.data.covered_by_protection,
     notes: parsed.data.notes,
     photo_url: photoUrl,
     recorded_by: me.email,
@@ -191,6 +192,22 @@ export async function recordDamage(formData: FormData) {
   if (error) return { error: error.message };
 
   revalidatePath(`/admin/bookings/${parsed.data.booking_id}`);
+  return { success: true };
+}
+
+export async function toggleDamageCovered(
+  damageId: string,
+  bookingId: string,
+  currentlyCovered: boolean,
+) {
+  await requireStaffOrAdmin();
+  const supabase = createAdminClient();
+  const { error } = await supabase
+    .from("booking_damages")
+    .update({ covered_by_protection: !currentlyCovered })
+    .eq("id", damageId);
+  if (error) return { error: error.message };
+  revalidatePath(`/admin/bookings/${bookingId}`);
   return { success: true };
 }
 

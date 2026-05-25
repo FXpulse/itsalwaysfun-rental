@@ -39,15 +39,20 @@ export default async function BookingDetailPage({
   // Compute delivery checklist from product inventory requirements
   const checklist = await getDeliveryChecklist(params.id);
 
-  // Load proofs (delivery + pickup) and damages in parallel
-  const [{ data: proofs }, { data: damagesRaw }, { data: inventory }] = await Promise.all([
+  // Load proofs (delivery + pickup), damages, inventory, + protection setting in parallel
+  const [
+    { data: proofs },
+    { data: damagesRaw },
+    { data: inventory },
+    { data: protectionSetting },
+  ] = await Promise.all([
     supabase.from("booking_proofs").select("*").eq("booking_id", params.id),
     supabase
       .from("booking_damages")
       .select(`
         id, inventory_item_id, description, severity, cost_cents,
-        customer_responsible, charged_to_customer, resolved, photo_url,
-        recorded_at, recorded_by, notes,
+        customer_responsible, charged_to_customer, covered_by_protection,
+        resolved, photo_url, recorded_at, recorded_by, notes,
         inventory_items (name)
       `)
       .eq("booking_id", params.id)
@@ -58,7 +63,17 @@ export default async function BookingDetailPage({
       .eq("is_active", true)
       .order("category")
       .order("name"),
+    supabase
+      .from("site_settings")
+      .select("value")
+      .eq("key", "damage_protection_coverage_cents")
+      .maybeSingle(),
   ]);
+
+  const protectionCoverageCents = parseInt(
+    (protectionSetting?.value as string) || "50000",
+    10,
+  ) || 50000;
 
   const proofsList = (proofs as any[]) || [];
   const deliveryProof =
@@ -247,6 +262,8 @@ export default async function BookingDetailPage({
           bookingId={b.id}
           damages={damages}
           inventory={(inventory as any[]) || []}
+          hasProtection={!!(b as any).damage_protection_purchased}
+          protectionCoverageCents={protectionCoverageCents}
         />
       </div>
 
