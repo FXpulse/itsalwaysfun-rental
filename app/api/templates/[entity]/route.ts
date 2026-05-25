@@ -130,18 +130,18 @@ const TEMPLATES: Record<string, { headers: string[]; sampleRows: any[][] }> = {
   },
 
   vehicles: {
-    headers: ["name", "vehicle_type", "requires_trailer", "capacity_notes", "is_active"],
+    headers: ["name", "vehicle_type", "requires_trailer", "capacity_notes", "license_tag", "vin", "is_active"],
     sampleRows: [
-      ["Truck 1", "truck", "true", "Pulls trailer — 2-3 large bouncers", "true"],
-      ["Van A", "van", "false", "Small to medium bouncers + accessories direct", "true"],
+      ["Truck 1", "truck", "true", "Pulls trailer — 2-3 large bouncers", "ABC-1234", "1FTFW1ET5DFA12345", "true"],
+      ["Van A", "van", "false", "Small to medium bouncers + accessories direct", "XYZ-5678", "", "true"],
     ],
   },
 
   trailers: {
-    headers: ["name", "capacity_notes", "is_active"],
+    headers: ["name", "capacity_notes", "license_tag", "vin", "is_active"],
     sampleRows: [
-      ["Trailer A (16ft)", "2 large bouncers + accessories", "true"],
-      ["Trailer B (12ft)", "1 large or 2 small bouncers", "true"],
+      ["Trailer A (16ft)", "2 large bouncers + accessories", "T-9876", "1ABCD2EFGH345678X", "true"],
+      ["Trailer B (12ft)", "1 large or 2 small bouncers", "", "", "true"],
     ],
   },
 };

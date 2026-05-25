@@ -439,6 +439,32 @@ export function HelpClient() {
       ),
     },
     {
+      id: "fleet-vin-tag",
+      title: "Step 10d — Fleet: VIN + license tag",
+      icon: Truck,
+      content: (
+        <div className="space-y-3 text-sm">
+          <p>
+            Each vehicle and trailer in <code>Fleet</code> can store its
+            <strong> License tag</strong> (plate #) and <strong>VIN</strong>.
+            Both are optional but useful for insurance claims, traffic stops,
+            DMV renewals, and identifying which truck to take.
+          </p>
+          <ol className="list-decimal pl-5 space-y-1 text-xs">
+            <li>Go to <code>Fleet</code></li>
+            <li>Click <strong>Add vehicle / trailer</strong> or the pencil to edit one</li>
+            <li>Fill <strong>License tag</strong> and/or <strong>VIN</strong> — they auto-uppercase + trim</li>
+            <li>Save. The columns now show on the Fleet table for quick lookup.</li>
+          </ol>
+          <p className="text-xs text-slate-500">
+            💡 Bulk upload supports both fields too — download a fresh
+            <code> vehicles </code> or <code> trailers </code> CSV template from
+            the top of this Help page.
+          </p>
+        </div>
+      ),
+    },
+    {
       id: "site",
       title: "Step 11 — Customize the public site",
       icon: ImageIcon,

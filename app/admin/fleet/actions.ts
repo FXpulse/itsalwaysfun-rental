@@ -10,24 +10,40 @@ const VehicleSchema = z.object({
   vehicle_type: z.enum(["truck", "van", "pickup", "other"]),
   requires_trailer: z.boolean(),
   capacity_notes: z.string().max(500).optional().nullable(),
+  vin: z.string().max(50).optional().nullable(),
+  license_tag: z.string().max(20).optional().nullable(),
   is_active: z.boolean(),
 });
 
 const TrailerSchema = z.object({
   name: z.string().min(1).max(200),
   capacity_notes: z.string().max(500).optional().nullable(),
+  vin: z.string().max(50).optional().nullable(),
+  license_tag: z.string().max(20).optional().nullable(),
   is_active: z.boolean(),
 });
 
-export async function createVehicle(formData: FormData) {
-  await requireAdmin();
-  const parsed = VehicleSchema.safeParse({
+function cleanIdentifier(raw: string | null): string | null {
+  if (!raw) return null;
+  const trimmed = raw.trim().toUpperCase();
+  return trimmed || null;
+}
+
+function parseVehicleForm(formData: FormData) {
+  return {
     name: String(formData.get("name") || ""),
     vehicle_type: String(formData.get("vehicle_type") || "truck"),
     requires_trailer: formData.get("requires_trailer") === "on",
     capacity_notes: String(formData.get("capacity_notes") || "") || null,
+    vin: cleanIdentifier(String(formData.get("vin") || "")),
+    license_tag: cleanIdentifier(String(formData.get("license_tag") || "")),
     is_active: formData.get("is_active") === "on",
-  });
+  };
+}
+
+export async function createVehicle(formData: FormData) {
+  await requireAdmin();
+  const parsed = VehicleSchema.safeParse(parseVehicleForm(formData));
   if (!parsed.success) return { error: parsed.error.errors.map((e) => e.message).join(", ") };
 
   const supabase = createAdminClient();
@@ -39,13 +55,7 @@ export async function createVehicle(formData: FormData) {
 
 export async function updateVehicle(id: string, formData: FormData) {
   await requireAdmin();
-  const parsed = VehicleSchema.safeParse({
-    name: String(formData.get("name") || ""),
-    vehicle_type: String(formData.get("vehicle_type") || "truck"),
-    requires_trailer: formData.get("requires_trailer") === "on",
-    capacity_notes: String(formData.get("capacity_notes") || "") || null,
-    is_active: formData.get("is_active") === "on",
-  });
+  const parsed = VehicleSchema.safeParse(parseVehicleForm(formData));
   if (!parsed.success) return { error: parsed.error.errors.map((e) => e.message).join(", ") };
 
   const supabase = createAdminClient();
@@ -71,13 +81,19 @@ export async function deleteVehicle(id: string) {
   return { success: true };
 }
 
-export async function createTrailer(formData: FormData) {
-  await requireAdmin();
-  const parsed = TrailerSchema.safeParse({
+function parseTrailerForm(formData: FormData) {
+  return {
     name: String(formData.get("name") || ""),
     capacity_notes: String(formData.get("capacity_notes") || "") || null,
+    vin: cleanIdentifier(String(formData.get("vin") || "")),
+    license_tag: cleanIdentifier(String(formData.get("license_tag") || "")),
     is_active: formData.get("is_active") === "on",
-  });
+  };
+}
+
+export async function createTrailer(formData: FormData) {
+  await requireAdmin();
+  const parsed = TrailerSchema.safeParse(parseTrailerForm(formData));
   if (!parsed.success) return { error: parsed.error.errors.map((e) => e.message).join(", ") };
 
   const supabase = createAdminClient();
@@ -89,11 +105,7 @@ export async function createTrailer(formData: FormData) {
 
 export async function updateTrailer(id: string, formData: FormData) {
   await requireAdmin();
-  const parsed = TrailerSchema.safeParse({
-    name: String(formData.get("name") || ""),
-    capacity_notes: String(formData.get("capacity_notes") || "") || null,
-    is_active: formData.get("is_active") === "on",
-  });
+  const parsed = TrailerSchema.safeParse(parseTrailerForm(formData));
   if (!parsed.success) return { error: parsed.error.errors.map((e) => e.message).join(", ") };
 
   const supabase = createAdminClient();

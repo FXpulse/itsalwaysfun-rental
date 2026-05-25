@@ -120,6 +120,8 @@ export function FleetManager({
                 <tr>
                   <th className="px-4 py-2 text-left">Name</th>
                   <th className="px-4 py-2 text-left">Type</th>
+                  <th className="px-4 py-2 text-left">Tag</th>
+                  <th className="px-4 py-2 text-left">VIN</th>
                   <th className="px-4 py-2 text-center">Needs trailer?</th>
                   <th className="px-4 py-2 text-left">Capacity</th>
                   <th className="px-4 py-2 text-left">Active</th>
@@ -131,6 +133,12 @@ export function FleetManager({
                   <tr key={v.id} className={!v.is_active ? "opacity-50" : ""}>
                     <td className="px-4 py-2 font-medium">{v.name}</td>
                     <td className="px-4 py-2 capitalize">{v.vehicle_type}</td>
+                    <td className="px-4 py-2 font-mono text-xs">
+                      {v.license_tag || <span className="text-slate-300">—</span>}
+                    </td>
+                    <td className="px-4 py-2 font-mono text-xs text-slate-600">
+                      {v.vin || <span className="text-slate-300">—</span>}
+                    </td>
                     <td className="px-4 py-2 text-center">
                       {v.requires_trailer ? (
                         <span className="text-xs bg-amber-100 text-amber-800 rounded px-2 py-0.5">
@@ -201,6 +209,8 @@ export function FleetManager({
               <thead className="bg-slate-50 text-slate-600 text-xs uppercase tracking-wide">
                 <tr>
                   <th className="px-4 py-2 text-left">Name</th>
+                  <th className="px-4 py-2 text-left">Tag</th>
+                  <th className="px-4 py-2 text-left">VIN</th>
                   <th className="px-4 py-2 text-left">Capacity</th>
                   <th className="px-4 py-2 text-left">Active</th>
                   <th className="px-4 py-2"></th>
@@ -210,6 +220,12 @@ export function FleetManager({
                 {trailers.map((t) => (
                   <tr key={t.id} className={!t.is_active ? "opacity-50" : ""}>
                     <td className="px-4 py-2 font-medium">{t.name}</td>
+                    <td className="px-4 py-2 font-mono text-xs">
+                      {t.license_tag || <span className="text-slate-300">—</span>}
+                    </td>
+                    <td className="px-4 py-2 font-mono text-xs text-slate-600">
+                      {t.vin || <span className="text-slate-300">—</span>}
+                    </td>
                     <td className="px-4 py-2 text-xs text-slate-500">{t.capacity_notes || "—"}</td>
                     <td className="px-4 py-2 text-xs">{t.is_active ? "✓" : "—"}</td>
                     <td className="px-4 py-2 text-right space-x-1">
@@ -284,6 +300,28 @@ export function FleetManager({
                 </label>
               </div>
             </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs text-slate-600 mb-1">License tag</label>
+                <input
+                  name="license_tag"
+                  defaultValue={editingVehicle?.license_tag || ""}
+                  className="input font-mono uppercase"
+                  placeholder="e.g. ABC-1234"
+                  maxLength={20}
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-slate-600 mb-1">VIN</label>
+                <input
+                  name="vin"
+                  defaultValue={editingVehicle?.vin || ""}
+                  className="input font-mono uppercase"
+                  placeholder="17 chars"
+                  maxLength={50}
+                />
+              </div>
+            </div>
             <div>
               <label className="block text-xs text-slate-600 mb-1">Capacity notes</label>
               <input
@@ -342,6 +380,28 @@ export function FleetManager({
                 autoFocus
                 placeholder="Trailer A (16ft)"
               />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs text-slate-600 mb-1">License tag</label>
+                <input
+                  name="license_tag"
+                  defaultValue={editingTrailer?.license_tag || ""}
+                  className="input font-mono uppercase"
+                  placeholder="e.g. T-9876"
+                  maxLength={20}
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-slate-600 mb-1">VIN</label>
+                <input
+                  name="vin"
+                  defaultValue={editingTrailer?.vin || ""}
+                  className="input font-mono uppercase"
+                  placeholder="17 chars"
+                  maxLength={50}
+                />
+              </div>
             </div>
             <div>
               <label className="block text-xs text-slate-600 mb-1">Capacity notes</label>

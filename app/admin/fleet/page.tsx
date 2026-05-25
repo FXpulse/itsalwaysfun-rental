@@ -13,6 +13,8 @@ export interface VehicleRow {
   vehicle_type: "truck" | "van" | "pickup" | "other";
   requires_trailer: boolean;
   capacity_notes: string | null;
+  vin: string | null;
+  license_tag: string | null;
   is_active: boolean;
 }
 
@@ -20,6 +22,8 @@ export interface TrailerRow {
   id: string;
   name: string;
   capacity_notes: string | null;
+  vin: string | null;
+  license_tag: string | null;
   is_active: boolean;
 }
 

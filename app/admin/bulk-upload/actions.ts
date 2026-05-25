@@ -206,6 +206,8 @@ export async function bulkUploadVehicles(csvText: string): Promise<BulkResult> {
           : "truck",
         requires_trailer: toBool(r.requires_trailer, true),
         capacity_notes: r.capacity_notes || null,
+        license_tag: r.license_tag ? r.license_tag.trim().toUpperCase() : null,
+        vin: r.vin ? r.vin.trim().toUpperCase() : null,
         is_active: toBool(r.is_active, true),
       };
       const { error } = await supabase.from("vehicles").insert(row);
@@ -245,6 +247,8 @@ export async function bulkUploadTrailers(csvText: string): Promise<BulkResult> {
       const row = {
         name: r.name,
         capacity_notes: r.capacity_notes || null,
+        license_tag: r.license_tag ? r.license_tag.trim().toUpperCase() : null,
+        vin: r.vin ? r.vin.trim().toUpperCase() : null,
         is_active: toBool(r.is_active, true),
       };
       const { error } = await supabase.from("trailers").insert(row);
