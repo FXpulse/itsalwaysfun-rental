@@ -515,6 +515,46 @@ export function HelpClient() {
       ),
     },
     {
+      id: "per-day-consumables",
+      title: "Per-day consumables (propane, fuel, ice)",
+      icon: Package,
+      content: (
+        <div className="space-y-3 text-sm">
+          <p>
+            Some inventory items get <em>consumed</em> per day of rental — a
+            generator needs 1 propane tank per day, an ice chest needs 3 bags
+            of ice per day, etc. The system multiplies these automatically.
+          </p>
+          <p className="font-semibold">How to configure:</p>
+          <ol className="list-decimal pl-5 space-y-1 text-xs">
+            <li>Go to <code>/admin/products/[id]</code></li>
+            <li>In <strong>Inventory checklist</strong> → click <strong>Add item</strong></li>
+            <li>Select the consumable (e.g. "Propane tank 20lb")</li>
+            <li>Enter qty <strong>per day</strong> (e.g. <code>1</code>)</li>
+            <li>Check the box <strong>"Per day (multiply qty × rental days)"</strong></li>
+            <li>Save</li>
+          </ol>
+          <p className="font-semibold">What happens at booking time:</p>
+          <ul className="list-disc pl-5 text-xs space-y-1">
+            <li>1-day rental → list shows <strong>1 tank</strong></li>
+            <li>3-day rental → list shows <strong>3 tanks</strong></li>
+            <li>Truck load aggregation sums these multiplied quantities across all bookings on the route</li>
+            <li>The reason column shows "1/day × 3 days" so it's transparent why the count went up</li>
+          </ul>
+          <p className="text-xs text-slate-500">
+            💡 Combine with "Only when needs Power Supply" so propane only
+            shows up when the customer actually rented power. Both checkboxes
+            can be active simultaneously.
+          </p>
+          <p className="text-xs text-slate-500">
+            💡 The blue "🗓 consumable" badge in the requirements list makes
+            it easy to spot which items will scale up vs static items
+            (anchors, cables, etc.).
+          </p>
+        </div>
+      ),
+    },
+    {
       id: "unit-tracking",
       title: "Per-unit asset tracking (which BLW-05 went where?)",
       icon: Hash,

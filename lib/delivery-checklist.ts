@@ -19,6 +19,7 @@ interface RequirementRow {
   quantity: number;
   surface_types: string[] | null;
   only_when_needs_power: boolean;
+  per_day: boolean;
   notes: string | null;
   inventory_items: {
     id: string;
@@ -31,6 +32,15 @@ interface BookingRow {
   product_id: string | null;
   surface_type: string | null;
   needs_power_supply: boolean | null;
+  event_date: string;
+  event_end_date: string | null;
+}
+
+function rentalDays(eventDate: string, eventEndDate: string | null): number {
+  if (!eventEndDate || eventEndDate === eventDate) return 1;
+  const s = new Date(eventDate + "T00:00:00").getTime();
+  const e = new Date(eventEndDate + "T00:00:00").getTime();
+  return Math.max(1, Math.round((e - s) / 86400000) + 1);
 }
 
 export async function getDeliveryChecklist(bookingId: string): Promise<{
@@ -43,7 +53,7 @@ export async function getDeliveryChecklist(bookingId: string): Promise<{
 
   const { data: booking } = await supabase
     .from("bookings")
-    .select("product_id, surface_type, needs_power_supply, product_name")
+    .select("product_id, surface_type, needs_power_supply, product_name, event_date, event_end_date")
     .eq("id", bookingId)
     .single();
 
@@ -52,6 +62,7 @@ export async function getDeliveryChecklist(bookingId: string): Promise<{
   }
 
   const b = booking as BookingRow & { product_name: string };
+  const numDays = rentalDays(b.event_date, b.event_end_date);
 
   const { data: reqs } = await supabase
     .from("product_inventory_requirements")
@@ -61,6 +72,7 @@ export async function getDeliveryChecklist(bookingId: string): Promise<{
       quantity,
       surface_types,
       only_when_needs_power,
+      per_day,
       notes,
       inventory_items (id, name, category)
     `)
@@ -89,13 +101,17 @@ export async function getDeliveryChecklist(bookingId: string): Promise<{
       reasonParts.push("always");
     }
     if (r.only_when_needs_power) reasonParts.push("power supply needed");
+    if (r.per_day && numDays > 1) reasonParts.push(`${r.quantity}/day × ${numDays} days`);
+
+    // Multiply by rental days if this requirement is per-day (consumables)
+    const finalQuantity = r.per_day ? r.quantity * numDays : r.quantity;
 
     items.push({
       requirement_id: r.id,
       inventory_item_id: r.inventory_item_id,
       inventory_name: r.inventory_items.name,
       inventory_category: r.inventory_items.category,
-      quantity: r.quantity,
+      quantity: finalQuantity,
       notes: r.notes,
       reason: reasonParts.join(" · "),
     });

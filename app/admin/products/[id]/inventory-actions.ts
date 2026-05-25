@@ -11,6 +11,7 @@ const ReqSchema = z.object({
   quantity: z.number().int().min(1).max(999),
   surface_types: z.array(z.string()).optional(),
   only_when_needs_power: z.boolean().optional(),
+  per_day: z.boolean().optional(),
   notes: z.string().max(500).optional().nullable(),
 });
 
@@ -24,6 +25,7 @@ export async function addInventoryRequirement(formData: FormData) {
     quantity: parseInt(String(formData.get("quantity") || "1"), 10),
     surface_types: surfaces.length > 0 ? surfaces : undefined,
     only_when_needs_power: formData.get("only_when_needs_power") === "on",
+    per_day: formData.get("per_day") === "on",
     notes: (formData.get("notes") as string)?.trim() || null,
   });
   if (!parsed.success) {
@@ -40,6 +42,7 @@ export async function addInventoryRequirement(formData: FormData) {
         ? parsed.data.surface_types
         : null,
     only_when_needs_power: parsed.data.only_when_needs_power || false,
+    per_day: parsed.data.per_day || false,
     notes: parsed.data.notes,
   });
   if (error) return { error: error.message };
@@ -91,7 +94,7 @@ export async function copyRequirementsFromProduct(
 
   const { data: sourceReqs, error: srcErr } = await supabase
     .from("product_inventory_requirements")
-    .select("inventory_item_id, quantity, surface_types, only_when_needs_power, notes")
+    .select("inventory_item_id, quantity, surface_types, only_when_needs_power, per_day, notes")
     .eq("product_id", sourceProductId);
   if (srcErr) return { error: srcErr.message };
   if (!sourceReqs || sourceReqs.length === 0) {
@@ -112,6 +115,7 @@ export async function copyRequirementsFromProduct(
     quantity: r.quantity,
     surface_types: r.surface_types,
     only_when_needs_power: r.only_when_needs_power,
+    per_day: r.per_day,
     notes: r.notes,
   }));
 

@@ -38,7 +38,7 @@ export default async function EditProductPage({
     supabase
       .from("product_inventory_requirements")
       .select(`
-        id, inventory_item_id, quantity, surface_types, only_when_needs_power, notes,
+        id, inventory_item_id, quantity, surface_types, only_when_needs_power, per_day, notes,
         inventory_items (name, category)
       `)
       .eq("product_id", params.id),
@@ -60,6 +60,7 @@ export default async function EditProductPage({
     quantity: r.quantity,
     surface_types: r.surface_types,
     only_when_needs_power: r.only_when_needs_power,
+    per_day: r.per_day || false,
     notes: r.notes,
   }));
 

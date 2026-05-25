@@ -24,6 +24,7 @@ export interface RequirementRow {
   quantity: number;
   surface_types: string[] | null;
   only_when_needs_power: boolean;
+  per_day: boolean;
   notes: string | null;
 }
 
@@ -62,6 +63,7 @@ export function InventoryRequirements({
   const [quantity, setQuantity] = useState("1");
   const [surfaces, setSurfaces] = useState<string[]>([]);
   const [onlyWithPower, setOnlyWithPower] = useState(false);
+  const [perDay, setPerDay] = useState(false);
   const [notes, setNotes] = useState("");
 
   // Copy-form state
@@ -112,6 +114,7 @@ export function InventoryRequirements({
     setQuantity("1");
     setSurfaces([]);
     setOnlyWithPower(false);
+    setPerDay(false);
     setNotes("");
     setAdding(false);
   }
@@ -128,6 +131,7 @@ export function InventoryRequirements({
     fd.append("quantity", quantity);
     surfaces.forEach((s) => fd.append("surface_types", s));
     if (onlyWithPower) fd.append("only_when_needs_power", "on");
+    if (perDay) fd.append("per_day", "on");
     if (notes.trim()) fd.append("notes", notes.trim());
 
     startTransition(async () => {
@@ -345,7 +349,7 @@ export function InventoryRequirements({
             </p>
           </div>
 
-          <div>
+          <div className="flex flex-wrap gap-x-6 gap-y-2">
             <label className="inline-flex items-center gap-2 text-sm">
               <input
                 type="checkbox"
@@ -354,6 +358,20 @@ export function InventoryRequirements({
                 className="h-4 w-4"
               />
               Only when customer needs Power Supply
+            </label>
+            <label className="inline-flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={perDay}
+                onChange={(e) => setPerDay(e.target.checked)}
+                className="h-4 w-4"
+              />
+              <span>
+                Per day (multiply qty × rental days)
+                <span className="block text-[10px] text-slate-500 font-normal">
+                  Use for consumables: propane tanks, fuel cans, ice bags
+                </span>
+              </span>
             </label>
           </div>
 
@@ -406,7 +424,14 @@ export function InventoryRequirements({
                   <div className="font-medium">{r.inventory_name}</div>
                   <div className="text-xs text-slate-400">{r.inventory_category}</div>
                 </td>
-                <td className="py-2 text-center font-mono">{r.quantity}</td>
+                <td className="py-2 text-center font-mono">
+                  {r.quantity}
+                  {r.per_day && (
+                    <span className="block text-[10px] text-blue-700 font-semibold">
+                      / day
+                    </span>
+                  )}
+                </td>
                 <td className="py-2 text-xs">
                   {r.surface_types && r.surface_types.length > 0 ? (
                     <div className="flex flex-wrap gap-1">
@@ -425,6 +450,11 @@ export function InventoryRequirements({
                   {r.only_when_needs_power && (
                     <span className="block mt-1 text-purple-700 text-[10px]">
                       ⚡ only with Power Supply
+                    </span>
+                  )}
+                  {r.per_day && (
+                    <span className="block mt-1 text-blue-700 text-[10px]">
+                      🗓 consumable (× rental days)
                     </span>
                   )}
                 </td>
