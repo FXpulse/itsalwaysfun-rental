@@ -4,6 +4,8 @@ import { getCurrentUserRole } from "@/lib/auth/roles";
 import { formatCurrency } from "@/lib/utils";
 import { Gift } from "lucide-react";
 import { GiftCardsManager } from "./GiftCardsManager";
+import { PublicSalesToggle } from "./PublicSalesToggle";
+import { isGiftCardSalesEnabled } from "@/lib/gift-cards";
 
 export const dynamic = "force-dynamic";
 
@@ -19,6 +21,7 @@ export default async function AdminGiftCardsPage() {
     .limit(200);
 
   const list = (cards as any[]) || [];
+  const publicSalesEnabled = await isGiftCardSalesEnabled();
 
   const totalIssued = list.reduce((s, c) => s + c.original_amount_cents, 0);
   const totalOutstanding = list
@@ -35,6 +38,8 @@ export default async function AdminGiftCardsPage() {
         Issue gift cards for customers to give as presents. Recipient gets an
         email with the code; they redeem at checkout.
       </p>
+
+      <PublicSalesToggle enabled={publicSalesEnabled} />
 
       <div className="grid grid-cols-3 gap-4 mb-6">
         <Stat label="Total issued" value={formatCurrency(totalIssued)} />

@@ -9,6 +9,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getStripe, isStripeConfigured } from "@/lib/stripe/server";
+import { isGiftCardSalesEnabled } from "@/lib/gift-cards";
 
 export const dynamic = "force-dynamic";
 
@@ -29,6 +30,13 @@ export async function POST(request: Request) {
   if (!isStripeConfigured()) {
     return NextResponse.json(
       { error: "Online payments not configured yet — please call to purchase." },
+      { status: 503 },
+    );
+  }
+
+  if (!(await isGiftCardSalesEnabled())) {
+    return NextResponse.json(
+      { error: "Gift card sales are temporarily disabled — please call to purchase." },
       { status: 503 },
     );
   }

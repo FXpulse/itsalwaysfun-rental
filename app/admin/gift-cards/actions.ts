@@ -112,3 +112,21 @@ export async function deactivateGiftCard(id: string) {
   revalidatePath("/admin/gift-cards");
   return { success: true };
 }
+
+/** Toggle whether customers can buy gift cards from /gift-cards.
+ *  Stored in site_settings.gift_card_sales_enabled ("true"/"false").
+ *  Default = enabled when key missing. */
+export async function setGiftCardSalesEnabled(enabled: boolean) {
+  await requireAdmin();
+  const supabase = createAdminClient();
+  const { error } = await supabase
+    .from("site_settings")
+    .upsert(
+      { key: "gift_card_sales_enabled", value: enabled ? "true" : "false" },
+      { onConflict: "key" },
+    );
+  if (error) return { error: error.message };
+  revalidatePath("/admin/gift-cards");
+  revalidatePath("/gift-cards");
+  return { success: true };
+}

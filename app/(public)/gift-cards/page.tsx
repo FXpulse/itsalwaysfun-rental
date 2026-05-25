@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
-import { Gift } from "lucide-react";
+import { Gift, Phone } from "lucide-react";
 import { isStripeConfigured } from "@/lib/stripe/server";
+import { isGiftCardSalesEnabled } from "@/lib/gift-cards";
+import { getSiteSettings } from "@/lib/site-settings";
 import { GiftCardPurchase } from "./GiftCardPurchase";
 
 export const dynamic = "force-dynamic";
@@ -11,9 +13,11 @@ export const metadata: Metadata = {
     "Give the gift of fun. Buy a bounce house rental gift card — any amount, delivered instantly by email.",
 };
 
-export default function GiftCardsPage() {
+export default async function GiftCardsPage() {
   const stripeReady = isStripeConfigured();
   const publishableKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || "";
+  const salesEnabled = await isGiftCardSalesEnabled();
+  const settings = await getSiteSettings();
 
   return (
     <div className="bg-slate-50 min-h-screen">
@@ -41,10 +45,28 @@ export default function GiftCardsPage() {
           <Perk title="Never expires" desc="Use the balance over multiple bookings." />
         </div>
 
-        <GiftCardPurchase
-          stripeConfigured={stripeReady}
-          stripePublishableKey={publishableKey}
-        />
+        {salesEnabled ? (
+          <GiftCardPurchase
+            stripeConfigured={stripeReady}
+            stripePublishableKey={publishableKey}
+          />
+        ) : (
+          <div className="bg-white border-2 border-amber-200 rounded-lg p-8 text-center">
+            <h2 className="text-xl font-bold text-brand-navy mb-2">
+              Online gift card sales paused
+            </h2>
+            <p className="text-slate-600 mb-4">
+              We're not selling gift cards online right now. Call us to purchase
+              one by phone — we'll email the code straight to your recipient.
+            </p>
+            <a
+              href={`tel:${settings.business_phone.replace(/\D/g, "")}`}
+              className="inline-flex items-center gap-2 bg-brand-navy text-white font-semibold px-5 py-2.5 rounded hover:bg-brand-navy-dark"
+            >
+              <Phone className="h-4 w-4" /> Call {settings.business_phone}
+            </a>
+          </div>
+        )}
       </section>
     </div>
   );
