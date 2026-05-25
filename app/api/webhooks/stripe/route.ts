@@ -15,6 +15,7 @@ import { getStripe, isStripeConfigured } from "@/lib/stripe/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { addContactNote, upsertContact, addContactTags } from "@/lib/ghl/client";
 import { awardForPaidBooking } from "@/lib/loyalty";
+import { sendBookingConfirmation } from "@/lib/email/scheduled-emails";
 
 export const dynamic = "force-dynamic";
 
@@ -112,6 +113,13 @@ export async function POST(request: Request) {
       await awardForPaidBooking(bookingId);
     } catch (e) {
       console.error("[loyalty award failed, non-fatal]", e);
+    }
+
+    // Send booking confirmation email (idempotent via booking_emails_sent)
+    try {
+      await sendBookingConfirmation(bookingId);
+    } catch (e) {
+      console.error("[booking confirmation email failed, non-fatal]", e);
     }
 
     return NextResponse.json({ received: true, booking_id: bookingId, status: "confirmed" });

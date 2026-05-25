@@ -5,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { getStripe, isStripeConfigured } from "@/lib/stripe/server";
 import { awardForPaidBooking } from "@/lib/loyalty";
+import { sendBookingConfirmation } from "@/lib/email/scheduled-emails";
 import { z } from "zod";
 
 async function requireAdmin() {
@@ -223,6 +224,13 @@ export async function markAsPaidManually(
     await awardForPaidBooking(bookingId);
   } catch (e) {
     console.error("[loyalty award failed, non-fatal]", e);
+  }
+
+  // Booking confirmation email (idempotent)
+  try {
+    await sendBookingConfirmation(bookingId);
+  } catch (e) {
+    console.error("[booking confirmation email failed, non-fatal]", e);
   }
 
   revalidatePath("/admin/bookings");
