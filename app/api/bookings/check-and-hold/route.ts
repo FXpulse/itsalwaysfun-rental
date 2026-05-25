@@ -112,7 +112,7 @@ export async function POST(request: Request) {
     if (hoursUntil < minLeadHours) {
       return NextResponse.json(
         {
-          error: `Bookings require at least ${minLeadHours}h notice. Pick a later date or call (904) 584-3047 for urgent requests.`,
+          error: `Bookings require at least ${minLeadHours}h notice. Pick a later date or call (904) 584-3047 for last minute reservations.`,
         },
         { status: 400 }
       );

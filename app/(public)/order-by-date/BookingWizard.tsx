@@ -604,7 +604,7 @@ function DatePickerStep({
         <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-3 py-2 mb-4">
           ⏰ <strong>Bookings require {minLeadHours}h notice.</strong> Dates within
           the next {minLeadHours} hours are disabled — call (904) 584-3047 for
-          urgent / last-minute requests.
+          last minute reservations.
         </p>
       )}
 
@@ -651,7 +651,7 @@ function DatePickerStep({
                   disabled={disabled}
                   title={
                     tooSoon && !isPast
-                      ? `Bookings require ${minLeadHours}h notice — call (904) 584-3047 for urgent`
+                      ? `Bookings require ${minLeadHours}h notice — call (904) 584-3047 for last minute reservations`
                       : undefined
                   }
                   className={`aspect-square rounded text-sm font-medium transition relative
