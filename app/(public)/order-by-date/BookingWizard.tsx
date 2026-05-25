@@ -1120,10 +1120,14 @@ function CustomerInfoStep({
           </div>
         )}
 
-        {/* Weekend pricing breakdown — shown when the range includes weekend
-            days and the product has a different weekend rate */}
+        {/* Weekend pricing breakdown — show when ANY day is weekend AND the
+            product has a weekend rate set (even if all chosen days are weekend
+            with same price). Customer always sees clearly when weekend rate
+            applies. */}
         {priceBreakdown.length > 0 &&
-          priceBreakdown.some((d) => d.basePriceCents !== priceBreakdown[0].basePriceCents) && (
+          product.weekend_price_per_day != null &&
+          product.weekend_price_per_day !== product.price_per_day &&
+          priceBreakdown.some((d) => d.isWeekend) && (
             <div className="bg-blue-50 rounded p-3 border border-blue-200 text-sm">
               <div className="font-semibold text-brand-navy mb-2">
                 Per-day pricing (weekend rate applied)
