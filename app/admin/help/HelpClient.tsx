@@ -304,7 +304,8 @@ export function HelpClient() {
             <li>Customer enters code at checkout</li>
             <li>Create <code>LOYAL10</code> → auto-shown to returning customers in /portal</li>
           </ol>
-          <p className="mt-3"><strong>Gift cards</strong>:</p>
+
+          <p className="mt-3"><strong>Gift cards — admin issued</strong> (you give one away or sell by phone):</p>
           <ol className="list-decimal pl-5 space-y-1 text-xs">
             <li>Go to <code>Gift cards</code> → Issue gift card</li>
             <li>Enter amount + recipient email</li>
@@ -312,6 +313,103 @@ export function HelpClient() {
             <li>Recipient enters code at checkout in the 🎁 field</li>
             <li>Balance auto-decreases; remaining stays on the card</li>
           </ol>
+
+          <div className="bg-green-50 border border-green-200 rounded p-3 mt-4 space-y-2">
+            <p className="font-semibold text-green-900">🆕 Customers can BUY gift cards online</p>
+            <p className="text-xs">
+              Public page: <code>/gift-cards</code> (also in the nav as "🎁 Gift Cards").
+              Customer picks an amount ($10–$10,000), enters recipient info, pays via
+              Stripe, recipient gets the code by email automatically.
+            </p>
+            <ul className="list-disc pl-5 text-xs space-y-1">
+              <li>Each online sale shows up in <code>Gift cards</code> like any other card</li>
+              <li>Customer pays via Stripe → webhook issues the card → no manual work</li>
+              <li>Purchaser gets a receipt email with the code (in case the recipient loses it)</li>
+            </ul>
+          </div>
+
+          <div className="bg-amber-50 border border-amber-200 rounded p-3 space-y-2">
+            <p className="font-semibold text-amber-900">⚙️ Turn online sales ON or OFF</p>
+            <p className="text-xs">
+              At the top of <code>Gift cards</code> you have a green/grey switch.
+            </p>
+            <ul className="list-disc pl-5 text-xs space-y-1">
+              <li><strong>ON (default):</strong> <code>/gift-cards</code> shows the buy form</li>
+              <li><strong>OFF:</strong> <code>/gift-cards</code> shows "Online sales paused — call us" with your phone. You can still issue cards manually from this page.</li>
+            </ul>
+            <p className="text-xs">
+              Use this if you ever need to pause sales (holiday cap, promo cooldown,
+              fraud concern) without removing the page from the site.
+            </p>
+          </div>
+        </div>
+      ),
+    },
+    {
+      id: "payouts-w9",
+      title: "Step 10b — Referral payouts + W9 tax forms",
+      icon: ShieldCheck,
+      content: (
+        <div className="space-y-3 text-sm">
+          <p>
+            When customers refer friends, they earn commission (see Step 9). They
+            can cash out from their <code>/portal/referrals</code> page. There are
+            <strong> two payout types</strong>:
+          </p>
+
+          <div className="bg-slate-50 border border-slate-200 rounded p-3 space-y-2">
+            <p className="font-semibold">🎁 Credit (no W9, auto-issued)</p>
+            <p className="text-xs">
+              Customer chooses "rental credit" → on admin approval the system
+              auto-issues a gift card for the amount, emails them the code, and
+              moves the money from pending → paid. No tax form needed (it's not
+              a cash payment).
+            </p>
+          </div>
+
+          <div className="bg-slate-50 border border-slate-200 rounded p-3 space-y-2">
+            <p className="font-semibold">💵 Cash (Stripe / Venmo / Zelle — W9 required)</p>
+            <p className="text-xs">
+              Customer chooses "cash payout" → must upload their W9 form
+              (PDF/JPG/PNG). The IRS requires a 1099-NEC at year-end if a
+              non-employee earns $600+ in cash from your business.
+            </p>
+          </div>
+
+          <p className="font-semibold mt-2">Your workflow when a request comes in:</p>
+          <ol className="list-decimal pl-5 space-y-1 text-xs">
+            <li>You'll see a yellow "Payout requests" panel at the top of <code>Loyalty</code></li>
+            <li>For cash requests: click <strong>View W9 form</strong> to open the PDF (signed link, valid 10 min)</li>
+            <li>Click <strong>Approve</strong>:
+              <ul className="list-disc pl-5 mt-1">
+                <li>Credit → gift card auto-issued + emailed</li>
+                <li>Cash → marked approved, waiting for you to pay externally</li>
+              </ul>
+            </li>
+            <li>For cash: send the money via Stripe/Venmo/Zelle, then click <strong>Mark as paid</strong> + enter the transfer ID/confirmation #</li>
+            <li>Click <strong>Reject</strong> with a reason if the request isn't legitimate</li>
+          </ol>
+
+          <div className="bg-blue-50 border border-blue-200 rounded p-3 space-y-2">
+            <p className="font-semibold text-blue-900">🔒 W9 forms are stored securely</p>
+            <p className="text-xs">
+              W9s contain SSNs, so they live in a <strong>private</strong> Supabase
+              bucket (<code>w9-forms</code>). They're NOT accessible by URL —
+              admins view them via short-lived signed links generated when you
+              click "View W9 form". The link expires in 10 minutes.
+            </p>
+            <p className="text-xs">
+              At year-end (before Jan 31), use these W9s to file 1099-NECs with
+              the IRS for any referrer who earned ≥$600 cash. The W9 has the SSN
+              + legal name + address you need.
+            </p>
+          </div>
+
+          <p className="text-xs text-slate-500">
+            💡 Customers can re-upload their W9 anytime — the new file replaces
+            the old one and the upload date updates so you know which tax year
+            it applies to.
+          </p>
         </div>
       ),
     },
@@ -371,7 +469,11 @@ export function HelpClient() {
             <li>☐ Create quote → send → approve as customer → pay</li>
             <li>☐ Login to portal → see bookings → cancel one → confirm email goes out</li>
             <li>☐ Refund a booking from admin → check Stripe + email</li>
-            <li>☐ Issue gift card → use in another booking → check balance decreases</li>
+            <li>☐ Issue gift card (admin) → use in another booking → check balance decreases</li>
+            <li>☐ Buy gift card from <code>/gift-cards</code> (public) → recipient gets email → purchaser gets receipt → card appears in admin list</li>
+            <li>☐ Toggle "Public gift card sales" OFF on <code>/admin/gift-cards</code> → confirm <code>/gift-cards</code> shows "call us" message → toggle back ON</li>
+            <li>☐ As a referrer in /portal/referrals: request CREDIT payout → admin approves → recipient gets gift card email automatically</li>
+            <li>☐ As a referrer: request CASH payout → upload W9 → admin clicks "View W9 form" (opens private signed PDF) → approve → mark as paid with transfer ID</li>
             <li>☐ Create staff + driver users → login as each → verify role gating</li>
             <li>☐ Driver marks stop delivered → captures proof photos + signature</li>
             <li>☐ Record damage with protection vs without → check chargeable amounts</li>
