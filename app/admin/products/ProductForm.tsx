@@ -221,18 +221,34 @@ export function ProductForm({ product, action, submitLabel = "Save", categories 
         </div>
       </div>
 
-      <div className="flex items-center gap-3 pt-2">
-        <input
-          name="is_active"
-          type="checkbox"
-          id="is_active"
-          defaultChecked={product?.is_active ?? true}
-          className="w-4 h-4 rounded border-slate-300 text-brand-navy focus:ring-brand-navy"
-          disabled={pending}
-        />
-        <label htmlFor="is_active" className="text-sm text-slate-700">
-          Active (visible to customers on itsalwaysfun.net)
-        </label>
+      <div className="space-y-2 pt-2">
+        <div className="flex items-center gap-3">
+          <input
+            name="is_active"
+            type="checkbox"
+            id="is_active"
+            defaultChecked={product?.is_active ?? true}
+            className="w-4 h-4 rounded border-slate-300 text-brand-navy focus:ring-brand-navy"
+            disabled={pending}
+          />
+          <label htmlFor="is_active" className="text-sm text-slate-700">
+            Active (visible to customers on itsalwaysfun.net)
+          </label>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <input
+            name="is_addon"
+            type="checkbox"
+            id="is_addon"
+            defaultChecked={product?.is_addon ?? false}
+            className="w-4 h-4 rounded border-slate-300 text-amber-600 focus:ring-amber-600"
+            disabled={pending}
+          />
+          <label htmlFor="is_addon" className="text-sm text-slate-700">
+            <strong>Add-on</strong> (hidden from public catalog — only added to bookings via wizard, e.g. Power Supply)
+          </label>
+        </div>
       </div>
 
       <div className="flex gap-3 pt-4 border-t border-slate-200">

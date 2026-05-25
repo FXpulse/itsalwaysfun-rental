@@ -32,6 +32,7 @@ export async function createProduct(formData: FormData) {
     actual_size: String(formData.get("actual_size") || "") || null,
     outlets_required: parseInt(String(formData.get("outlets_required") || "1"), 10),
     age_group: String(formData.get("age_group") || "") || null,
+    is_addon: formData.get("is_addon") === "on",
   };
 
   const parsed = ProductInputSchema.safeParse(raw);
@@ -66,6 +67,7 @@ export async function updateProduct(id: string, formData: FormData) {
     actual_size: String(formData.get("actual_size") || "") || null,
     outlets_required: parseInt(String(formData.get("outlets_required") || "1"), 10),
     age_group: String(formData.get("age_group") || "") || null,
+    is_addon: formData.get("is_addon") === "on",
   };
 
   const parsed = ProductInputSchema.safeParse(raw);
