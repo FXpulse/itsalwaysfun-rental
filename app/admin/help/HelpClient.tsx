@@ -690,6 +690,39 @@ export function HelpClient() {
       ),
     },
     {
+      id: "fleet-compatible-items",
+      title: "Fleet: mark which trucks can carry special gear",
+      icon: Truck,
+      content: (
+        <div className="space-y-3 text-sm">
+          <p>
+            Some inventory items (electric dolly, ramps, lifts, oversized cargo)
+            only fit certain vehicles/trailers. Mark which fleet units are
+            equipped to carry what so you can spot mismatches before sending
+            the wrong truck.
+          </p>
+          <p className="font-semibold">Setup (per vehicle/trailer):</p>
+          <ol className="list-decimal pl-5 space-y-1 text-xs">
+            <li>Go to <code>/admin/fleet</code></li>
+            <li>Click pencil on a vehicle or trailer</li>
+            <li>In <strong>Can carry / mount (special inventory)</strong> section, check the items this unit can physically carry (electric dolly, ramps, etc.)</li>
+            <li>Save</li>
+          </ol>
+          <p className="font-semibold">Where it shows up:</p>
+          <ul className="list-disc pl-5 text-xs space-y-1">
+            <li>Fleet table has a new <strong>"Can carry"</strong> column with blue tags showing each unit's compatibilities at a glance</li>
+            <li>When planning dispatch, glance at the assigned truck's tags vs the truck load — if the load needs the dolly but the truck doesn't have it tagged, pick a different truck</li>
+          </ul>
+          <p className="text-xs text-slate-500">
+            💡 Combine with per-unit asset tracking (BLW-01...): the truck
+            load shows specific tags AND the truck's compatibility list, so
+            you have full visibility into what's loaded + whether the truck
+            can actually carry it.
+          </p>
+        </div>
+      ),
+    },
+    {
       id: "fleet-vin-tag",
       title: "Step 10d — Fleet: VIN + license tag",
       icon: Truck,

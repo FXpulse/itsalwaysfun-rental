@@ -12,15 +12,19 @@ import {
   updateTrailer,
   deleteTrailer,
 } from "./actions";
-import type { VehicleRow, TrailerRow } from "./page";
+import type { VehicleRow, TrailerRow, CompatibleInventoryOption } from "./page";
 
 export function FleetManager({
   vehicles,
   trailers,
+  inventoryOptions = [],
 }: {
   vehicles: VehicleRow[];
   trailers: TrailerRow[];
+  inventoryOptions?: CompatibleInventoryOption[];
 }) {
+  // Lookup map for rendering tags by id → name
+  const inventoryById = new Map(inventoryOptions.map((i) => [i.id, i]));
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [editingVehicle, setEditingVehicle] = useState<VehicleRow | null>(null);
@@ -124,6 +128,7 @@ export function FleetManager({
                   <th className="px-4 py-2 text-left">VIN</th>
                   <th className="px-4 py-2 text-center">Needs trailer?</th>
                   <th className="px-4 py-2 text-left">Capacity</th>
+                  <th className="px-4 py-2 text-left">Can carry</th>
                   <th className="px-4 py-2 text-left">Active</th>
                   <th className="px-4 py-2"></th>
                 </tr>
@@ -152,6 +157,12 @@ export function FleetManager({
                     </td>
                     <td className="px-4 py-2 text-xs text-slate-500">
                       {v.capacity_notes || "—"}
+                    </td>
+                    <td className="px-4 py-2 text-xs">
+                      <CompatibleTags
+                        ids={v.compatible_inventory_item_ids || []}
+                        inventoryById={inventoryById}
+                      />
                     </td>
                     <td className="px-4 py-2 text-xs">
                       {v.is_active ? "✓" : "—"}
@@ -212,6 +223,7 @@ export function FleetManager({
                   <th className="px-4 py-2 text-left">Tag</th>
                   <th className="px-4 py-2 text-left">VIN</th>
                   <th className="px-4 py-2 text-left">Capacity</th>
+                  <th className="px-4 py-2 text-left">Can carry</th>
                   <th className="px-4 py-2 text-left">Active</th>
                   <th className="px-4 py-2"></th>
                 </tr>
@@ -227,6 +239,12 @@ export function FleetManager({
                       {t.vin || <span className="text-slate-300">—</span>}
                     </td>
                     <td className="px-4 py-2 text-xs text-slate-500">{t.capacity_notes || "—"}</td>
+                    <td className="px-4 py-2 text-xs">
+                      <CompatibleTags
+                        ids={t.compatible_inventory_item_ids || []}
+                        inventoryById={inventoryById}
+                      />
+                    </td>
                     <td className="px-4 py-2 text-xs">{t.is_active ? "✓" : "—"}</td>
                     <td className="px-4 py-2 text-right space-x-1">
                       <button
@@ -331,6 +349,10 @@ export function FleetManager({
                 placeholder="e.g. 2 large bouncers + accessories"
               />
             </div>
+            <CompatibleItemsPicker
+              options={inventoryOptions}
+              selectedIds={editingVehicle?.compatible_inventory_item_ids || []}
+            />
             <div>
               <label className="inline-flex items-center gap-2 text-sm">
                 <input
@@ -412,6 +434,10 @@ export function FleetManager({
                 placeholder="e.g. 2 large bouncers"
               />
             </div>
+            <CompatibleItemsPicker
+              options={inventoryOptions}
+              selectedIds={editingTrailer?.compatible_inventory_item_ids || []}
+            />
             <div>
               <label className="inline-flex items-center gap-2 text-sm">
                 <input
@@ -441,6 +467,112 @@ export function FleetManager({
           </form>
         </Modal>
       )}
+    </div>
+  );
+}
+
+function CompatibleTags({
+  ids,
+  inventoryById,
+}: {
+  ids: string[];
+  inventoryById: Map<string, CompatibleInventoryOption>;
+}) {
+  if (!ids || ids.length === 0) {
+    return <span className="text-slate-300">—</span>;
+  }
+  return (
+    <div className="flex flex-wrap gap-1 max-w-[200px]">
+      {ids.map((id) => {
+        const item = inventoryById.get(id);
+        if (!item) return null;
+        return (
+          <span
+            key={id}
+            className="bg-blue-100 text-blue-800 rounded px-1.5 py-0.5 text-[10px] whitespace-nowrap"
+            title={item.category}
+          >
+            {item.name}
+          </span>
+        );
+      })}
+    </div>
+  );
+}
+
+function CompatibleItemsPicker({
+  options,
+  selectedIds,
+}: {
+  options: CompatibleInventoryOption[];
+  selectedIds: string[];
+}) {
+  const [selected, setSelected] = useState<Set<string>>(new Set(selectedIds));
+
+  function toggle(id: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  // Group by category for easier scanning
+  const byCategory = new Map<string, CompatibleInventoryOption[]>();
+  for (const opt of options) {
+    if (!byCategory.has(opt.category)) byCategory.set(opt.category, []);
+    byCategory.get(opt.category)!.push(opt);
+  }
+
+  return (
+    <div>
+      <label className="block text-xs text-slate-600 mb-1">
+        Can carry / mount (special inventory)
+      </label>
+      <p className="text-[10px] text-slate-500 mb-2">
+        Check items this unit is physically equipped to carry — electric dolly,
+        ramps, lifts, etc. Used at dispatch time to know which trucks support
+        which special gear.
+      </p>
+      {/* Render the chosen IDs as hidden inputs so FormData picks them up */}
+      {Array.from(selected).map((id) => (
+        <input key={id} type="hidden" name="compatible_inventory_item_ids" value={id} />
+      ))}
+      {options.length === 0 ? (
+        <p className="text-xs text-slate-400 italic">
+          No inventory items configured yet — add some in /admin/inventory.
+        </p>
+      ) : (
+        <div className="border border-slate-200 rounded p-2 max-h-44 overflow-y-auto bg-white">
+          {Array.from(byCategory.entries()).map(([cat, items]) => (
+            <div key={cat} className="mb-2 last:mb-0">
+              <div className="text-[10px] uppercase tracking-wide text-slate-500 font-semibold mb-1">
+                {cat}
+              </div>
+              <div className="grid grid-cols-2 gap-1">
+                {items.map((opt) => (
+                  <label
+                    key={opt.id}
+                    className="inline-flex items-center gap-1.5 text-xs cursor-pointer hover:bg-slate-50 rounded px-1 py-0.5"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selected.has(opt.id)}
+                      onChange={() => toggle(opt.id)}
+                      className="h-3 w-3"
+                    />
+                    <span className="truncate">{opt.name}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+      <p className="text-[10px] text-slate-400 mt-1">
+        {selected.size} selected
+      </p>
     </div>
   );
 }

@@ -15,6 +15,7 @@ export interface VehicleRow {
   capacity_notes: string | null;
   vin: string | null;
   license_tag: string | null;
+  compatible_inventory_item_ids: string[];
   is_active: boolean;
 }
 
@@ -24,7 +25,14 @@ export interface TrailerRow {
   capacity_notes: string | null;
   vin: string | null;
   license_tag: string | null;
+  compatible_inventory_item_ids: string[];
   is_active: boolean;
+}
+
+export interface CompatibleInventoryOption {
+  id: string;
+  name: string;
+  category: string;
 }
 
 export default async function AdminFleetPage() {
@@ -32,9 +40,15 @@ export default async function AdminFleetPage() {
   if (!me || me.role !== "admin") redirect("/admin/dashboard");
 
   const supabase = createAdminClient();
-  const [{ data: vehicles }, { data: trailers }] = await Promise.all([
+  const [{ data: vehicles }, { data: trailers }, { data: invItems }] = await Promise.all([
     supabase.from("vehicles").select("*").order("name"),
     supabase.from("trailers").select("*").order("name"),
+    supabase
+      .from("inventory_items")
+      .select("id, name, category")
+      .eq("is_active", true)
+      .order("category")
+      .order("name"),
   ]);
 
   return (
@@ -63,6 +77,7 @@ export default async function AdminFleetPage() {
       <FleetManager
         vehicles={(vehicles as VehicleRow[]) || []}
         trailers={(trailers as TrailerRow[]) || []}
+        inventoryOptions={(invItems as CompatibleInventoryOption[]) || []}
       />
     </div>
   );
