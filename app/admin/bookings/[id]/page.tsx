@@ -157,6 +157,16 @@ export default async function BookingDetailPage({
                 }
               />
             )}
+            {(b as any).damage_protection_purchased && (
+              <Row
+                label="🛡 Protection"
+                value={
+                  <span className="bg-green-100 text-green-800 px-2 py-0.5 rounded text-xs font-semibold">
+                    PURCHASED (+{formatCurrency((b as any).damage_protection_cents || 0)})
+                  </span>
+                }
+              />
+            )}
             {Array.isArray((b as any).addons) && (b as any).addons.length > 0 && (
               <Row
                 label="Add-ons"
