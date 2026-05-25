@@ -85,7 +85,7 @@ export function PayoutForm({
           type="text"
           value={note}
           onChange={(e) => setNote(e.target.value)}
-          placeholder="e.g. Venmo @ludmila"
+          placeholder="e.g. Venmo, Zelle, cash"
           className="input"
           disabled={pending}
         />

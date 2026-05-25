@@ -48,20 +48,21 @@ export async function requestPayout(formData: FormData) {
   const w9File = formData.get("w9_file") as File | null;
   if (parsed.data.payout_type === "stripe") {
     if (w9File && w9File.size > 0) {
-      // Upload new W9 + save on profile
+      // Upload new W9 to PRIVATE bucket. The returned `url` is actually the
+      // storage path — view it via getSignedUrl() server-side.
       const r = await uploadImage({
-        bucket: "site-assets",
+        bucket: "w9-forms",
         file: w9File,
-        pathPrefix: `w9/${user.id}`,
+        pathPrefix: user.id,  // path = {user_id}/w9_<ts>.pdf (matches RLS policy)
         filenameHint: "w9",
       });
       if ("error" in r) return { error: r.error };
-      w9UrlForRequest = r.url;
+      w9UrlForRequest = r.path;  // store the path, not a public URL
       const currentYear = new Date().getFullYear();
       await admin
         .from("customer_profiles")
         .update({
-          w9_url: r.url,
+          w9_url: r.path,
           w9_uploaded_at: new Date().toISOString(),
           w9_tax_year: currentYear,
         })

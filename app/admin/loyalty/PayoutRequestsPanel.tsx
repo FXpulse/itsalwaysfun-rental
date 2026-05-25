@@ -16,6 +16,7 @@ import {
   approvePayoutRequest,
   markPayoutProcessed,
   rejectPayoutRequest,
+  getW9SignedUrl,
 } from "./payout-admin-actions";
 import { formatCurrency } from "@/lib/utils";
 
@@ -146,15 +147,21 @@ export function PayoutRequestsPanel({ requests }: { requests: PayoutRequest[] })
                     </p>
                   )}
                   {r.w9_url && (
-                    <a
-                      href={r.w9_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        const result = await getW9SignedUrl(r.id);
+                        if (result.error || !result.url) {
+                          toast.error(result.error || "Could not open W9");
+                          return;
+                        }
+                        window.open(result.url, "_blank", "noopener,noreferrer");
+                      }}
                       className="text-xs text-blue-700 hover:underline inline-flex items-center gap-1"
                     >
                       <FileText className="h-3 w-3" /> View W9 form
                       <ExternalLink className="h-3 w-3" />
-                    </a>
+                    </button>
                   )}
                   <div className="text-[10px] text-slate-400 mt-1">
                     Requested {new Date(r.requested_at).toLocaleString()}
@@ -284,7 +291,7 @@ export function PayoutRequestsPanel({ requests }: { requests: PayoutRequest[] })
                     type="text"
                     value={adminNote}
                     onChange={(e) => setAdminNote(e.target.value)}
-                    placeholder="How paid? e.g. Stripe transfer, Venmo @user, Zelle confirmation #"
+                    placeholder="How paid? e.g. Stripe transfer ID, Venmo, Zelle confirmation #"
                     className="input text-sm"
                     autoFocus
                   />

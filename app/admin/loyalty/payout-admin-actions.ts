@@ -5,6 +5,23 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin } from "@/lib/auth/roles";
 import { sendTemplated } from "@/lib/email/send-template";
 import { isEmailConfigured } from "@/lib/email/send";
+import { getSignedUrl } from "@/lib/storage/upload";
+
+/** Admin-only: returns a time-limited signed URL to view a W9 in the private bucket.
+ *  Path is stored in payout_requests.w9_url / customer_profiles.w9_url. */
+export async function getW9SignedUrl(requestId: string): Promise<{ url?: string; error?: string }> {
+  await requireAdmin();
+  const supabase = createAdminClient();
+  const { data: req } = await supabase
+    .from("payout_requests")
+    .select("w9_url")
+    .eq("id", requestId)
+    .single();
+  if (!req?.w9_url) return { error: "No W9 on file" };
+  const url = await getSignedUrl("w9-forms", req.w9_url, 600); // 10 min
+  if (!url) return { error: "Could not generate signed URL" };
+  return { url };
+}
 
 /** Admin approves a payout request.
  *  - credit type: auto-issues a gift card with the amount, decrements

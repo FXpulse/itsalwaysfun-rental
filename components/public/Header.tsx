@@ -20,6 +20,7 @@ const NAV_ITEMS = [
   { href: "/order-by-date", label: "Order by Date" },
   { href: "/rentals", label: "Rentals" },
   { href: "/packages", label: "Packages" },
+  { href: "/gift-cards", label: "🎁 Gift Cards" },
 ];
 
 const INFO_ITEMS = [

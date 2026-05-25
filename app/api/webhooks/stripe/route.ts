@@ -16,6 +16,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { addContactNote, upsertContact, addContactTags } from "@/lib/ghl/client";
 import { awardForPaidBooking } from "@/lib/loyalty";
 import { sendBookingConfirmation } from "@/lib/email/scheduled-emails";
+import { sendTemplated } from "@/lib/email/send-template";
+import { isEmailConfigured } from "@/lib/email/send";
 
 export const dynamic = "force-dynamic";
 
@@ -55,6 +57,12 @@ export async function POST(request: Request) {
   // ── PAYMENT SUCCEEDED ───────────────────────────────────────────
   if (event.type === "payment_intent.succeeded") {
     const pi = event.data.object as Stripe.PaymentIntent;
+
+    // Branch by metadata.type. Default = rental booking (legacy).
+    if (pi.metadata?.type === "gift_card_purchase") {
+      return await fulfillGiftCardPurchase(pi);
+    }
+
     const bookingId = pi.metadata?.booking_id;
 
     if (!bookingId) {
@@ -128,6 +136,22 @@ export async function POST(request: Request) {
   // ── PAYMENT FAILED ──────────────────────────────────────────────
   if (event.type === "payment_intent.payment_failed") {
     const pi = event.data.object as Stripe.PaymentIntent;
+
+    if (pi.metadata?.type === "gift_card_purchase") {
+      const purchaseId = pi.metadata?.gift_card_purchase_id;
+      if (purchaseId) {
+        await supabase
+          .from("gift_card_purchases")
+          .update({
+            status: "failed",
+            failed_at: new Date().toISOString(),
+            failure_reason: pi.last_payment_error?.message || "Payment failed",
+          })
+          .eq("id", purchaseId);
+      }
+      return NextResponse.json({ received: true, type: "gift_card_purchase", status: "failed" });
+    }
+
     const bookingId = pi.metadata?.booking_id;
     if (!bookingId) {
       return NextResponse.json({ received: true });
@@ -158,4 +182,149 @@ export async function POST(request: Request) {
 
   // Other events — ack but ignore
   return NextResponse.json({ received: true, event_type: event.type });
+}
+
+// ── Gift card purchase fulfillment ───────────────────────────────
+// Idempotent: if status is already 'paid' (e.g. webhook retry) we no-op.
+async function fulfillGiftCardPurchase(pi: Stripe.PaymentIntent) {
+  const supabase = createAdminClient();
+  const purchaseId = pi.metadata?.gift_card_purchase_id;
+  if (!purchaseId) {
+    return NextResponse.json(
+      { received: true, error: "Missing gift_card_purchase_id in metadata" },
+      { status: 200 },
+    );
+  }
+
+  const { data: purchase } = await supabase
+    .from("gift_card_purchases")
+    .select("*")
+    .eq("id", purchaseId)
+    .single();
+  if (!purchase) {
+    return NextResponse.json(
+      { received: true, error: "Purchase not found" },
+      { status: 200 },
+    );
+  }
+  if (purchase.status === "paid" && purchase.gift_card_id) {
+    return NextResponse.json({ received: true, idempotent: true });
+  }
+
+  // Generate code + issue the gift card
+  const { data: codeRow } = await supabase.rpc("generate_gift_card_code");
+  const code = codeRow as string;
+  if (!code) {
+    return NextResponse.json(
+      { received: true, error: "Failed to generate gift card code" },
+      { status: 500 },
+    );
+  }
+
+  const { data: card, error: cardErr } = await supabase
+    .from("gift_cards")
+    .insert({
+      code,
+      original_amount_cents: purchase.amount_cents,
+      balance_cents: purchase.amount_cents,
+      purchaser_email: purchase.purchaser_email,
+      purchaser_name: purchase.purchaser_name,
+      recipient_email: purchase.recipient_email,
+      recipient_name: purchase.recipient_name,
+      message: purchase.message,
+      stripe_payment_intent_id: pi.id,
+      is_active: true,
+    })
+    .select("id, code")
+    .single();
+
+  if (cardErr || !card) {
+    return NextResponse.json(
+      { received: true, error: `Gift card creation failed: ${cardErr?.message}` },
+      { status: 500 },
+    );
+  }
+
+  await supabase
+    .from("gift_card_purchases")
+    .update({
+      status: "paid",
+      paid_at: new Date().toISOString(),
+      gift_card_id: card.id,
+    })
+    .eq("id", purchaseId);
+
+  // Email the recipient (best-effort)
+  if (isEmailConfigured()) {
+    const baseUrl =
+      process.env.NEXT_PUBLIC_APP_URL || "https://itsalwaysfun-rental.vercel.app";
+    const amountDollars = (purchase.amount_cents / 100).toFixed(2);
+    try {
+      await sendTemplated({
+        key: "gift_card_received",
+        to: purchase.recipient_email,
+        vars: {
+          recipientName: purchase.recipient_name || "there",
+          purchaserName: purchase.purchaser_name || "a friend",
+          amount: amountDollars,
+          code: card.code,
+          message: purchase.message || "",
+          bookingUrl: `${baseUrl}/order-by-date`,
+          expiresAt: "",
+        },
+        fallback: () => ({
+          subject: `🎁 You received a $${amountDollars} gift card!`,
+          html: `<p>Hi ${purchase.recipient_name || "there"},</p>
+<p><strong>${purchase.purchaser_name || "Someone"}</strong> sent you a gift card from It's Always Fun for <strong>$${amountDollars}</strong>!</p>
+${purchase.message ? `<blockquote>"${purchase.message}"</blockquote>` : ""}
+<p>Your code: <strong style="font-family:monospace;font-size:18px;background:#FFD700;padding:6px 12px;border-radius:4px;">${card.code}</strong></p>
+<p>Use it at checkout: <a href="${baseUrl}/order-by-date">${baseUrl}/order-by-date</a></p>
+<p>— The It's Always Fun team</p>`,
+          text: `You received a $${amountDollars} gift card!\nCode: ${card.code}\nUse it at ${baseUrl}/order-by-date`,
+        }),
+        tags: [{ name: "type", value: "gift_card_received" }],
+      });
+
+      await supabase
+        .from("gift_cards")
+        .update({ sent_to_recipient_at: new Date().toISOString() })
+        .eq("id", card.id);
+    } catch (e) {
+      console.error("[gift card recipient email failed, non-fatal]", e);
+    }
+
+    // Also email the purchaser a receipt confirmation
+    try {
+      await sendTemplated({
+        key: "gift_card_purchase_receipt",
+        to: purchase.purchaser_email,
+        vars: {
+          purchaserName: purchase.purchaser_name,
+          recipientName: purchase.recipient_name || purchase.recipient_email,
+          recipientEmail: purchase.recipient_email,
+          amount: amountDollars,
+          code: card.code,
+        },
+        fallback: () => ({
+          subject: `✅ Your $${amountDollars} gift card purchase`,
+          html: `<p>Hi ${purchase.purchaser_name},</p>
+<p>Thanks for your purchase! We've emailed a <strong>$${amountDollars}</strong> gift card to <strong>${purchase.recipient_email}</strong>.</p>
+<p>Gift card code (for your records): <code>${card.code}</code></p>
+<p>If they don't see it, ask them to check spam.</p>
+<p>— The It's Always Fun team</p>`,
+          text: `Your $${amountDollars} gift card to ${purchase.recipient_email} has been delivered.\nCode (for your records): ${card.code}`,
+        }),
+        tags: [{ name: "type", value: "gift_card_purchase_receipt" }],
+      });
+    } catch (e) {
+      console.error("[gift card purchaser receipt failed, non-fatal]", e);
+    }
+  }
+
+  return NextResponse.json({
+    received: true,
+    type: "gift_card_purchase",
+    status: "paid",
+    code: card.code,
+  });
 }

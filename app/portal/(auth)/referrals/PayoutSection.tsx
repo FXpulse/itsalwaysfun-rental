@@ -282,7 +282,7 @@ export function PayoutSection({
                 rows={2}
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                placeholder="Preferred payment method (Venmo @user, etc.)"
+                placeholder="Preferred payment method (Venmo handle, Zelle email, etc.)"
                 className="input"
               />
             </div>
