@@ -21,6 +21,7 @@ export default async function ItemDetailPage({
     .select("*")
     .eq("slug", params.slug)
     .eq("is_active", true)
+    .eq("is_addon", false)
     .single();
 
   if (!product) notFound();
@@ -32,6 +33,7 @@ export default async function ItemDetailPage({
     .select("id, name, slug, category, price_per_day, image_url")
     .eq("category", p.category)
     .eq("is_active", true)
+    .eq("is_addon", false)
     .neq("id", p.id)
     .limit(3);
 

@@ -81,6 +81,7 @@ interface LoyaltyConfig {
 export function BookingWizard({
   products,
   categories,
+  powerSupply,
   stripeConfigured,
   stripePublishableKey,
   prefillCustomer,
@@ -89,6 +90,7 @@ export function BookingWizard({
 }: {
   products: Product[];
   categories: Category[];
+  powerSupply?: Product | null;
   stripeConfigured: boolean;
   stripePublishableKey: string;
   prefillCustomer?: PrefillCustomer | null;
@@ -130,6 +132,7 @@ export function BookingWizard({
     zip: "",
     notes: "",
     surfaceType: "",
+    powerSource: "" as "" | "yes" | "no", // yes = has outlet, no = needs power supply add-on
   });
   const [bookingResult, setBookingResult] = useState<BookingResult | null>(null);
   const [couponCode, setCouponCode] = useState("");
@@ -242,12 +245,21 @@ export function BookingWizard({
   }
 
   // Multi-day formula: base + 30% × (days-1) × base
-  const totalAmount = useMemo(() => {
+  const productTotal = useMemo(() => {
     if (!selectedProduct || numDays < 1) return 0;
     if (numDays === 1) return selectedProduct.price_per_day;
     const surcharge = selectedProduct.price_per_day * 0.30 * (numDays - 1);
     return Math.round(selectedProduct.price_per_day + surcharge);
   }, [selectedProduct, numDays]);
+
+  // Power supply add-on: flat per-day cost (no 30% surcharge — it's an operational fee)
+  const needsPowerSupply = customer.powerSource === "no";
+  const powerSupplyCost = useMemo(() => {
+    if (!needsPowerSupply || !powerSupply) return 0;
+    return powerSupply.price_per_day * numDays;
+  }, [needsPowerSupply, powerSupply, numDays]);
+
+  const totalAmount = productTotal + powerSupplyCost;
 
   // For API: use end date if set, else single-day (event_date repeated)
   const effectiveEndDate = eventEndDate || eventDate;
@@ -274,6 +286,7 @@ export function BookingWizard({
               address: `${customer.address}, ${customer.city} ${customer.zip}`.trim(),
             },
             surface_type: customer.surfaceType || null,
+            needs_power_supply: needsPowerSupply,
             notes: customer.notes || null,
             coupon_code: couponCode.trim() || undefined,
             redeem_points: redeemPoints > 0 ? redeemPoints : undefined,
@@ -423,6 +436,9 @@ export function BookingWizard({
             eventDate={eventDate!}
             eventEndDate={effectiveEndDate}
             numDays={numDays}
+            productTotal={productTotal}
+            powerSupply={powerSupply}
+            powerSupplyCost={powerSupplyCost}
             totalAmount={totalAmount}
             couponCode={couponCode}
             onCouponChange={setCouponCode}
@@ -826,6 +842,9 @@ function CustomerInfoStep({
   eventDate,
   eventEndDate,
   numDays,
+  productTotal,
+  powerSupply,
+  powerSupplyCost,
   totalAmount,
   couponCode,
   onCouponChange,
@@ -846,6 +865,9 @@ function CustomerInfoStep({
   eventDate: string;
   eventEndDate: string | null;
   numDays: number;
+  productTotal: number;
+  powerSupply: Product | null | undefined;
+  powerSupplyCost: number;
   totalAmount: number;
   couponCode: string;
   onCouponChange: (s: string) => void;
@@ -865,7 +887,8 @@ function CustomerInfoStep({
     customer.address.trim() &&
     customer.city.trim() &&
     customer.zip.trim() &&
-    customer.surfaceType;
+    customer.surfaceType &&
+    customer.powerSource;
 
   const rangeLabel =
     numDays > 1 && eventEndDate
@@ -1025,6 +1048,64 @@ function CustomerInfoStep({
             ))}
           </div>
         </div>
+
+        {/* Power source — required so we know whether to bring a generator */}
+        {powerSupply && (
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-2">
+              Power source available? <span className="text-red-500">*</span>
+            </label>
+            <p className="text-xs text-slate-500 mb-2">
+              Inflatables need a power outlet within ~75ft. If you don't have one,
+              we add a portable generator for ${(powerSupply.price_per_day / 100).toFixed(2)}/day.
+            </p>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => onChange({ ...customer, powerSource: "yes" })}
+                className={`text-sm font-semibold py-3 px-2 rounded border transition ${
+                  customer.powerSource === "yes"
+                    ? "bg-brand-navy text-white border-brand-navy"
+                    : "bg-white text-slate-700 border-slate-300 hover:border-brand-navy"
+                }`}
+              >
+                ✓ Yes, I have an outlet
+              </button>
+              <button
+                type="button"
+                onClick={() => onChange({ ...customer, powerSource: "no" })}
+                className={`text-sm font-semibold py-3 px-2 rounded border transition ${
+                  customer.powerSource === "no"
+                    ? "bg-amber-600 text-white border-amber-600"
+                    : "bg-white text-slate-700 border-slate-300 hover:border-amber-600"
+                }`}
+              >
+                No — add Power Supply
+                <div className="text-[10px] font-normal opacity-80 mt-0.5">
+                  +${(powerSupply.price_per_day / 100).toFixed(2)} × {numDays} day{numDays > 1 ? "s" : ""}
+                </div>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Cost breakdown when power supply selected */}
+        {customer.powerSource === "no" && powerSupply && (
+          <div className="bg-amber-50 rounded p-3 border border-amber-200 text-sm">
+            <div className="flex justify-between text-slate-700">
+              <span>{product.name} × {numDays} day{numDays > 1 ? "s" : ""}</span>
+              <span className="font-mono">{formatCurrency(productTotal)}</span>
+            </div>
+            <div className="flex justify-between text-amber-700 mt-1">
+              <span>+ Power Supply × {numDays} day{numDays > 1 ? "s" : ""}</span>
+              <span className="font-mono">+{formatCurrency(powerSupplyCost)}</span>
+            </div>
+            <div className="flex justify-between font-bold text-brand-navy border-t border-amber-300 pt-2 mt-2">
+              <span>Total</span>
+              <span className="font-mono">{formatCurrency(totalAmount)}</span>
+            </div>
+          </div>
+        )}
 
         <div>
           <label className="block text-sm font-medium text-slate-700 mb-1">Notes (optional)</label>

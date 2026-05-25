@@ -105,6 +105,16 @@ export default async function BookingDetailPage({
                 }
               />
             )}
+            {b.needs_power_supply && (
+              <Row
+                label="Power supply"
+                value={
+                  <span className="bg-purple-100 text-purple-800 px-2 py-0.5 rounded text-xs font-semibold">
+                    ⚡ INCLUDED (+{formatCurrency(b.power_supply_cents || 0)})
+                  </span>
+                }
+              />
+            )}
           </dl>
         </div>
 

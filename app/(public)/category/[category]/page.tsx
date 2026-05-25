@@ -28,6 +28,7 @@ export default async function CategoryPage({
     .select("*")
     .eq("category", category.name)
     .eq("is_active", true)
+    .eq("is_addon", false)
     .order("name");
 
   const list = (products as Product[]) || [];

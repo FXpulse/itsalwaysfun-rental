@@ -32,7 +32,11 @@ export default async function OrderByDatePage() {
       .order("display_order"),
   ]);
 
-  const products = (productsResult.data as Product[]) || [];
+  const allProducts = (productsResult.data as Product[]) || [];
+  // Wizard's category/product picker only shows non-addon products
+  const products = allProducts.filter((p) => !p.is_addon);
+  // Power supply add-on (used when customer says "no power source")
+  const powerSupply = allProducts.find((p) => p.slug === "power-supply" && p.is_addon) || null;
   const categories = (categoriesResult.data as CategoryRow[]) || [];
 
   // Detect portal-authenticated customer + pull profile to prefill the wizard
@@ -119,6 +123,7 @@ export default async function OrderByDatePage() {
       <BookingWizard
         products={products}
         categories={categories}
+        powerSupply={powerSupply}
         stripeConfigured={isStripeConfigured()}
         stripePublishableKey={process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || ""}
         prefillCustomer={prefill}

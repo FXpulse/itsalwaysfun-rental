@@ -17,6 +17,7 @@ export default async function HomePage() {
       .from("products")
       .select("id, name, slug, category, price_per_day, image_url, description")
       .eq("is_active", true)
+      .eq("is_addon", false)
       .order("category")
       .order("name"),
     supabase

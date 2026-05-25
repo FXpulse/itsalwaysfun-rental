@@ -38,6 +38,7 @@ const BodySchema = z
       .enum(["dirt", "grass", "concrete", "paver", "asphalt", "other"])
       .nullable()
       .optional(),
+    needs_power_supply: z.boolean().optional(),
     notes: z.string().max(2000).nullable().optional(),
     redeem_points: z.number().int().min(0).optional(),
     ghl_contact_id: z.string().optional(),
@@ -182,7 +183,27 @@ export async function POST(request: Request) {
   }
 
   // 4. Calculate subtotal — multi-day: base + 30% × (days-1) × base
-  const subtotal = multiDayTotal(product.price_per_day, days.length);
+  const productSubtotal = multiDayTotal(product.price_per_day, days.length);
+
+  // Power Supply add-on (flat per-day, no surcharge — it's an operational fee)
+  let powerSupplyCents = 0;
+  if (parsed.data.needs_power_supply) {
+    const { data: addonProduct } = await supabase
+      .from("products")
+      .select("price_per_day")
+      .eq("slug", "power-supply")
+      .eq("is_addon", true)
+      .eq("is_active", true)
+      .maybeSingle();
+    if (addonProduct) {
+      powerSupplyCents = addonProduct.price_per_day * days.length;
+    } else {
+      // Fallback: hardcoded $150/day if product missing in DB
+      powerSupplyCents = 15000 * days.length;
+    }
+  }
+
+  const subtotal = productSubtotal + powerSupplyCents;
 
   // Apply coupon if provided
   let totalAmount = subtotal;
@@ -259,6 +280,8 @@ export async function POST(request: Request) {
       coupon_code: appliedCouponCode,
       discount_amount: discountAmount,
       surface_type: parsed.data.surface_type || null,
+      needs_power_supply: parsed.data.needs_power_supply || false,
+      power_supply_cents: powerSupplyCents,
       notes: parsed.data.notes || null,
       stripe_payment_status: "pending",
       booking_status: "pending_payment",

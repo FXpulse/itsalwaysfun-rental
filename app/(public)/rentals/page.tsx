@@ -17,6 +17,7 @@ export default async function RentalsPage({
     .from("products")
     .select("*")
     .eq("is_active", true)
+    .eq("is_addon", false)
     .order("category")
     .order("name");
 

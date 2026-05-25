@@ -24,6 +24,7 @@ export interface Product {
   actual_size: string | null;
   outlets_required: number;
   age_group: string | null;
+  is_addon: boolean;
   created_at: string;
 }
 
@@ -44,6 +45,8 @@ export interface Booking {
   product_name: string;
   total_amount: number;      // cents
   surface_type: "dirt" | "grass" | "concrete" | "paver" | "asphalt" | "other" | null;
+  needs_power_supply: boolean;
+  power_supply_cents: number;
   stripe_payment_intent_id: string | null;
   stripe_payment_status: PaymentStatus;
   booking_status: BookingStatus;
