@@ -575,15 +575,28 @@ export function HelpClient() {
             <li>Preview thumbnail appears below the field once uploaded</li>
             <li>URL field still works for manually pasting an externally-hosted image</li>
           </ul>
-          <p className="font-semibold">Quick online/offline toggle:</p>
+          <p className="font-semibold">Quick online/offline toggle (per package):</p>
           <p className="text-xs">
             In the packages list at <code>/admin/packages</code>, each card has
             a <strong>green/grey switch</strong> on the right. Click to toggle
             between LIVE (visible on /packages publicly) and OFFLINE (hidden).
             No need to enter the package detail — 1 click activates/deactivates.
-            Same toggle exists in the editor under "Active" if you prefer
-            doing it during edit.
           </p>
+          <div className="bg-amber-50 border border-amber-200 rounded p-3 space-y-2 mt-3">
+            <p className="font-semibold text-amber-900">🌐 Hide the ENTIRE Packages section from the public site</p>
+            <p className="text-xs">
+              At the top of <code>/admin/packages</code> there's a big{" "}
+              <strong>"Public Packages section ON/OFF"</strong> switch.
+            </p>
+            <ul className="list-disc pl-5 text-xs space-y-1">
+              <li><strong>ON (default):</strong> /packages page works + "Packages" link visible in the header nav</li>
+              <li><strong>OFF:</strong> /packages shows "Coming soon — call us" with your phone. The "Packages" link disappears from the nav. Per-package toggles still work for when you turn it back on.</li>
+            </ul>
+            <p className="text-xs">
+              Same pattern as the gift cards toggle: nav link is hidden too
+              when the section is off, so customers don't see broken links.
+            </p>
+          </div>
         </div>
       ),
     },
