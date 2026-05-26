@@ -833,6 +833,36 @@ export function HelpClient() {
             where email or GHL didn't go through — those are the ones to
             handle first.
           </p>
+
+          <div className="bg-blue-50 border-l-4 border-blue-400 rounded p-3 mt-3 space-y-2">
+            <p className="font-bold text-blue-900 text-sm">
+              📥 Receive emails sent to bookings@itsalwaysfun.com directly in the inbox
+            </p>
+            <p className="text-xs text-blue-900">
+              Customers replying to booking confirmations or anyone emailing
+              bookings@ directly can land in <code>/admin/inbox</code> as new
+              messages (with subject + body). One-time setup using Cloudflare
+              Email Workers (FREE):
+            </p>
+            <ol className="list-decimal pl-5 text-xs space-y-1 text-blue-900">
+              <li>Verify your domain (itsalwaysfun.com) is on Cloudflare DNS</li>
+              <li>Cloudflare dashboard → Email → Email Routing → enable for the domain (this adds MX records)</li>
+              <li>Workers & Pages → Create → Email Worker. Paste the Worker code from <code>/email-worker-template.js</code> (see below)</li>
+              <li>Set 2 Worker secrets: <code>INBOX_WEBHOOK_URL</code> = your <code>https://itsalwaysfun-rental.vercel.app/api/email/inbound</code> and <code>INBOX_SECRET</code> = a random string</li>
+              <li>In Vercel env vars: set <code>INBOUND_EMAIL_SECRET</code> = the SAME random string. Redeploy.</li>
+              <li>Email Routing → Routes → custom address <code>bookings@itsalwaysfun.com</code> → "Send to Worker" → pick the one you created</li>
+            </ol>
+            <p className="text-xs text-blue-900">
+              <strong>Test</strong>: send an email from Gmail to <code>bookings@itsalwaysfun.com</code> →
+              within ~30s it should appear in <code>/admin/inbox</code> as a new message
+              with a blue "Email" badge. Reply from the inbox like any other message.
+            </p>
+            <p className="text-xs text-blue-900">
+              💡 The Worker template is provided in this repo at <code>cloudflare/email-worker.js</code>.
+              Copy that whole file into the Worker editor and just deploy.
+            </p>
+          </div>
+
           <p className="font-semibold mt-3">Replying directly from the inbox:</p>
           <ul className="list-disc pl-5 text-xs space-y-1">
             <li>Click <strong>Reply</strong> → inline composer opens (no need to leave the app)</li>

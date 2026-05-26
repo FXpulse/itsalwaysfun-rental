@@ -177,6 +177,11 @@ export function InboxClient({
               </div>
             </div>
 
+            {m.subject && (
+              <div className="text-sm font-semibold text-brand-navy mb-1">
+                {m.subject}
+              </div>
+            )}
             <div className="bg-slate-50 border border-slate-200 rounded p-3 mb-3 text-sm whitespace-pre-wrap">
               {m.message}
             </div>

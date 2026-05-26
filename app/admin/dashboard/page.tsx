@@ -10,6 +10,8 @@ import {
   Sparkles,
   Smartphone,
   Package,
+  Inbox,
+  Mail,
 } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -38,6 +40,7 @@ export default async function AdminDashboardPage() {
     { data: payoutReady },
     { data: pendingQuotes },
     { data: thresholdRow },
+    { data: unresolvedMessages, count: unresolvedMessagesCount },
   ] = await Promise.all([
     supabase
       .from("bookings")
@@ -102,6 +105,14 @@ export default async function AdminDashboardPage() {
       .select("value")
       .eq("key", "commission_payout_threshold_cents")
       .maybeSingle(),
+    supabase
+      .from("contact_messages")
+      .select("id, first_name, last_name, email, subject, source, created_at", {
+        count: "exact",
+      })
+      .eq("is_resolved", false)
+      .order("created_at", { ascending: false })
+      .limit(5),
   ]);
 
   const revenueThisWeek =
@@ -145,7 +156,8 @@ export default async function AdminDashboardPage() {
     (pendingPaymentCount ?? 0) +
     (damageCount ?? 0) +
     payoutReadyFiltered.length +
-    (pendingQuotes?.length || 0);
+    (pendingQuotes?.length || 0) +
+    (unresolvedMessagesCount ?? 0);
 
   return (
     <div>
@@ -191,6 +203,53 @@ export default async function AdminDashboardPage() {
           </div>
         </div>
       ) : null}
+
+      {/* Contact inbox alert (new messages need attention) */}
+      {unresolvedMessages && unresolvedMessages.length > 0 && (
+        <AlertPanel
+          tone="amber"
+          icon={Inbox}
+          title={`${unresolvedMessagesCount} unread message${(unresolvedMessagesCount ?? 0) === 1 ? "" : "s"} in Contact Inbox`}
+          subtitle="From the website contact form or emails to bookings@itsalwaysfun.com. Reply directly from the inbox."
+        >
+          {unresolvedMessages.map((m: any) => (
+            <Link
+              key={m.id}
+              href={`/admin/inbox`}
+              className="flex items-start justify-between gap-3 p-3 bg-amber-50 rounded hover:bg-amber-100 transition border border-amber-200"
+            >
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <strong className="text-brand-navy text-sm">
+                    {m.first_name} {m.last_name}
+                  </strong>
+                  <span className="text-xs text-slate-500 truncate">· {m.email}</span>
+                  {m.source === "inbound-email" && (
+                    <span className="text-[10px] bg-blue-100 text-blue-800 rounded px-1.5 py-0.5 inline-flex items-center gap-0.5">
+                      <Mail className="h-2.5 w-2.5" /> Email
+                    </span>
+                  )}
+                </div>
+                {m.subject && (
+                  <div className="text-xs text-slate-600 truncate mt-0.5">
+                    <strong>Subject:</strong> {m.subject}
+                  </div>
+                )}
+                <div className="text-[10px] text-slate-400 mt-0.5">
+                  {new Date(m.created_at).toLocaleString()}
+                </div>
+              </div>
+              <ArrowRight className="h-4 w-4 text-slate-400 flex-shrink-0" />
+            </Link>
+          ))}
+          <Link
+            href="/admin/inbox"
+            className="block text-center text-xs text-amber-700 hover:underline mt-2"
+          >
+            Open Contact Inbox →
+          </Link>
+        </AlertPanel>
+      )}
 
       {/* Pending payment alert */}
       {pendingList && pendingList.length > 0 && (
