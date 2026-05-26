@@ -40,6 +40,16 @@ export async function uploadImage(opts: UploadOptions): Promise<
     "image/webp",
     "image/svg+xml",
     "application/pdf",  // For W9 forms etc.
+    // Web font formats (for custom site fonts like Louis George Cafe)
+    "font/woff2",
+    "font/woff",
+    "font/ttf",
+    "font/otf",
+    "application/font-woff2",
+    "application/font-woff",
+    "application/x-font-ttf",
+    "application/x-font-otf",
+    "application/octet-stream",  // some browsers report woff2 as this
   ];
   if (!allowedMimes.includes(file.type)) {
     return { error: `Unsupported file type: ${file.type}` };

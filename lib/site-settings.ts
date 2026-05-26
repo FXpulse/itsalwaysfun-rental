@@ -43,6 +43,7 @@ export interface SiteSettings {
   // Global site font (overrides Tailwind default, overridden by per-zone fonts)
   site_font_family: string;
   site_font_google_url: string;
+  site_font_self_hosted_url: string;
 }
 
 // Sensible defaults (used if DB query fails or key missing)
@@ -90,6 +91,7 @@ const DEFAULTS: SiteSettings = {
   site_font_family: "Quicksand",
   site_font_google_url:
     "https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&display=swap",
+  site_font_self_hosted_url: "",
 };
 
 export async function getSiteSettings(): Promise<SiteSettings> {

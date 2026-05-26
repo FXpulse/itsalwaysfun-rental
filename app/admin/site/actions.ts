@@ -82,6 +82,68 @@ export async function uploadLogo(formData: FormData) {
   return { success: true, url: upload.url };
 }
 
+/** Upload a custom font file (.woff2/.woff/.ttf/.otf) to public storage.
+ *  Saves the URL into site_settings.site_font_self_hosted_url so the public
+ *  layout auto-emits an @font-face rule. The picker should also set
+ *  site_font_family separately. */
+export async function uploadCustomFont(formData: FormData) {
+  const user = await requireAdmin();
+  const file = formData.get("font") as File | null;
+  if (!file || file.size === 0) {
+    return { error: "No file selected" };
+  }
+
+  // Extension sanity check (some browsers report MIME as application/octet-stream)
+  const lowerName = file.name.toLowerCase();
+  const okExt =
+    lowerName.endsWith(".woff2") ||
+    lowerName.endsWith(".woff") ||
+    lowerName.endsWith(".ttf") ||
+    lowerName.endsWith(".otf");
+  if (!okExt) {
+    return { error: "Font file must be .woff2, .woff, .ttf, or .otf" };
+  }
+
+  const upload = await uploadImage({
+    bucket: "site-assets",
+    file,
+    pathPrefix: "fonts",
+    filenameHint: lowerName.replace(/\.[^.]+$/, "").slice(0, 60),
+  });
+  if ("error" in upload) return { error: upload.error };
+
+  const supabase = createAdminClient();
+  const { error } = await supabase
+    .from("site_settings")
+    .upsert(
+      { key: "site_font_self_hosted_url", value: upload.url, updated_by: user.email },
+      { onConflict: "key" },
+    );
+  if (error) {
+    return { error: `Uploaded but failed to save URL: ${error.message}` };
+  }
+
+  revalidatePath("/admin/site");
+  revalidatePath("/", "layout");
+  return { success: true, url: upload.url };
+}
+
+/** Clear the self-hosted font URL (returns to Google Fonts or system default). */
+export async function clearCustomFont() {
+  const user = await requireAdmin();
+  const supabase = createAdminClient();
+  const { error } = await supabase
+    .from("site_settings")
+    .upsert(
+      { key: "site_font_self_hosted_url", value: "", updated_by: user.email },
+      { onConflict: "key" },
+    );
+  if (error) return { error: error.message };
+  revalidatePath("/admin/site");
+  revalidatePath("/", "layout");
+  return { success: true };
+}
+
 /** Upload product image and update products.image_url. */
 export async function uploadProductImage(productId: string, formData: FormData) {
   await requireAdmin();

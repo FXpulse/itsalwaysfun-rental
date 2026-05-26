@@ -811,13 +811,20 @@ export function HelpClient() {
             "Get embed code" → copy the href).
           </p>
           <p className="font-semibold">Louis George Cafe (self-hosted, brand-exact)</p>
+          <p className="text-xs text-green-800 bg-green-50 border border-green-200 rounded p-2">
+            ✨ <strong>New:</strong> NO need to edit code or redeploy anymore.
+            Pick "Louis George Cafe (self-hosted)" in the picker → click{" "}
+            <strong>Upload Louis George Cafe (.woff2)</strong> button →
+            select the .woff2 file you downloaded from 1001fonts.com → Save
+            settings. The picker handles everything: uploads to Supabase,
+            stores the URL, emits the right @font-face automatically.
+          </p>
           <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded p-2">
-            Louis George Cafe is NOT on Google Fonts. To use it: download .woff2
-            from 1001fonts.com → upload to Supabase storage <code>site-assets/fonts/</code>{" "}
-            → add an <code>@font-face</code> rule to <code>app/globals.css</code>{" "}
-            pointing at the Supabase URL → redeploy. The picker shows the exact
-            CSS snippet you need. <strong>Quicksand looks ~95% identical and
-            works instantly</strong> — recommended unless brand-specific.
+            License note: 1001fonts.com offers LGC free for personal use; some
+            font licenses require purchase for commercial use. Verify your
+            license before going live commercially — or stick with{" "}
+            <strong>Quicksand</strong> (SIL Open Font License, free for any
+            use, looks ~95% identical to LGC).
           </p>
           <p className="text-xs text-slate-500">
             💡 Per-zone fonts (in the Appearance section below) still work and

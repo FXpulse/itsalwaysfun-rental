@@ -17,25 +17,44 @@ export default async function PublicLayout({
 
   // Build the font CSS — applied via global style tag so it cascades to every
   // public element while per-zone overrides still win.
+  // Self-hosted font (uploaded via admin) takes precedence over Google Fonts.
   const fontFamily = (settings.site_font_family || "").trim();
-  const fontUrl = (settings.site_font_google_url || "").trim();
-  // Whitelist URL host to avoid arbitrary CSS injection from a compromised setting
-  const fontUrlSafe = /^https:\/\/fonts\.googleapis\.com\//.test(fontUrl) ? fontUrl : "";
+  const googleUrl = (settings.site_font_google_url || "").trim();
+  const selfHostedUrl = (settings.site_font_self_hosted_url || "").trim();
+  // Whitelist hosts to avoid arbitrary CSS injection from a compromised setting
+  const googleUrlSafe = /^https:\/\/fonts\.googleapis\.com\//.test(googleUrl) ? googleUrl : "";
+  const selfHostedSafe = /^https:\/\/[a-z0-9.-]+\.supabase\.co\//i.test(selfHostedUrl)
+    ? selfHostedUrl
+    : "";
+  const useSelfHosted = !!(selfHostedSafe && fontFamily);
+  const fontFamilyJson = fontFamily ? JSON.stringify(fontFamily) : "";
+  const fontFormat = (() => {
+    const u = selfHostedSafe.toLowerCase();
+    if (u.endsWith(".woff2")) return "woff2";
+    if (u.endsWith(".woff")) return "woff";
+    if (u.endsWith(".ttf")) return "truetype";
+    if (u.endsWith(".otf")) return "opentype";
+    return "woff2";
+  })();
 
   return (
     <CartProvider>
-      {fontUrlSafe && (
+      {!useSelfHosted && googleUrlSafe && (
         <link
           rel="preconnect"
           href="https://fonts.gstatic.com"
           crossOrigin="anonymous"
         />
       )}
-      {fontUrlSafe && <link rel="stylesheet" href={fontUrlSafe} />}
+      {!useSelfHosted && googleUrlSafe && <link rel="stylesheet" href={googleUrlSafe} />}
       {fontFamily && (
         <style
           dangerouslySetInnerHTML={{
-            __html: `:root { --site-font: ${JSON.stringify(fontFamily)}, system-ui, -apple-system, sans-serif; } body { font-family: var(--site-font); }`,
+            __html: `${
+              useSelfHosted
+                ? `@font-face { font-family: ${fontFamilyJson}; src: url(${JSON.stringify(selfHostedSafe)}) format(${JSON.stringify(fontFormat)}); font-display: swap; }`
+                : ""
+            }:root { --site-font: ${fontFamilyJson}, system-ui, -apple-system, sans-serif; } body { font-family: var(--site-font); }`,
           }}
         />
       )}

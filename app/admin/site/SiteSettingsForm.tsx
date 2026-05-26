@@ -3,8 +3,8 @@
 import { useState, useTransition, useRef } from "react";
 import Image from "next/image";
 import { toast } from "sonner";
-import { Upload, Save } from "lucide-react";
-import { updateSiteSettings, uploadLogo } from "./actions";
+import { Upload, Save, CheckCircle2, X } from "lucide-react";
+import { updateSiteSettings, uploadLogo, uploadCustomFont, clearCustomFont } from "./actions";
 
 interface Setting {
   key: string;
@@ -98,7 +98,11 @@ const SITE_FONT_PRESETS = [
   },
 ];
 
-const GLOBAL_SITE_FONT_KEYS = new Set(["site_font_family", "site_font_google_url"]);
+const GLOBAL_SITE_FONT_KEYS = new Set([
+  "site_font_family",
+  "site_font_google_url",
+  "site_font_self_hosted_url",
+]);
 
 function isColorKey(key: string) {
   return key.endsWith("_color") || key.endsWith("_bg_color") || key.endsWith("_text_color");
@@ -211,6 +215,8 @@ export function SiteSettingsForm({
           items.find((i) => i.key === "site_font_family")?.value || "";
         const globalFontUrl =
           items.find((i) => i.key === "site_font_google_url")?.value || "";
+        const globalFontSelfHostedUrl =
+          items.find((i) => i.key === "site_font_self_hosted_url")?.value || "";
         const showSiteFontPicker = category === "appearance";
 
         return (
@@ -223,6 +229,7 @@ export function SiteSettingsForm({
               <SiteFontPicker
                 initialFamily={globalFontFamily}
                 initialUrl={globalFontUrl}
+                initialSelfHostedUrl={globalFontSelfHostedUrl}
               />
             )}
 
@@ -331,15 +338,23 @@ function humanizeKey(key: string): string {
     .replace(/\b\w/g, (l) => l.toUpperCase());
 }
 
-/** Site-wide font picker. Sets both `site_font_family` (family name) and
- *  `site_font_google_url` (Google Fonts stylesheet) at once. */
+/** Site-wide font picker. Sets all 3 keys atomically:
+ *   site_font_family       — font family name
+ *   site_font_google_url   — Google Fonts stylesheet URL (or empty)
+ *   site_font_self_hosted_url — Supabase URL of uploaded .woff2/.ttf (or empty) */
 function SiteFontPicker({
   initialFamily,
   initialUrl,
+  initialSelfHostedUrl,
 }: {
   initialFamily: string;
   initialUrl: string;
+  initialSelfHostedUrl: string;
 }) {
+  const fontUploadRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+  const [selfHostedUrl, setSelfHostedUrl] = useState(initialSelfHostedUrl);
+
   // Match current values against presets to pick the initial dropdown index
   const initialPresetIdx = (() => {
     const idx = SITE_FONT_PRESETS.findIndex(
@@ -361,6 +376,35 @@ function SiteFontPicker({
   // Effective values that go into hidden inputs
   const family = isCustom ? customFamily : preset.family;
   const url = isCustom ? customUrl : preset.url;
+
+  async function handleUploadFont(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    const fd = new FormData();
+    fd.append("font", file);
+    const r = await uploadCustomFont(fd);
+    setUploading(false);
+    if (r.error) {
+      toast.error(r.error);
+      return;
+    }
+    if (r.url) {
+      setSelfHostedUrl(r.url);
+      toast.success("Font uploaded — save settings to activate");
+    }
+  }
+
+  async function handleClearFont() {
+    if (!confirm("Remove the self-hosted font? Site will fall back to Google Fonts or system.")) return;
+    const r = await clearCustomFont();
+    if (r.error) {
+      toast.error(r.error);
+      return;
+    }
+    setSelfHostedUrl("");
+    toast.success("Self-hosted font cleared");
+  }
 
   return (
     <div className="mb-6 bg-brand-yellow/10 border-l-4 border-brand-yellow rounded p-4">
@@ -391,27 +435,114 @@ function SiteFontPicker({
       </select>
 
       {isLouisGeorge && (
-        <div className="bg-amber-50 border border-amber-200 rounded p-3 text-xs text-amber-900 mb-3">
-          <strong>Louis George Cafe requires self-hosting.</strong> It's not on
-          Google Fonts. To activate:
-          <ol className="list-decimal pl-5 mt-1 space-y-0.5">
-            <li>Download the .woff2 + .woff files (free at 1001fonts.com or your design tool)</li>
-            <li>Upload to your Supabase Storage <code>site-assets</code> bucket under <code>fonts/</code></li>
-            <li>
-              Add this to <code>app/globals.css</code>:
-              <pre className="bg-white border border-amber-300 rounded p-2 mt-1 text-[10px] overflow-x-auto">{`@font-face {
-  font-family: "Louis George Cafe";
-  src: url("YOUR_SUPABASE_FONTS_URL/LouisGeorgeCafe.woff2") format("woff2");
-  font-weight: 400;
-  font-display: swap;
-}`}</pre>
-            </li>
-            <li>Redeploy. Then save this setting and the font will work.</li>
-          </ol>
-          <p className="mt-2">
-            💡 Until then, customers will see the system fallback. The <strong>Quicksand</strong>{" "}
-            option above looks almost identical and works instantly.
+        <div className="bg-amber-50 border border-amber-200 rounded p-3 text-xs text-amber-900 mb-3 space-y-2">
+          <div>
+            <strong>Louis George Cafe requires self-hosting.</strong> It's not on
+            Google Fonts.
+          </div>
+
+          {selfHostedUrl ? (
+            <div className="bg-white border border-green-300 rounded p-2 flex items-center gap-2">
+              <CheckCircle2 className="h-4 w-4 text-green-700 flex-shrink-0" />
+              <div className="flex-1 min-w-0">
+                <div className="text-green-900 font-semibold">Font file uploaded ✓</div>
+                <div className="text-[10px] text-slate-500 truncate">{selfHostedUrl}</div>
+              </div>
+              <button
+                type="button"
+                onClick={handleClearFont}
+                className="text-red-600 hover:text-red-800 text-xs inline-flex items-center gap-1"
+              >
+                <X className="h-3 w-3" /> Remove
+              </button>
+            </div>
+          ) : (
+            <div>
+              <p className="mb-2">
+                <strong>1.</strong> Download the .woff2 file from{" "}
+                <a
+                  href="https://www.1001fonts.com/louis-george-cafe-font.html"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="underline font-semibold"
+                >
+                  1001fonts.com
+                </a>{" "}
+                (free for personal use — check commercial license if you need it)
+                <br />
+                <strong>2.</strong> Click upload below — gets stored in your Supabase{" "}
+                <code>site-assets</code> bucket automatically
+                <br />
+                <strong>3.</strong> Save settings → font activates immediately, no redeploy
+              </p>
+              <input
+                ref={fontUploadRef}
+                type="file"
+                accept=".woff2,.woff,.ttf,.otf,font/woff2,font/woff,font/ttf,font/otf"
+                onChange={handleUploadFont}
+                className="hidden"
+              />
+              <button
+                type="button"
+                onClick={() => fontUploadRef.current?.click()}
+                disabled={uploading}
+                className="btn-primary inline-flex items-center gap-2 text-sm"
+              >
+                <Upload className="h-4 w-4" />
+                {uploading ? "Uploading..." : "Upload Louis George Cafe (.woff2)"}
+              </button>
+            </div>
+          )}
+
+          <p className="text-[11px]">
+            💡 Don't have the file yet? The <strong>Quicksand</strong> option above
+            looks ~95% identical and works instantly with zero setup.
           </p>
+        </div>
+      )}
+
+      {/* Generic self-hosted font option in Custom mode */}
+      {isCustom && (
+        <div className="bg-slate-50 border border-slate-200 rounded p-3 mb-3">
+          <p className="text-xs text-slate-700 mb-2">
+            <strong>Self-hosted font:</strong> upload any .woff2/.woff/.ttf/.otf file.
+            Used instead of the Google Fonts URL when present.
+          </p>
+          {selfHostedUrl ? (
+            <div className="flex items-center gap-2 bg-white border border-green-300 rounded p-2">
+              <CheckCircle2 className="h-4 w-4 text-green-700 flex-shrink-0" />
+              <div className="flex-1 min-w-0 text-xs">
+                <div className="text-green-900 font-semibold">Uploaded ✓</div>
+                <div className="text-[10px] text-slate-500 truncate">{selfHostedUrl}</div>
+              </div>
+              <button
+                type="button"
+                onClick={handleClearFont}
+                className="text-red-600 hover:text-red-800 text-xs inline-flex items-center gap-1"
+              >
+                <X className="h-3 w-3" /> Remove
+              </button>
+            </div>
+          ) : (
+            <>
+              <input
+                ref={fontUploadRef}
+                type="file"
+                accept=".woff2,.woff,.ttf,.otf,font/woff2,font/woff,font/ttf,font/otf"
+                onChange={handleUploadFont}
+                className="hidden"
+              />
+              <button
+                type="button"
+                onClick={() => fontUploadRef.current?.click()}
+                disabled={uploading}
+                className="inline-flex items-center gap-1 border border-slate-300 rounded px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50"
+              >
+                <Upload className="h-3 w-3" />
+                {uploading ? "Uploading..." : "Upload font file"}
+              </button>
+            </>
+          )}
         </div>
       )}
 
@@ -444,9 +575,15 @@ function SiteFontPicker({
         </div>
       )}
 
-      {/* Hidden inputs that get sent to the server action */}
+      {/* Hidden inputs sent on Save. Self-hosted URL is only kept active for
+          Louis George Cafe / Custom modes; Google presets clear it. */}
       <input type="hidden" name="site_font_family" value={family} />
       <input type="hidden" name="site_font_google_url" value={url} />
+      <input
+        type="hidden"
+        name="site_font_self_hosted_url"
+        value={isLouisGeorge || isCustom ? selfHostedUrl : ""}
+      />
 
       {family && (
         <p className="text-xs text-slate-500 mt-2">
