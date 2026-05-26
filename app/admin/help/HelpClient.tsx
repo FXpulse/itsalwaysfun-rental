@@ -787,6 +787,47 @@ export function HelpClient() {
       ),
     },
     {
+      id: "site-font",
+      title: "Step 11a — Change the site font (Louis George Cafe etc.)",
+      icon: ImageIcon,
+      content: (
+        <div className="space-y-3 text-sm">
+          <p>
+            The entire public site uses one global font. Change it from{" "}
+            <code>/admin/site</code> → top of the <strong>Appearance</strong>{" "}
+            section → "Site-wide font" picker.
+          </p>
+          <p className="font-semibold">Free presets (load instantly from Google Fonts CDN):</p>
+          <ul className="list-disc pl-5 text-xs space-y-1">
+            <li><strong>Quicksand</strong> — recommended. The free Google Fonts twin of Louis George Cafe (rounded geometric sans-serif, brand-friendly for kids/family events).</li>
+            <li><strong>Nunito</strong>, <strong>Poppins</strong> — similar rounded sans-serif vibe</li>
+            <li><strong>Inter</strong>, <strong>Montserrat</strong> — clean modern sans-serif</li>
+            <li><strong>Playfair Display</strong> — elegant serif if you want a more upscale feel</li>
+          </ul>
+          <p className="font-semibold">Custom: type any Google Font</p>
+          <p className="text-xs">
+            Pick "Custom (type your own)" → enter the family name + paste the
+            Google Fonts stylesheet URL (from fonts.google.com → pick font →
+            "Get embed code" → copy the href).
+          </p>
+          <p className="font-semibold">Louis George Cafe (self-hosted, brand-exact)</p>
+          <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded p-2">
+            Louis George Cafe is NOT on Google Fonts. To use it: download .woff2
+            from 1001fonts.com → upload to Supabase storage <code>site-assets/fonts/</code>{" "}
+            → add an <code>@font-face</code> rule to <code>app/globals.css</code>{" "}
+            pointing at the Supabase URL → redeploy. The picker shows the exact
+            CSS snippet you need. <strong>Quicksand looks ~95% identical and
+            works instantly</strong> — recommended unless brand-specific.
+          </p>
+          <p className="text-xs text-slate-500">
+            💡 Per-zone fonts (in the Appearance section below) still work and
+            OVERRIDE the global font for specific sections. Most people use only
+            the global setting and leave per-zone empty.
+          </p>
+        </div>
+      ),
+    },
+    {
       id: "site",
       title: "Step 11 — Customize the public site",
       icon: ImageIcon,
