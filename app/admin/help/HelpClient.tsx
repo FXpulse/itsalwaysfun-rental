@@ -1370,6 +1370,40 @@ export function HelpClient() {
       ),
     },
     {
+      id: "diagnostics",
+      title: "System diagnostics (health check)",
+      icon: Settings,
+      content: (
+        <div className="space-y-3 text-sm">
+          <p>
+            <code>/admin/diagnostics</code> is a one-click health check that
+            verifies your environment is wired correctly before you run real
+            tests or launch. Admin-only.
+          </p>
+          <p className="font-semibold">What it checks (≈25 items, grouped):</p>
+          <ul className="list-disc pl-5 text-xs space-y-1">
+            <li><strong>Environment</strong> — Stripe mode (live vs test) + key parity, Webhook secret, Resend, Admin alert email, App URL, Cron secret, GHL webhook, Twilio, Sentry DSN, Inbound email secret</li>
+            <li><strong>Database tables</strong> — existence + row counts for all critical tables (bookings, products, inventory, audit_log, accounting tables, 1099-NEC tables, etc.). Catches missing migrations.</li>
+            <li><strong>Site settings</strong> — required keys present (driver rate, 1099 threshold, low-stock email, damage protection toggle, lead time, etc.)</li>
+            <li><strong>Data state</strong> — at least 1 active product, 1 active fleet, 1 admin user; warns if 0 low-stock thresholds set or 0 overhead recorded</li>
+            <li><strong>Cron health</strong> — recent audit_log activity, last inbound email worker hit, count of failed email deliveries</li>
+          </ul>
+          <p className="font-semibold">How to read the output:</p>
+          <ul className="list-disc pl-5 text-xs space-y-1">
+            <li><strong>🚨 Blockers</strong> (red) — fix before launching / testing. Bookings, payments, or core features will fail.</li>
+            <li><strong>⚠ Warnings</strong> (amber) — not blocking but worth fixing (e.g., Sentry not set up means crashes go unreported)</li>
+            <li><strong>OK</strong> (green) — verified working</li>
+            <li><strong>Info</strong> (grey) — informational counts, not a pass/fail check</li>
+          </ul>
+          <p className="text-xs text-slate-500">
+            💡 Run this BEFORE your first real Stripe charge to confirm live keys are
+            in place. Run it AFTER every redeploy if you changed env vars.
+            Run it monthly as a sanity check.
+          </p>
+        </div>
+      ),
+    },
+    {
       id: "1099-nec",
       title: "1099-NEC year-end report (contractor tax filing)",
       icon: FileText,
