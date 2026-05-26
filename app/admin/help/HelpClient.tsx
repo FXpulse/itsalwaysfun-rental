@@ -302,12 +302,26 @@ export function HelpClient() {
       icon: Ticket,
       content: (
         <div className="space-y-3 text-sm">
-          <p><strong>Coupons</strong> — discount codes (percent or fixed amount):</p>
+          <p><strong>Coupons</strong> — discount codes. 3 types available:</p>
           <ol className="list-decimal pl-5 space-y-1 text-xs">
             <li>Go to <code>Coupons</code> → Add</li>
+            <li>Pick a type:
+              <ul className="list-disc pl-5 mt-1">
+                <li><strong>Percent off</strong> — e.g. 10% off the entire total</li>
+                <li><strong>Fixed amount off</strong> — e.g. $25 off in dollars</li>
+                <li><strong>Overnight free</strong> — waives ONLY the 30% second-day surcharge. Valid <em>only</em> for 2-day (overnight) rentals. Rejected with a clear message on 1-day or 3+ day rentals.</li>
+              </ul>
+            </li>
             <li>Customer enters code at checkout</li>
             <li>Create <code>LOYAL10</code> → auto-shown to returning customers in /portal</li>
           </ol>
+          <p className="text-xs text-blue-800 bg-blue-50 border border-blue-200 rounded p-2">
+            💡 <strong>"Overnight free" use case:</strong> seed the OVERNIGHT
+            coupon (in <code>coupon_overnight_type.sql</code>) and advertise as
+            "free overnight upgrade — book 2 days, pay for 1". The discount
+            amount is calculated dynamically from the day-2 surcharge — you
+            don't enter a value yourself.
+          </p>
 
           <p className="mt-3"><strong>Gift cards — admin issued</strong> (you give one away or sell by phone):</p>
           <ol className="list-decimal pl-5 space-y-1 text-xs">
