@@ -120,8 +120,19 @@ export function BookingWizard({
 }) {
   const { item: cartItem, clear } = useCart();
 
-  // Wizard state
-  const [step, setStep] = useState<Step>(cartItem?.productSlug ? "date" : "date");
+  // If the cart has a productSlug from a Book Now click, validate it matches
+  // an active product. Stale slugs are ignored (defensive).
+  const preSelectedProductSlug = useMemo(() => {
+    if (!cartItem?.productSlug) return null;
+    return products.find((p) => p.slug === cartItem.productSlug)
+      ? cartItem.productSlug
+      : null;
+  }, [cartItem?.productSlug, products]);
+  const hasPreSelectedProduct = !!preSelectedProductSlug;
+
+  // Wizard state — always starts at date; if a product was pre-selected from
+  // an item page, the category + product picker steps are skipped entirely.
+  const [step, setStep] = useState<Step>("date");
   const [eventDate, setEventDate] = useState<string | null>(cartItem?.eventDate || null);
   const [eventEndDate, setEventEndDate] = useState<string | null>(null);
   const [startTime, setStartTime] = useState("9:00 AM");
@@ -273,7 +284,16 @@ export function BookingWizard({
     [products, selectedCategory],
   );
 
-  const currentStepIdx = STEPS.findIndex((s) => s.id === step);
+  // Hide category + product steps when user came from an item page with a
+  // valid product already pre-selected.
+  const visibleSteps = useMemo(
+    () =>
+      hasPreSelectedProduct
+        ? STEPS.filter((s) => s.id !== "category" && s.id !== "product")
+        : STEPS,
+    [hasPreSelectedProduct],
+  );
+  const currentStepIdx = visibleSteps.findIndex((s) => s.id === step);
 
   function goToStep(s: Step) {
     setStep(s);
@@ -443,7 +463,7 @@ export function BookingWizard({
     <div>
       {/* Step indicator */}
       <div className="flex justify-between mb-8">
-        {STEPS.map((s, idx) => {
+        {visibleSteps.map((s, idx) => {
           const isActive = idx === currentStepIdx;
           const isComplete = idx < currentStepIdx;
           return (
@@ -482,7 +502,7 @@ export function BookingWizard({
             product={selectedProduct}
             numDays={numDays}
             totalAmount={totalAmount}
-            onNext={() => goToStep("category")}
+            onNext={() => goToStep(hasPreSelectedProduct ? "customer" : "category")}
             unavailableDates={selectedProductSlug ? unavailableDates : new Set()}
             minLeadHours={minLeadHours}
           />
@@ -563,7 +583,7 @@ export function BookingWizard({
             onCoiAdditionalInsuredChange={setCoiAdditionalInsured}
             coiInstructions={coiInstructions}
             onCoiInstructionsChange={setCoiInstructions}
-            onBack={() => goToStep("product")}
+            onBack={() => goToStep(hasPreSelectedProduct ? "date" : "product")}
             onSubmit={handleSubmit}
             pending={pending}
           />
