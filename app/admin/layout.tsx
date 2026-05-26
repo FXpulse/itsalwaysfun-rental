@@ -6,6 +6,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUserRole } from "@/lib/auth/roles";
+import { RealtimeNotifications } from "@/components/admin/RealtimeNotifications";
 import {
   LogOut,
   Calendar,
@@ -151,6 +152,7 @@ export default async function AdminLayout({
       </aside>
 
       <main className="flex-1 p-8 overflow-y-auto">{children}</main>
+      <RealtimeNotifications />
     </div>
   );
 }

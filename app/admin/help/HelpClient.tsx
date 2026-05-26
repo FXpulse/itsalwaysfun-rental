@@ -1031,6 +1031,44 @@ export function HelpClient() {
       ),
     },
     {
+      id: "realtime",
+      title: "Live notifications — bookings, messages, payouts, COI",
+      icon: Sparkles,
+      content: (
+        <div className="space-y-3 text-sm">
+          <p>
+            The admin gets <strong>instant push notifications</strong> via Supabase
+            Realtime when key things happen — no need to refresh the page. A toast
+            pops up in the top-right corner and the relevant list/dashboard
+            auto-refreshes.
+          </p>
+          <p className="font-semibold">What triggers a notification:</p>
+          <ul className="list-disc pl-5 text-xs space-y-1">
+            <li>📨 <strong>New contact message</strong> (form submission OR inbound email to bookings@) — shows sender + subject</li>
+            <li>📅 <strong>New booking</strong> — shows customer + product + event date. Differentiates between PAID (💰) and pending payment.</li>
+            <li>💵 <strong>Payout request</strong> from a referrer — shows amount + type (credit / cash)</li>
+            <li>📄 <strong>COI request</strong> at checkout — shows venue name</li>
+          </ul>
+          <p className="text-xs text-slate-500">
+            Each toast has a <strong>Refresh</strong> button if you want to
+            jump straight to the updated data. Toasts auto-dismiss after 6
+            seconds.
+          </p>
+          <p className="text-xs text-slate-500">
+            💡 Notifications work across ALL admin pages — leave the dashboard
+            open in one browser tab while you work elsewhere; new events still
+            pop on top of whatever page you're viewing.
+          </p>
+          <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded p-2">
+            ⚙️ <strong>Setup required (one time):</strong> run{" "}
+            <code>supabase/realtime_publication.sql</code> in the Supabase SQL
+            editor to enable Realtime broadcasts on the 4 tables. Without it
+            the dashboard works fine, just no live push.
+          </p>
+        </div>
+      ),
+    },
+    {
       id: "daily-ops",
       title: "Daily operations — what to do each day",
       icon: Settings,
