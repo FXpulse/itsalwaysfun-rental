@@ -1031,6 +1031,46 @@ export function HelpClient() {
       ),
     },
     {
+      id: "sentry",
+      title: "Error monitoring (Sentry) — catch bugs before customers report them",
+      icon: AlertTriangle,
+      content: (
+        <div className="space-y-3 text-sm">
+          <p>
+            Sentry watches the app for crashes — both browser-side (customer
+            clicks something and gets an error) and server-side (booking
+            creation fails, email sends throw exceptions). Without it, you
+            only learn about bugs when customers email you.
+          </p>
+          <p className="font-semibold">Setup (5 min, one time):</p>
+          <ol className="list-decimal pl-5 space-y-1 text-xs">
+            <li>Sign up at <a href="https://sentry.io" target="_blank" rel="noopener noreferrer" className="text-brand-navy underline">sentry.io</a> (free tier: 5k errors/month, plenty for your traffic)</li>
+            <li>Create project → platform: <strong>Next.js</strong> → copy the DSN (looks like <code>https://...@o....ingest.sentry.io/...</code>)</li>
+            <li>Vercel → env vars → add:
+              <ul className="list-disc pl-5 mt-1">
+                <li><code>NEXT_PUBLIC_SENTRY_DSN</code> = the DSN</li>
+                <li><code>SENTRY_DSN</code> = same DSN (server-side)</li>
+                <li><code>SENTRY_ORG</code> = your Sentry org slug</li>
+                <li><code>SENTRY_PROJECT</code> = your project slug</li>
+              </ul>
+            </li>
+            <li>Redeploy in Vercel — Sentry activates automatically</li>
+          </ol>
+          <p className="font-semibold">What you'll see:</p>
+          <ul className="list-disc pl-5 text-xs space-y-1">
+            <li>Every uncaught error tagged with: user agent, URL, stack trace, breadcrumbs of recent actions</li>
+            <li>Email/Slack alerts for new error types</li>
+            <li>Performance traces (10% sample) to spot slow API routes</li>
+          </ul>
+          <p className="text-xs text-slate-500">
+            💡 If you don't set the env vars, the app builds + runs normally —
+            it just silently skips Sentry. So you can deploy now and configure
+            Sentry whenever you're ready.
+          </p>
+        </div>
+      ),
+    },
+    {
       id: "realtime",
       title: "Live notifications — bookings, messages, payouts, COI",
       icon: Sparkles,
