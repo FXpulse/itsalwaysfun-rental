@@ -1370,6 +1370,71 @@ export function HelpClient() {
       ),
     },
     {
+      id: "1099-nec",
+      title: "1099-NEC year-end report (contractor tax filing)",
+      icon: FileText,
+      content: (
+        <div className="space-y-3 text-sm">
+          <p>
+            The IRS requires a 1099-NEC for every non-employee paid{" "}
+            <strong>$600 or more</strong> in a calendar year. This page does the
+            compilation work for you so January doesn't become a scramble.
+          </p>
+          <p className="font-semibold">Where to find it:</p>
+          <p className="text-xs">
+            <code>/admin/reports/1099-nec</code> — also reachable via the green
+            "1099-NEC year-end →" button on <code>/admin/reports</code>.
+          </p>
+
+          <p className="font-semibold">How it works:</p>
+          <ul className="list-disc pl-5 text-xs space-y-1">
+            <li>Sums every booking expense where the category has the{" "}
+              <strong>supports_payroll_hours</strong> flag (payroll, setup_labor,
+              teardown_labor, or any custom labor category) — grouped by{" "}
+              <code>driver_email</code> — for the selected calendar year</li>
+            <li>Each row shows: total paid, hours, bookings, W9 status, TIN last 4,
+              address completeness, filed status</li>
+            <li>Qualifying drivers (≥ threshold) are shown first; non-qualifying
+              ones below for reference</li>
+            <li>The 5-stat header tracks: drivers w/ payments, qualifying count,
+              total paid out, missing W9 count, filed progress</li>
+          </ul>
+
+          <p className="font-semibold">January workflow:</p>
+          <ol className="list-decimal pl-5 text-xs space-y-1">
+            <li>Switch to the closing tax year (year selector at top)</li>
+            <li>For each qualifying driver missing W9, name, TIN, or address:
+              click <strong>Profile</strong> to fill it in, click <strong>W9</strong>{" "}
+              to mark received</li>
+            <li>Download CSV → upload to your filing service (Track1099,
+              eFile4Biz, or hand to accountant)</li>
+            <li>After each filing, click <strong>Mark filed</strong> so you can
+              track progress at a glance</li>
+            <li>IRS deadline: <strong>January 31</strong> for both recipient copy +
+              IRS filing</li>
+          </ol>
+
+          <p className="text-xs text-slate-500">
+            💡 <strong>TIN storage:</strong> only the last 4 digits are stored in
+            the DB (for verification). The full SSN/EIN lives in the W9 PDF in
+            private Supabase storage (bucket: <code>w9</code>). Never paste a
+            full SSN into the notes field.
+          </p>
+          <p className="text-xs text-slate-500">
+            💡 The $600 threshold is configurable in{" "}
+            <code>site_settings.1099_nec_threshold_cents</code> — change it if
+            the IRS raises the limit.
+          </p>
+          <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded p-2">
+            ⚙️ <strong>Setup required (one time):</strong> run{" "}
+            <code>supabase/driver_1099.sql</code>. Creates the{" "}
+            <code>driver_tax_profiles</code> table and seeds the threshold
+            site setting.
+          </p>
+        </div>
+      ),
+    },
+    {
       id: "reports-advanced",
       title: "Advanced reports — cash flow, monthly trends, drivers, LTV",
       icon: Calculator,

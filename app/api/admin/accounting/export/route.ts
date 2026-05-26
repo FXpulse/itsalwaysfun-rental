@@ -1,7 +1,6 @@
-// Accounting CSV export — admin-only, scoped to a date range.
-// ?type=expenses  → booking_expenses.csv (per-booking direct costs)
-// ?type=overhead  → overhead_costs.csv  (monthly fixed costs, active in range)
-// ?type=pnl       → pnl_summary.csv     (single-row P&L summary)
+// Accounting CSV export — admin-only.
+// Date-scoped: ?type=expenses|overhead|pnl with &from=YYYY-MM-DD&to=YYYY-MM-DD
+// Year-scoped: ?type=1099-nec with &year=YYYY
 //
 // Columns are chosen to import cleanly into QuickBooks Online, Xero, or any
 // spreadsheet. Dates are YYYY-MM-DD, amounts are decimal USD (no $ signs).
@@ -10,6 +9,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUserRole } from "@/lib/auth/roles";
 import { computePnL } from "@/lib/accounting";
+import { compute1099Year } from "@/lib/reports-1099";
 
 export const dynamic = "force-dynamic";
 
@@ -49,6 +49,52 @@ export async function GET(req: NextRequest) {
 
   const url = new URL(req.url);
   const type = url.searchParams.get("type") || "expenses";
+
+  // 1099-NEC export is year-scoped, not date-scoped — handle first.
+  if (type === "1099-nec") {
+    const yearStr = url.searchParams.get("year");
+    if (!yearStr || !/^\d{4}$/.test(yearStr)) {
+      return NextResponse.json({ error: "year=YYYY required" }, { status: 400 });
+    }
+    const year = parseInt(yearStr, 10);
+    const summary = await compute1099Year(year);
+    const headers = [
+      "Driver Email",
+      "Full Name",
+      "Business Name / DBA",
+      "TIN Last 4",
+      "Address Line 1",
+      "Address Line 2",
+      "City",
+      "State",
+      "ZIP",
+      "W9 Received",
+      "Total Paid (USD)",
+      "Total Hours",
+      "Bookings",
+      "Qualifies (>= threshold)",
+      "Filed for Year",
+    ];
+    const rows = summary.drivers.map((r) => [
+      r.driver_email,
+      r.full_name || "",
+      r.business_name || "",
+      r.tin_last4 || "",
+      r.address_line1 || "",
+      r.address_line2 || "",
+      r.city || "",
+      r.state || "",
+      r.zip || "",
+      r.w9_received_at ? r.w9_received_at.slice(0, 10) : "",
+      (r.total_paid_cents / 100).toFixed(2),
+      r.total_hours.toFixed(2),
+      r.bookings_count,
+      r.qualifies ? "YES" : "no",
+      r.filed_at ? r.filed_at.slice(0, 10) : "",
+    ]);
+    return csvResponse(toCsv(headers, rows), `1099_nec_${year}.csv`);
+  }
+
   const from = url.searchParams.get("from");
   const to = url.searchParams.get("to");
   if (!from || !to || !/^\d{4}-\d{2}-\d{2}$/.test(from) || !/^\d{4}-\d{2}-\d{2}$/.test(to)) {
