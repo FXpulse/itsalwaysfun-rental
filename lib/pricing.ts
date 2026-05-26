@@ -68,18 +68,43 @@ export function multiDayBreakdown(
   return { breakdown, total };
 }
 
-/** Apply coupon discount to a total. Returns new total + applied discount (cents). */
+/** Apply coupon discount to a total. Returns new total + applied discount (cents).
+ *  For 'overnight_free' type, pass the day-2 surcharge as the `overnightSurchargeCents`
+ *  argument — the coupon is only valid when that's > 0 (i.e. rental is multi-day).
+ *  For 'overnight_free' applied to a single-day rental, returns no discount. */
 export function applyCoupon(
   subtotalCents: number,
-  coupon: { discount_type: "percent" | "fixed"; discount_value: number },
-): { total: number; discount: number } {
+  coupon: {
+    discount_type: "percent" | "fixed" | "overnight_free";
+    discount_value: number;
+  },
+  context?: {
+    overnightSurchargeCents?: number;  // day-2 surcharge from multiDayBreakdown
+    isTwoDayRental?: boolean;          // overnight = exactly 2 days
+  },
+): { total: number; discount: number; rejected?: string } {
   if (coupon.discount_type === "percent") {
     const pct = Math.max(0, Math.min(100, coupon.discount_value));
     const discount = Math.round(subtotalCents * (pct / 100));
     return { total: Math.max(0, subtotalCents - discount), discount };
-  } else {
-    // fixed (cents)
+  }
+  if (coupon.discount_type === "fixed") {
     const discount = Math.min(subtotalCents, Math.max(0, coupon.discount_value));
     return { total: Math.max(0, subtotalCents - discount), discount };
   }
+  // overnight_free — only valid on exactly 2-day rentals
+  if (coupon.discount_type === "overnight_free") {
+    const isTwoDay = context?.isTwoDayRental ?? false;
+    if (!isTwoDay) {
+      return {
+        total: subtotalCents,
+        discount: 0,
+        rejected: "This coupon only applies to 2-day (overnight) rentals.",
+      };
+    }
+    const surcharge = Math.max(0, context?.overnightSurchargeCents || 0);
+    const discount = Math.min(subtotalCents, surcharge);
+    return { total: Math.max(0, subtotalCents - discount), discount };
+  }
+  return { total: subtotalCents, discount: 0 };
 }

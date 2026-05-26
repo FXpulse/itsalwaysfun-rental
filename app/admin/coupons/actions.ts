@@ -15,7 +15,7 @@ async function requireAdmin() {
 const CouponInput = z.object({
   code: z.string().min(2).max(50).regex(/^[A-Z0-9_-]+$/, "Use uppercase letters, numbers, _ or -"),
   description: z.string().max(500).optional().nullable(),
-  discount_type: z.enum(["percent", "fixed"]),
+  discount_type: z.enum(["percent", "fixed", "overnight_free"]),
   discount_value: z.number().int().min(0),
   max_uses: z.number().int().min(0).optional().nullable(),
   expires_at: z.string().optional().nullable(),
@@ -25,15 +25,19 @@ const CouponInput = z.object({
 function parseForm(formData: FormData) {
   const maxUsesRaw = String(formData.get("max_uses") || "");
   const expiresAtRaw = String(formData.get("expires_at") || "");
+  const discountType = String(formData.get("discount_type") || "percent") as
+    | "percent"
+    | "fixed"
+    | "overnight_free";
   return {
     code: String(formData.get("code") || "").trim().toUpperCase(),
     description: String(formData.get("description") || "") || null,
-    discount_type: String(formData.get("discount_type") || "percent") as "percent" | "fixed",
+    discount_type: discountType,
     discount_value: (() => {
-      const t = String(formData.get("discount_type") || "percent");
+      if (discountType === "overnight_free") return 0; // ignored — computed at booking time
       const raw = parseFloat(String(formData.get("discount_value") || "0"));
       // percent → keep as int (0-100); fixed dollars → convert to cents
-      return t === "percent" ? Math.round(raw) : Math.round(raw * 100);
+      return discountType === "percent" ? Math.round(raw) : Math.round(raw * 100);
     })(),
     max_uses: maxUsesRaw ? parseInt(maxUsesRaw, 10) : null,
     expires_at: expiresAtRaw ? new Date(expiresAtRaw).toISOString() : null,

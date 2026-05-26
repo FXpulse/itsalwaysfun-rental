@@ -258,11 +258,14 @@ export async function POST(request: Request) {
 
   // 4. Calculate subtotal — multi-day with optional weekend pricing
   // Per-day breakdown: weekday or weekend rate, with 30% surcharge on day 2+
-  const { total: productSubtotal } = multiDayBreakdown(
+  const { total: productSubtotal, breakdown: dayBreakdown } = multiDayBreakdown(
     days,
     product.price_per_day,
     (product as any).weekend_price_per_day || null,
   );
+  // Day-2 surcharge — used for the overnight_free coupon type
+  const day2SurchargeCents =
+    dayBreakdown.length >= 2 ? dayBreakdown[1].appliedPriceCents : 0;
 
   // Power Supply add-on (flat per-day, no surcharge — it's an operational fee)
   let powerSupplyCents = 0;
@@ -347,10 +350,20 @@ export async function POST(request: Request) {
       const expired = coupon.expires_at && new Date(coupon.expires_at) < new Date();
       const usedUp = coupon.max_uses != null && coupon.current_uses >= coupon.max_uses;
       if (!expired && !usedUp) {
-        const { total, discount } = applyCoupon(subtotal, {
-          discount_type: coupon.discount_type,
-          discount_value: coupon.discount_value,
-        });
+        const { total, discount, rejected } = applyCoupon(
+          subtotal,
+          {
+            discount_type: coupon.discount_type,
+            discount_value: coupon.discount_value,
+          },
+          {
+            isTwoDayRental: days.length === 2,
+            overnightSurchargeCents: day2SurchargeCents,
+          },
+        );
+        if (rejected) {
+          return NextResponse.json({ error: rejected }, { status: 400 });
+        }
         totalAmount = total;
         discountAmount = discount;
         appliedCouponCode = coupon.code;

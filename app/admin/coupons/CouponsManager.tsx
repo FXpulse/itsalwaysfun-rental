@@ -15,7 +15,7 @@ interface Coupon {
   id: string;
   code: string;
   description: string | null;
-  discount_type: "percent" | "fixed";
+  discount_type: "percent" | "fixed" | "overnight_free";
   discount_value: number;
   max_uses: number | null;
   current_uses: number;
@@ -121,7 +121,9 @@ export function CouponsManager({ coupons }: { coupons: Coupon[] }) {
                   <td className="px-4 py-3">
                     {c.discount_type === "percent"
                       ? `${c.discount_value}% off`
-                      : `$${(c.discount_value / 100).toFixed(2)} off`}
+                      : c.discount_type === "fixed"
+                        ? `$${(c.discount_value / 100).toFixed(2)} off`
+                        : "Overnight free (waives day-2 surcharge)"}
                   </td>
                   <td className="px-4 py-3">
                     {c.max_uses != null ? `${c.current_uses} / ${c.max_uses}` : `${c.current_uses} / ∞`}
@@ -196,8 +198,11 @@ function CouponFormCard({
   pending: boolean;
   initial?: Coupon;
 }) {
-  const [type, setType] = useState<"percent" | "fixed">(initial?.discount_type || "percent");
-  const defaultValue = initial
+  const [type, setType] = useState<"percent" | "fixed" | "overnight_free">(
+    initial?.discount_type || "percent",
+  );
+  const isOvernight = type === "overnight_free";
+  const defaultValue = initial && !isOvernight
     ? type === "percent"
       ? initial.discount_value
       : (initial.discount_value / 100).toFixed(2)
@@ -249,27 +254,43 @@ function CouponFormCard({
               className="input"
               disabled={pending}
             >
-              <option value="percent">Percent off</option>
+              <option value="percent">Percent off (entire total)</option>
               <option value="fixed">Fixed amount off ($)</option>
+              <option value="overnight_free">Overnight free (waive 2nd-day surcharge)</option>
             </select>
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">
-              Value {type === "percent" ? "(0-100)" : "(USD, e.g. 25)"}
+              Value{" "}
+              {isOvernight
+                ? "(auto-calculated)"
+                : type === "percent"
+                  ? "(0-100)"
+                  : "(USD, e.g. 25)"}
             </label>
             <input
               name="discount_value"
               type="number"
-              required
+              required={!isOvernight}
               min={0}
               max={type === "percent" ? 100 : undefined}
               step={type === "percent" ? 1 : 0.01}
-              defaultValue={defaultValue}
+              defaultValue={isOvernight ? 0 : defaultValue}
+              placeholder={isOvernight ? "Not used — discount is the day-2 surcharge" : ""}
               className="input"
-              disabled={pending}
+              disabled={pending || isOvernight}
             />
           </div>
         </div>
+        {isOvernight && (
+          <div className="bg-blue-50 border border-blue-200 rounded p-3 text-xs text-blue-900">
+            <strong>How "Overnight free" works:</strong> only valid on rentals of
+            exactly <strong>2 days</strong> (overnight). The discount equals the
+            30% surcharge for day 2, so the customer effectively pays only day 1's
+            full price. Rejected with a clear message if applied to a 1-day or 3+
+            day rental.
+          </div>
+        )}
 
         <div className="grid grid-cols-2 gap-4">
           <div>
