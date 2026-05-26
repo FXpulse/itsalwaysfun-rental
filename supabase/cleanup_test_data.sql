@@ -18,7 +18,7 @@
 --   ✗ All bookings + booking_expenses, booking_damages, booking_proofs,
 --     booking_waivers, booking_extensions
 --   ✗ All coi_requests
---   ✗ All dispatch_routes + dispatch_route_stops
+--   ✗ All dispatch_routes + dispatch_stops
 --   ✗ All quotes + quote_items
 --   ✗ All payout_requests
 --   ✗ All contact_messages + replies
@@ -44,21 +44,33 @@
 -- SECTION 1 — PREVIEW (read-only, safe to run anytime)
 -- ═════════════════════════════════════════════════════════════════════════
 -- Just shows you what's about to disappear. Run this first.
+-- Uses a function that returns 0 for tables that don't exist (defensive
+-- against schema differences across deployments).
 
-select 'bookings'                  as table_name, count(*) as rows from public.bookings
-union all select 'booking_expenses',         count(*) from public.booking_expenses
-union all select 'booking_damages',          count(*) from public.booking_damages
-union all select 'booking_proofs',           count(*) from public.booking_proofs
-union all select 'booking_waivers',          count(*) from public.booking_waivers
-union all select 'booking_extensions',       count(*) from public.booking_extensions
-union all select 'coi_requests',             count(*) from public.coi_requests
-union all select 'dispatch_route_stops',     count(*) from public.dispatch_route_stops
-union all select 'dispatch_routes',          count(*) from public.dispatch_routes
-union all select 'quotes',                   count(*) from public.quotes
-union all select 'payout_requests',          count(*) from public.payout_requests
-union all select 'contact_messages',         count(*) from public.contact_messages
-union all select 'gift_cards',               count(*) from public.gift_cards
-union all select 'customer_profiles',        count(*) from public.customer_profiles
+do $$ begin
+  create or replace function pg_temp.safe_count(t text) returns bigint as $f$
+  declare n bigint;
+  begin
+    if to_regclass(t) is null then return 0; end if;
+    execute format('select count(*) from %s', t) into n;
+    return n;
+  end $f$ language plpgsql;
+end $$;
+
+select 'bookings'              as table_name, pg_temp.safe_count('public.bookings')              as rows
+union all select 'booking_expenses',       pg_temp.safe_count('public.booking_expenses')
+union all select 'booking_damages',        pg_temp.safe_count('public.booking_damages')
+union all select 'booking_proofs',         pg_temp.safe_count('public.booking_proofs')
+union all select 'booking_waivers',        pg_temp.safe_count('public.booking_waivers')
+union all select 'booking_extensions',     pg_temp.safe_count('public.booking_extensions')
+union all select 'coi_requests',           pg_temp.safe_count('public.coi_requests')
+union all select 'dispatch_stops',         pg_temp.safe_count('public.dispatch_stops')
+union all select 'dispatch_routes',        pg_temp.safe_count('public.dispatch_routes')
+union all select 'quotes',                 pg_temp.safe_count('public.quotes')
+union all select 'payout_requests',        pg_temp.safe_count('public.payout_requests')
+union all select 'contact_messages',       pg_temp.safe_count('public.contact_messages')
+union all select 'gift_cards',             pg_temp.safe_count('public.gift_cards')
+union all select 'customer_profiles',      pg_temp.safe_count('public.customer_profiles')
 union all select 'auth.users (non-staff)',
   (select count(*) from auth.users where id not in (select id from public.app_users))
 order by table_name;
@@ -72,73 +84,53 @@ order by table_name;
 
 begin;
 
+-- Helper: delete from a table only if it exists in this DB
+do $$ begin
+  create or replace function pg_temp.safe_delete(t text) returns void as $f$
+  begin
+    if to_regclass(t) is not null then
+      execute format('delete from %s', t);
+    end if;
+  end $f$ language plpgsql;
+end $$;
+
 -- ── booking-anchored rows (delete children first, then parents) ────────
-delete from public.booking_expenses;
-delete from public.booking_damages;
-delete from public.booking_proofs;
-delete from public.booking_waivers;
-delete from public.booking_extensions;
-delete from public.coi_requests;
+select pg_temp.safe_delete('public.booking_expenses');
+select pg_temp.safe_delete('public.booking_damages');
+select pg_temp.safe_delete('public.booking_proofs');
+select pg_temp.safe_delete('public.booking_waivers');
+select pg_temp.safe_delete('public.booking_extensions');
+select pg_temp.safe_delete('public.coi_requests');
 
 -- dispatch (stops FK to bookings + routes)
-delete from public.dispatch_route_stops;
-delete from public.dispatch_routes;
+select pg_temp.safe_delete('public.dispatch_stops');
+select pg_temp.safe_delete('public.dispatch_routes');
 
 -- bookings themselves
 delete from public.bookings;
 
 -- ── quote system ───────────────────────────────────────────────────────
--- quote_items may or may not exist depending on your schema version
-do $$ begin
-  if exists (select 1 from information_schema.tables
-             where table_schema='public' and table_name='quote_items') then
-    delete from public.quote_items;
-  end if;
-end $$;
-delete from public.quotes;
+select pg_temp.safe_delete('public.quote_items');
+select pg_temp.safe_delete('public.quotes');
 
 -- ── customer-facing data ───────────────────────────────────────────────
-do $$ begin
-  if exists (select 1 from information_schema.tables
-             where table_schema='public' and table_name='contact_message_replies') then
-    delete from public.contact_message_replies;
-  end if;
-end $$;
-delete from public.contact_messages;
+select pg_temp.safe_delete('public.contact_message_replies');
+select pg_temp.safe_delete('public.contact_messages');
+select pg_temp.safe_delete('public.payout_requests');
 
-delete from public.payout_requests;
-
--- Loyalty history — different schemas use different table names; cover both
-do $$ begin
-  if exists (select 1 from information_schema.tables
-             where table_schema='public' and table_name='loyalty_points_history') then
-    delete from public.loyalty_points_history;
-  end if;
-  if exists (select 1 from information_schema.tables
-             where table_schema='public' and table_name='loyalty_transactions') then
-    delete from public.loyalty_transactions;
-  end if;
-end $$;
+-- Loyalty history (table name varies between schema versions)
+select pg_temp.safe_delete('public.loyalty_points_history');
+select pg_temp.safe_delete('public.loyalty_transactions');
 
 -- Gift cards issued (instances) — NOT the gift_card products in `products` table
-do $$ begin
-  if exists (select 1 from information_schema.tables
-             where table_schema='public' and table_name='gift_card_transactions') then
-    delete from public.gift_card_transactions;
-  end if;
-end $$;
-delete from public.gift_cards;
+select pg_temp.safe_delete('public.gift_card_transactions');
+select pg_temp.safe_delete('public.gift_cards');
 
 -- Reviews (customer-submitted)
-do $$ begin
-  if exists (select 1 from information_schema.tables
-             where table_schema='public' and table_name='reviews') then
-    delete from public.reviews;
-  end if;
-end $$;
+select pg_temp.safe_delete('public.reviews');
 
 -- Customer profiles
-delete from public.customer_profiles;
+select pg_temp.safe_delete('public.customer_profiles');
 
 -- ── auth users (delete ONLY non-staff customer accounts) ───────────────
 -- This is the most sensitive step. We keep everyone who is in app_users
@@ -156,22 +148,22 @@ where id not in (select id from public.app_users);
 -- Re-run the same counts. All should be 0 except auth.users (which should
 -- match the count of app_users — your staff).
 
-select 'bookings'                  as table_name, count(*) as rows from public.bookings
-union all select 'booking_expenses',         count(*) from public.booking_expenses
-union all select 'booking_damages',          count(*) from public.booking_damages
-union all select 'booking_proofs',           count(*) from public.booking_proofs
-union all select 'booking_waivers',          count(*) from public.booking_waivers
-union all select 'booking_extensions',       count(*) from public.booking_extensions
-union all select 'coi_requests',             count(*) from public.coi_requests
-union all select 'dispatch_route_stops',     count(*) from public.dispatch_route_stops
-union all select 'dispatch_routes',          count(*) from public.dispatch_routes
-union all select 'quotes',                   count(*) from public.quotes
-union all select 'payout_requests',          count(*) from public.payout_requests
-union all select 'contact_messages',         count(*) from public.contact_messages
-union all select 'gift_cards',               count(*) from public.gift_cards
-union all select 'customer_profiles',        count(*) from public.customer_profiles
-union all select 'auth.users (TOTAL)',       (select count(*) from auth.users)
-union all select 'app_users (your team)',    count(*) from public.app_users
+select 'bookings'              as table_name, pg_temp.safe_count('public.bookings')              as rows
+union all select 'booking_expenses',       pg_temp.safe_count('public.booking_expenses')
+union all select 'booking_damages',        pg_temp.safe_count('public.booking_damages')
+union all select 'booking_proofs',         pg_temp.safe_count('public.booking_proofs')
+union all select 'booking_waivers',        pg_temp.safe_count('public.booking_waivers')
+union all select 'booking_extensions',     pg_temp.safe_count('public.booking_extensions')
+union all select 'coi_requests',           pg_temp.safe_count('public.coi_requests')
+union all select 'dispatch_stops',         pg_temp.safe_count('public.dispatch_stops')
+union all select 'dispatch_routes',        pg_temp.safe_count('public.dispatch_routes')
+union all select 'quotes',                 pg_temp.safe_count('public.quotes')
+union all select 'payout_requests',        pg_temp.safe_count('public.payout_requests')
+union all select 'contact_messages',       pg_temp.safe_count('public.contact_messages')
+union all select 'gift_cards',             pg_temp.safe_count('public.gift_cards')
+union all select 'customer_profiles',      pg_temp.safe_count('public.customer_profiles')
+union all select 'auth.users (TOTAL)',     (select count(*) from auth.users)
+union all select 'app_users (your team)',  (select count(*) from public.app_users)
 order by table_name;
 
 
