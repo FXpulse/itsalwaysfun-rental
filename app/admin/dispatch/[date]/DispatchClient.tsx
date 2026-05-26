@@ -189,6 +189,13 @@ export function DispatchClient({
         toast.error(r.error);
         return;
       }
+      if (r.pickup_mirrored) {
+        toast.success(
+          r.pickup_mirrored.created
+            ? `Assigned + pickup route auto-created for ${r.pickup_mirrored.route_date}`
+            : `Assigned + added to existing pickup route (${r.pickup_mirrored.route_date})`,
+        );
+      }
       refresh();
     });
   }

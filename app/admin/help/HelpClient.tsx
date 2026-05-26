@@ -1253,6 +1253,49 @@ export function HelpClient() {
       ),
     },
     {
+      id: "dispatch-mirror",
+      title: "Dispatch: pickup route auto-mirrors delivery",
+      icon: Truck,
+      content: (
+        <div className="space-y-3 text-sm">
+          <p>
+            When you assign a booking to a <strong>delivery</strong> route, the
+            system now automatically creates (or finds) a matching{" "}
+            <strong>pickup</strong> route on the booking's end date — using the
+            same vehicle, trailer, and driver as the delivery — and assigns the
+            booking there too. No more building pickup routes manually for every
+            day.
+          </p>
+          <p className="font-semibold">How it works:</p>
+          <ol className="list-decimal pl-5 text-xs space-y-1">
+            <li>Assign Booking A to Delivery Route X (Truck 1, John)</li>
+            <li>System checks Booking A's <code>event_end_date</code></li>
+            <li>If a pickup route on that date with Truck 1 exists → adds Booking A as a stop</li>
+            <li>If not → creates a new pickup route (same Truck 1, John, etc.) + adds Booking A</li>
+            <li>Toast confirms: "Assigned + pickup route auto-created for 2026-06-15"</li>
+          </ol>
+          <p className="font-semibold">When the auto-mirror is SKIPPED:</p>
+          <ul className="list-disc pl-5 text-xs space-y-1">
+            <li>Booking already has a manually-assigned pickup stop (respects your override)</li>
+            <li>You're assigning to a pickup route directly (no delivery to mirror from)</li>
+            <li>If anything errors during mirror → silent skip (delivery assignment never blocked)</li>
+          </ul>
+          <p className="font-semibold">When you need to change pickup manually:</p>
+          <p className="text-xs">
+            Go to the pickup date's dispatch page → find the auto-created route
+            (notes say "Auto-created from delivery route") → reassign the
+            booking to a different route, or change the vehicle/driver on the
+            auto route itself.
+          </p>
+          <p className="text-xs text-slate-500">
+            💡 For 1-day rentals (event_end_date = event_date), the pickup route
+            is created on the same day. You'll see TWO routes on that date —
+            one delivery (morning), one pickup (evening).
+          </p>
+        </div>
+      ),
+    },
+    {
       id: "daily-ops",
       title: "Daily operations — what to do each day",
       icon: Settings,

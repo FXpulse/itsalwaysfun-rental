@@ -178,10 +178,10 @@ export async function assignBookingToRoute(
   await requireStaffOrAdmin();
   const supabase = createAdminClient();
 
-  // Get target route_type so we only remove SAME-TYPE existing stops
+  // Get target route_type + the rest of its config so we can mirror to pickup later
   const { data: targetRoute } = await supabase
     .from("dispatch_routes")
-    .select("route_type")
+    .select("route_type, vehicle_id, trailer_id, driver_name")
     .eq("id", routeId)
     .single();
   if (!targetRoute) return { error: "Route not found" };
@@ -217,8 +217,103 @@ export async function assignBookingToRoute(
   });
   if (error) return { error: error.message };
 
+  // Auto-mirror to a pickup route when assigning to a DELIVERY route.
+  // - Find/create a pickup route on the booking's end date with same vehicle+driver
+  // - Only assigns if no manual pickup stop already exists for this booking
+  // - Silent skip on any error — never block the delivery assignment
+  let mirrored: { route_id: string; route_date: string; created: boolean } | null = null;
+  if (targetType === "delivery") {
+    mirrored = await mirrorBookingToPickupRoute(supabase, bookingId, targetRoute);
+    if (mirrored) {
+      revalidatePath(`/admin/dispatch/${mirrored.route_date}`);
+    }
+  }
+
   revalidatePath(`/admin/dispatch/${routeDate}`);
-  return { success: true };
+  return { success: true, pickup_mirrored: mirrored };
+}
+
+/** Find or create the pickup route on the booking's end date with the same
+ *  vehicle/trailer/driver as the delivery route, then assign the booking. */
+async function mirrorBookingToPickupRoute(
+  supabase: ReturnType<typeof createAdminClient>,
+  bookingId: string,
+  deliveryRoute: { vehicle_id: string | null; trailer_id: string | null; driver_name: string | null },
+): Promise<{ route_id: string; route_date: string; created: boolean } | null> {
+  try {
+    // Booking's end date — for 1-day rentals, pickup is same day evening
+    const { data: booking } = await supabase
+      .from("bookings")
+      .select("event_date, event_end_date")
+      .eq("id", bookingId)
+      .single();
+    if (!booking) return null;
+    const pickupDate = booking.event_end_date || booking.event_date;
+
+    // Already in a pickup stop? Respect manual assignment — skip
+    const { data: existingPickup } = await supabase
+      .from("dispatch_stops")
+      .select("id, dispatch_routes!inner(route_type, route_date)")
+      .eq("booking_id", bookingId);
+    const alreadyInPickup = ((existingPickup as any[]) || []).find(
+      (s) => s.dispatch_routes?.route_type === "pickup",
+    );
+    if (alreadyInPickup) return null;
+
+    // Find existing pickup route on that date with same vehicle
+    const { data: existingRoute } = await supabase
+      .from("dispatch_routes")
+      .select("id, route_date")
+      .eq("route_date", pickupDate)
+      .eq("route_type", "pickup")
+      .eq("vehicle_id", deliveryRoute.vehicle_id)
+      .maybeSingle();
+
+    let pickupRouteId: string;
+    let created = false;
+    if (existingRoute) {
+      pickupRouteId = existingRoute.id;
+    } else {
+      // Create one mirroring the delivery setup
+      const { data: newRoute, error: createErr } = await supabase
+        .from("dispatch_routes")
+        .insert({
+          route_date: pickupDate,
+          vehicle_id: deliveryRoute.vehicle_id,
+          trailer_id: deliveryRoute.trailer_id,
+          driver_name: deliveryRoute.driver_name,
+          route_type: "pickup",
+          status: "planned",
+          notes: "Auto-created from delivery route (admin can reassign vehicle/driver manually)",
+        })
+        .select("id")
+        .single();
+      if (createErr || !newRoute) return null;
+      pickupRouteId = newRoute.id;
+      created = true;
+    }
+
+    // Append the booking as a stop in that pickup route
+    const { data: maxOrder } = await supabase
+      .from("dispatch_stops")
+      .select("stop_order")
+      .eq("route_id", pickupRouteId)
+      .order("stop_order", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    const nextOrder = (maxOrder?.stop_order ?? -1) + 1;
+
+    await supabase.from("dispatch_stops").insert({
+      route_id: pickupRouteId,
+      booking_id: bookingId,
+      stop_order: nextOrder,
+    });
+
+    return { route_id: pickupRouteId, route_date: pickupDate, created };
+  } catch (e) {
+    console.error("[mirrorBookingToPickupRoute failed, non-fatal]", e);
+    return null;
+  }
 }
 
 /** Unassign from ONE route — pass routeId to remove only that specific stop.
