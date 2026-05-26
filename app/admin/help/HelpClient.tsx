@@ -515,6 +515,43 @@ export function HelpClient() {
       ),
     },
     {
+      id: "product-gallery",
+      title: "Product photo galleries (multiple photos per bouncer)",
+      icon: ImageIcon,
+      content: (
+        <div className="space-y-3 text-sm">
+          <p>
+            Each product can now have multiple photos. Customers see a carousel
+            on the product detail page (with thumbnails + click-to-zoom lightbox).
+            The "Image URL" field on the product form is still the <strong>primary
+            cover</strong> (used on cards/search); the gallery is additive.
+          </p>
+          <p className="font-semibold">To add photos:</p>
+          <ol className="list-decimal pl-5 space-y-1 text-xs">
+            <li>Go to <code>/admin/products/[id]</code></li>
+            <li>Scroll to the new <strong>"Photo gallery"</strong> section</li>
+            <li>Click <strong>Upload photo</strong> (file picker) or <strong>Add by URL</strong> (paste link from elsewhere)</li>
+            <li>Repeat for as many photos as you want</li>
+          </ol>
+          <p className="font-semibold">Per-photo actions in the grid:</p>
+          <ul className="list-disc pl-5 text-xs space-y-1">
+            <li><strong>← / →</strong> arrows — reorder the photo within the carousel</li>
+            <li><strong>⭐ star</strong> — promote this gallery photo to be the primary cover (updates the product's main image_url, shown everywhere on the public site)</li>
+            <li><strong>🗑 trash</strong> — remove from gallery (also deletes from storage if uploaded)</li>
+          </ul>
+          <p className="text-xs text-slate-500">
+            💡 The primary cover shows a gold "Primary" badge in the gallery
+            grid so you always know which one is "the" image.
+          </p>
+          <p className="text-xs text-slate-500">
+            💡 Customer view: large image at top with hover ← → arrows, thumbnail
+            strip below, click main image to open full-screen lightbox with
+            keyboard arrow nav. No work needed on your end — it just works.
+          </p>
+        </div>
+      ),
+    },
+    {
       id: "per-day-consumables",
       title: "Per-day consumables (propane, fuel, ice)",
       icon: Package,

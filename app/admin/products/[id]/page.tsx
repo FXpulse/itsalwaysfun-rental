@@ -5,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { ProductForm } from "../ProductForm";
 import { ProductImageUploader } from "./ProductImageUploader";
 import { InventoryRequirements } from "./InventoryRequirements";
+import { GalleryManager, type GalleryImage } from "./GalleryManager";
 import { updateProduct } from "../actions";
 import type { Product } from "@/types/database";
 import { z } from "zod";
@@ -26,6 +27,7 @@ export default async function EditProductPage({
     { data: inventory },
     { data: reqs },
     { data: otherProducts },
+    { data: galleryImages },
   ] = await Promise.all([
     supabase.from("products").select("*").eq("id", params.id).single(),
     supabase.from("categories").select("name").eq("is_active", true).order("display_order"),
@@ -48,6 +50,12 @@ export default async function EditProductPage({
       .neq("id", params.id)
       .eq("is_active", true)
       .order("name"),
+    supabase
+      .from("product_images")
+      .select("id, image_url, alt_text, sort_order")
+      .eq("product_id", params.id)
+      .eq("is_active", true)
+      .order("sort_order"),
   ]);
 
   if (error || !product) notFound();
@@ -102,6 +110,12 @@ export default async function EditProductPage({
           categories={categories || []}
         />
       </div>
+
+      <GalleryManager
+        productId={product.id}
+        primaryUrl={product.image_url || null}
+        images={(galleryImages as GalleryImage[]) || []}
+      />
 
       <InventoryRequirements
         productId={product.id}

@@ -6,6 +6,7 @@ import { formatCurrency } from "@/lib/utils";
 import { Calendar, Maximize2, Zap, Users, ArrowLeft, ChevronRight } from "lucide-react";
 import type { Product } from "@/types/database";
 import { BookNowButton } from "./BookNowButton";
+import { ProductGallery, type GalleryPhoto } from "./ProductGallery";
 
 export const dynamic = "force-dynamic";
 
@@ -27,15 +28,34 @@ export default async function ItemDetailPage({
   if (!product) notFound();
   const p = product as Product;
 
-  // Fetch 3 related products from same category
-  const { data: related } = await supabase
-    .from("products")
-    .select("id, name, slug, category, price_per_day, image_url")
-    .eq("category", p.category)
-    .eq("is_active", true)
-    .eq("is_addon", false)
-    .neq("id", p.id)
-    .limit(3);
+  // Fetch 3 related products + gallery photos in parallel
+  const [{ data: related }, { data: galleryRows }] = await Promise.all([
+    supabase
+      .from("products")
+      .select("id, name, slug, category, price_per_day, image_url")
+      .eq("category", p.category)
+      .eq("is_active", true)
+      .eq("is_addon", false)
+      .neq("id", p.id)
+      .limit(3),
+    supabase
+      .from("product_images")
+      .select("image_url, alt_text, sort_order")
+      .eq("product_id", p.id)
+      .eq("is_active", true)
+      .order("sort_order"),
+  ]);
+
+  // Build photo list: primary first, then gallery (dedupe to avoid showing primary twice)
+  const photos: GalleryPhoto[] = [];
+  if (p.image_url) {
+    photos.push({ url: p.image_url, alt: p.name });
+  }
+  for (const row of (galleryRows as any[]) || []) {
+    if (row.image_url && row.image_url !== p.image_url) {
+      photos.push({ url: row.image_url, alt: row.alt_text || p.name });
+    }
+  }
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -60,25 +80,8 @@ export default async function ItemDetailPage({
       </nav>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 mb-12">
-        {/* Image */}
-        <div className="bg-white rounded-xl overflow-hidden border border-slate-200 shadow-md">
-          <div className="aspect-square relative bg-slate-50">
-            {p.image_url ? (
-              <Image
-                src={p.image_url}
-                alt={p.name}
-                fill
-                className="object-contain"
-                priority
-                unoptimized
-              />
-            ) : (
-              <div className="flex items-center justify-center h-full text-slate-300">
-                No image available
-              </div>
-            )}
-          </div>
-        </div>
+        {/* Gallery (cover + extra photos with carousel + lightbox) */}
+        <ProductGallery photos={photos} productName={p.name} />
 
         {/* Info */}
         <div>
