@@ -48,6 +48,17 @@ export function ContactForm() {
         <p className="text-slate-600 mb-4">
           We&apos;ll reply to you within 4 hours during business hours.
         </p>
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4 max-w-md mx-auto text-left">
+          <div className="flex items-start gap-2">
+            <span className="text-lg flex-shrink-0">📬</span>
+            <p className="text-xs text-amber-900">
+              <strong>Heads up:</strong> our reply may land in your{" "}
+              <strong>spam / junk folder</strong> the first time. Add{" "}
+              <code className="bg-white px-1 rounded">bookings@itsalwaysfun.com</code>{" "}
+              to your contacts to make sure future replies arrive in your main inbox.
+            </p>
+          </div>
+        </div>
         <button
           onClick={() => setSent(false)}
           className="text-brand-navy hover:underline text-sm"

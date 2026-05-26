@@ -113,12 +113,19 @@ export function GiftCardPurchase({
         <h2 className="text-2xl font-bold text-brand-navy mb-2">Gift card sent!</h2>
         <p className="text-slate-600 mb-4">
           We charged <strong>{formatCurrency(successAmount)}</strong> and emailed
-          the gift card code to <strong>{draft.recipient_email}</strong>.
+          the gift card code to <strong>{draft.recipient_email}</strong>. A receipt
+          went to <strong>{draft.purchaser_email}</strong>.
         </p>
-        <p className="text-sm text-slate-500">
-          A receipt was also sent to {draft.purchaser_email}. If you don't see it,
-          check spam.
-        </p>
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-2 max-w-md mx-auto text-left">
+          <div className="flex items-start gap-2">
+            <span className="text-lg flex-shrink-0">📬</span>
+            <p className="text-xs text-amber-900">
+              <strong>Don't see the email in a minute?</strong> Check the{" "}
+              <strong>spam / junk folder</strong> — it may land there the first
+              time. Mark it "not spam" so future emails arrive properly.
+            </p>
+          </div>
+        </div>
         <div className="mt-6 flex justify-center gap-2">
           <button
             type="button"

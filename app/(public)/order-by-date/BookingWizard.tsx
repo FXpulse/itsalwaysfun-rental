@@ -1807,9 +1807,21 @@ function ConfirmationScreen({
       <h2 className="text-2xl font-bold text-brand-navy mb-2">
         Booking Confirmed! 🎉
       </h2>
-      <p className="text-slate-600 mb-6">
+      <p className="text-slate-600 mb-4">
         Your rental is locked in. We sent a confirmation to <strong>{customerEmail}</strong>.
       </p>
+
+      <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-6 max-w-md mx-auto text-left">
+        <div className="flex items-start gap-2">
+          <span className="text-lg flex-shrink-0">📬</span>
+          <p className="text-xs text-amber-900">
+            <strong>Don't see the email in a minute?</strong> Check your{" "}
+            <strong>spam / junk folder</strong> — it may land there the first time.
+            Mark it "not spam" so future emails (reminders, receipts) land in
+            your main inbox.
+          </p>
+        </div>
+      </div>
 
       <div className="bg-slate-50 rounded-lg p-6 text-left max-w-sm mx-auto mb-6">
         <h3 className="font-bold text-brand-navy mb-3">Your booking</h3>
