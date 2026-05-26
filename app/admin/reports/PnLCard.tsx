@@ -1,10 +1,13 @@
 // P&L summary card for the reports page. Server component.
 
 import { computePnL } from "@/lib/accounting";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { formatCurrency } from "@/lib/utils";
 import { TrendingUp, TrendingDown, Receipt, Calculator } from "lucide-react";
 
-const CATEGORY_LABELS: Record<string, string> = {
+// Booking expense categories are fixed in code (they're operational, not
+// accounting). Overhead categories are dynamic — fetched at render time.
+const BOOKING_EXPENSE_LABELS: Record<string, string> = {
   gas: "⛽ Gas",
   payroll: "👥 Payroll",
   tolls: "🛣 Tolls",
@@ -12,17 +15,21 @@ const CATEGORY_LABELS: Record<string, string> = {
   damage_repair: "🔧 Damage repair",
   permit_fee: "📋 Permits",
   other: "🗂 Other",
-  rent: "🏢 Rent",
-  insurance: "🛡 Insurance",
-  software: "💻 Software",
-  utilities: "💡 Utilities",
-  marketing: "📣 Marketing",
-  vehicle: "🚚 Vehicle",
-  professional: "👔 Professional",
 };
 
 export async function PnLCard({ from, to }: { from: string; to: string }) {
-  const pnl = await computePnL(from, to);
+  const supabase = createAdminClient();
+  const [pnl, { data: overheadCats }] = await Promise.all([
+    computePnL(from, to),
+    supabase.from("overhead_categories").select("key, label"),
+  ]);
+  const overheadLabelByKey = new Map<string, string>(
+    ((overheadCats as { key: string; label: string }[]) || []).map((c) => [c.key, c.label]),
+  );
+  const labelFor = (cat: string, scope: "expense" | "overhead") => {
+    if (scope === "expense") return BOOKING_EXPENSE_LABELS[cat] || cat;
+    return overheadLabelByKey.get(cat) || cat;
+  };
   const isProfit = pnl.net_profit_cents > 0;
 
   return (
@@ -87,7 +94,7 @@ export async function PnLCard({ from, to }: { from: string; to: string }) {
                   .sort((a, b) => b[1] - a[1])
                   .map(([cat, amount]) => (
                     <li key={cat} className="flex justify-between text-xs">
-                      <span>{CATEGORY_LABELS[cat] || cat}</span>
+                      <span>{labelFor(cat, "expense")}</span>
                       <span className="font-mono text-red-700">
                         -{formatCurrency(amount)}
                       </span>
@@ -106,7 +113,7 @@ export async function PnLCard({ from, to }: { from: string; to: string }) {
                   .sort((a, b) => b[1] - a[1])
                   .map(([cat, amount]) => (
                     <li key={cat} className="flex justify-between text-xs">
-                      <span>{CATEGORY_LABELS[cat] || cat}</span>
+                      <span>{labelFor(cat, "overhead")}</span>
                       <span className="font-mono text-red-700">
                         -{formatCurrency(amount)}
                       </span>

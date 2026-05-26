@@ -17,19 +17,35 @@ export interface OverheadRow {
   notes: string | null;
 }
 
+export interface CategoryRow {
+  key: string;
+  label: string;
+  group_name: string | null;
+  sort_order: number;
+  is_active: boolean;
+}
+
 export default async function AdminOverheadPage() {
   const me = await getCurrentUserRole();
   if (!me || me.role !== "admin") redirect("/admin/dashboard");
 
   const supabase = createAdminClient();
-  const { data: rows } = await supabase
-    .from("overhead_costs")
-    .select("*")
-    .order("effective_to", { ascending: true, nullsFirst: true })
-    .order("category")
-    .order("name");
+  const [{ data: rows }, { data: cats }] = await Promise.all([
+    supabase
+      .from("overhead_costs")
+      .select("*")
+      .order("effective_to", { ascending: true, nullsFirst: true })
+      .order("category")
+      .order("name"),
+    supabase
+      .from("overhead_categories")
+      .select("key, label, group_name, sort_order, is_active")
+      .order("sort_order")
+      .order("label"),
+  ]);
 
   const list = (rows as OverheadRow[]) || [];
+  const categories = (cats as CategoryRow[]) || [];
   const active = list.filter((r) => !r.effective_to);
   const monthlyTotal = active.reduce((sum, r) => sum + r.monthly_cents, 0);
   const annualTotal = monthlyTotal * 12;
@@ -70,7 +86,7 @@ export default async function AdminOverheadPage() {
         </div>
       </div>
 
-      <OverheadManager rows={list} />
+      <OverheadManager rows={list} categories={categories} />
 
       <div className="mt-6 bg-blue-50 border border-blue-200 rounded p-3 text-xs text-blue-900">
         💡 <strong>How allocation works:</strong> in the P&L report, monthly

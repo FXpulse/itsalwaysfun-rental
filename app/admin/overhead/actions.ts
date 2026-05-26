@@ -8,17 +8,11 @@ import { z } from "zod";
 
 const OverheadInput = z.object({
   name: z.string().min(1).max(200),
-  category: z.enum([
-    "rent",
-    "insurance",
-    "software",
-    "utilities",
-    "marketing",
-    "vehicle",
-    "payroll",
-    "professional",
-    "other",
-  ]),
+  // Category is a dynamic key from overhead_categories. Validate it's a sane
+  // identifier (lowercase letters, numbers, underscores) — the form's dropdown
+  // only shows active rows from overhead_categories, so this is just a guard
+  // against tampering.
+  category: z.string().min(1).max(64).regex(/^[a-z0-9_]+$/),
   monthly_dollars: z.number().min(0),
   effective_from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   effective_to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable(),

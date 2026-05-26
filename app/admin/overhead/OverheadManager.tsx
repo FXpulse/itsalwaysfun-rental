@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
-import { Plus, Pencil, Trash2, X, Calendar } from "lucide-react";
+import { Plus, Pencil, Trash2, X, Calendar, Settings2 } from "lucide-react";
 import {
   createOverhead,
   updateOverhead,
@@ -11,21 +11,29 @@ import {
   deleteOverhead,
 } from "./actions";
 import { formatCurrency } from "@/lib/utils";
-import type { OverheadRow } from "./page";
+import type { OverheadRow, CategoryRow } from "./page";
+import { CategoryManager } from "./CategoryManager";
 
-const CATEGORIES = [
-  { value: "rent", label: "🏢 Rent (warehouse / office)" },
-  { value: "insurance", label: "🛡 Insurance (liability, vehicle, business)" },
-  { value: "software", label: "💻 Software (Supabase, Vercel, Stripe fees, etc.)" },
-  { value: "utilities", label: "💡 Utilities (electric, internet, phone)" },
-  { value: "marketing", label: "📣 Marketing (ads, listings, SEO)" },
-  { value: "vehicle", label: "🚚 Vehicle (truck/trailer payments, registration)" },
-  { value: "payroll", label: "👥 Payroll (salaried staff, NOT hourly drivers)" },
-  { value: "professional", label: "👔 Professional (accountant, attorney)" },
-  { value: "other", label: "🗂 Other" },
-];
+export function OverheadManager({
+  rows,
+  categories,
+}: {
+  rows: OverheadRow[];
+  categories: CategoryRow[];
+}) {
+  // Active categories drive the dropdown; full list (incl. inactive) drives the
+  // label lookup so historical rows still resolve a friendly name.
+  const activeCategories = categories.filter((c) => c.is_active);
+  const categoriesByKey = new Map(categories.map((c) => [c.key, c]));
 
-export function OverheadManager({ rows }: { rows: OverheadRow[] }) {
+  // Group active categories for the dropdown (e.g. Occupancy → all rent items)
+  const grouped = new Map<string, CategoryRow[]>();
+  for (const c of activeCategories) {
+    const g = c.group_name || "Other";
+    if (!grouped.has(g)) grouped.set(g, []);
+    grouped.get(g)!.push(c);
+  }
+  const [showCategoryMgr, setShowCategoryMgr] = useState(false);
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [editing, setEditing] = useState<OverheadRow | null>(null);
@@ -83,7 +91,16 @@ export function OverheadManager({ rows }: { rows: OverheadRow[] }) {
 
   return (
     <>
-      <div className="flex justify-end mb-4">
+      <div className="flex justify-between items-center mb-4">
+        <button
+          onClick={() => setShowCategoryMgr(true)}
+          className="text-sm text-slate-600 hover:text-brand-navy inline-flex items-center gap-1"
+        >
+          <Settings2 className="h-4 w-4" /> Manage categories
+          <span className="text-xs text-slate-400">
+            ({activeCategories.length} active / {categories.length} total)
+          </span>
+        </button>
         <button
           onClick={() => {
             setCreating(true);
@@ -94,6 +111,12 @@ export function OverheadManager({ rows }: { rows: OverheadRow[] }) {
           <Plus className="h-4 w-4" /> Add overhead
         </button>
       </div>
+
+      <CategoryManager
+        open={showCategoryMgr}
+        onClose={() => setShowCategoryMgr(false)}
+        categories={categories}
+      />
 
       {(creating || editing) && (
         <Modal
@@ -120,13 +143,26 @@ export function OverheadManager({ rows }: { rows: OverheadRow[] }) {
                 <label className="block text-xs text-slate-600 mb-1">Category *</label>
                 <select
                   name="category"
-                  defaultValue={editing?.category || "rent"}
+                  defaultValue={editing?.category || activeCategories[0]?.key || "other"}
                   className="input"
                 >
-                  {CATEGORIES.map((c) => (
-                    <option key={c.value} value={c.value}>
-                      {c.label}
-                    </option>
+                  {/* If editing a row whose category got deactivated, include it
+                      anyway so the user can see + reassign. */}
+                  {editing &&
+                    !activeCategories.some((c) => c.key === editing.category) && (
+                      <option value={editing.category}>
+                        {categoriesByKey.get(editing.category)?.label || editing.category}{" "}
+                        (inactive)
+                      </option>
+                    )}
+                  {Array.from(grouped.entries()).map(([groupName, items]) => (
+                    <optgroup key={groupName} label={groupName}>
+                      {items.map((c) => (
+                        <option key={c.key} value={c.key}>
+                          {c.label}
+                        </option>
+                      ))}
+                    </optgroup>
                   ))}
                 </select>
               </div>
@@ -232,7 +268,7 @@ export function OverheadManager({ rows }: { rows: OverheadRow[] }) {
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {active.map((r) => {
-                    const cat = CATEGORIES.find((c) => c.value === r.category);
+                    const cat = categoriesByKey.get(r.category);
                     return (
                       <tr key={r.id} className="hover:bg-slate-50">
                         <td className="px-4 py-2">
@@ -243,7 +279,12 @@ export function OverheadManager({ rows }: { rows: OverheadRow[] }) {
                             </div>
                           )}
                         </td>
-                        <td className="px-4 py-2 text-xs">{cat?.label || r.category}</td>
+                        <td className="px-4 py-2 text-xs">
+                          {cat?.label || r.category}
+                          {cat && !cat.is_active && (
+                            <span className="ml-1 text-[10px] text-amber-600">(inactive)</span>
+                          )}
+                        </td>
                         <td className="px-4 py-2 text-right font-mono font-bold text-brand-navy">
                           {formatCurrency(r.monthly_cents)}
                         </td>

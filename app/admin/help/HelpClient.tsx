@@ -1404,20 +1404,31 @@ export function HelpClient() {
           <p className="font-semibold">2. Monthly overhead</p>
           <p className="text-xs">
             Go to <code>/admin/overhead</code> (admin-only nav entry). Add one
-            line per fixed monthly cost:
+            line per fixed monthly cost. The category dropdown is{" "}
+            <strong>fully editable</strong> — click <em>Manage categories</em>{" "}
+            at the top to add/edit/deactivate categories. Seeded with ~36
+            standard chart-of-accounts categories grouped by:
           </p>
           <ul className="list-disc pl-5 text-xs space-y-1">
-            <li>🏢 Rent (storage unit, warehouse)</li>
-            <li>🛡 Insurance (general liability, vehicle)</li>
-            <li>💻 Software (Vercel, Supabase, Resend, Stripe, this platform)</li>
-            <li>💡 Utilities, 📣 Marketing (GHL, ads), 🚚 Vehicle payments, 👥 Payroll (recurring), 👔 Professional (accountant, attorney), 🗂 Other</li>
+            <li><strong>Occupancy</strong> — Rent, Storage/warehouse, Utilities, Phone/internet</li>
+            <li><strong>Insurance</strong> — General liability, Vehicle, Workers comp, Property/equipment</li>
+            <li><strong>Vehicles &amp; equipment</strong> — Vehicle payments, Vehicle maintenance, Equipment maintenance, Equipment lease, Depreciation</li>
+            <li><strong>Personnel</strong> — Salaried payroll, Payroll taxes, Benefits</li>
+            <li><strong>Professional</strong> — Accountant, Attorney, Consultants</li>
+            <li><strong>Financial</strong> — Merchant fees (Stripe %), Loan/debt service, Interest, Bank fees</li>
+            <li><strong>Marketing</strong> — Advertising, Listings (GigSalad/The Bash), Print/signage, Trade shows</li>
+            <li><strong>Software</strong> — SaaS subs, Memberships/dues (Chamber, IAAPA), Training</li>
+            <li><strong>Operations</strong> — Permits/licenses, Office supplies, Cleaning supplies, Uniforms, Travel/mileage, Meals</li>
+            <li><strong>Taxes (recurring)</strong> — Property tax, Franchise tax, Business license tax</li>
+            <li><strong>Other</strong> — catch-all</li>
           </ul>
           <p className="text-xs">
             Each item has an <strong>Effective from</strong> date (when the cost
             started) and optional <strong>Effective to</strong> (if it ended — use
             the <em>End</em> button on the row). Cost changes are recorded as new
             rows so you have history (e.g. insurance went from $400 → $450 in
-            Feb).
+            Feb). Deactivating a category just hides it from the dropdown —
+            historical overhead rows that used it stay intact.
           </p>
 
           <p className="font-semibold">3. Profit &amp; Loss report</p>
@@ -1447,14 +1458,19 @@ export function HelpClient() {
             which is also how your accountant will want to see it.
           </p>
           <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded p-2">
-            ⚙️ <strong>Setup required (one time):</strong> run{" "}
-            <code>supabase/accounting.sql</code> in the Supabase SQL editor.
-            This creates <code>booking_expenses</code> +{" "}
-            <code>overhead_costs</code> tables, RLS policies (admin manages
-            overhead; staff can read), and the{" "}
-            <code>default_driver_hourly_rate_cents</code> setting. Until you
-            run it, the booking detail will throw an error trying to load
-            expenses.
+            ⚙️ <strong>Setup required (one time, in this order):</strong>
+            <ol className="list-decimal pl-5 mt-1">
+              <li>Run <code>supabase/accounting.sql</code> — creates{" "}
+                <code>booking_expenses</code> + <code>overhead_costs</code>{" "}
+                tables, RLS, and <code>default_driver_hourly_rate_cents</code>{" "}
+                setting</li>
+              <li>Run <code>supabase/overhead_categories.sql</code> — creates
+                the dynamic <code>overhead_categories</code> table, drops the
+                fixed CHECK on <code>overhead_costs.category</code>, and seeds
+                ~36 standard categories</li>
+            </ol>
+            Until you run both, <code>/admin/overhead</code> and booking detail
+            pages will throw errors.
           </p>
         </div>
       ),
