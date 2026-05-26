@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
 import { getCurrentUserRole } from "@/lib/auth/roles";
 import { runAllChecks, type CheckResult, type CheckStatus } from "@/lib/diagnostics";
-import { CleanupPanel } from "./CleanupPanel";
 import {
   Activity,
   CheckCircle2,
@@ -136,8 +135,6 @@ export default async function DiagnosticsPage() {
           </div>
         ))}
       </div>
-
-      <CleanupPanel />
     </div>
   );
 }
