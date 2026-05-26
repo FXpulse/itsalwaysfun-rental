@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { Plus, Gift, X, Copy, Check } from "lucide-react";
-import { issueGiftCard, deactivateGiftCard } from "./actions";
+import { issueGiftCard, toggleGiftCardActive } from "./actions";
 import { formatCurrency } from "@/lib/utils";
 
 interface GiftCardRow {
@@ -42,15 +42,20 @@ export function GiftCardsManager({ cards }: { cards: GiftCardRow[] }) {
     });
   }
 
-  function handleDeactivate(c: GiftCardRow) {
-    if (!confirm(`Deactivate ${c.code}? It can't be redeemed anymore.`)) return;
+  function handleToggle(c: GiftCardRow) {
+    const action = c.is_active ? "disable" : "re-enable";
+    if (
+      c.is_active &&
+      !confirm(`Disable ${c.code}? Customers won't be able to redeem it (you can re-enable later).`)
+    )
+      return;
     startTransition(async () => {
-      const r = await deactivateGiftCard(c.id);
+      const r = await toggleGiftCardActive(c.id, c.is_active);
       if (r.error) {
         toast.error(r.error);
         return;
       }
-      toast.success("Deactivated");
+      toast.success(c.is_active ? "Disabled" : "Re-enabled — customers can redeem again");
       router.refresh();
     });
   }
@@ -145,15 +150,23 @@ export function GiftCardsManager({ cards }: { cards: GiftCardRow[] }) {
                       {new Date(c.created_at).toLocaleDateString()}
                     </td>
                     <td className="px-4 py-3 text-right">
-                      {c.is_active && (
-                        <button
-                          onClick={() => handleDeactivate(c)}
-                          disabled={pending}
-                          className="text-xs text-amber-700 hover:text-amber-900"
-                        >
-                          Disable
-                        </button>
-                      )}
+                      <button
+                        type="button"
+                        onClick={() => handleToggle(c)}
+                        disabled={pending}
+                        title={c.is_active ? "Click to disable (can re-enable later)" : "Click to re-enable"}
+                        className={`relative inline-flex h-5 w-9 items-center rounded-full transition ${
+                          c.is_active ? "bg-green-600" : "bg-slate-300"
+                        } ${pending ? "opacity-50" : ""}`}
+                        role="switch"
+                        aria-checked={c.is_active}
+                      >
+                        <span
+                          className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition ${
+                            c.is_active ? "translate-x-5" : "translate-x-0.5"
+                          }`}
+                        />
+                      </button>
                     </td>
                   </tr>
                 );

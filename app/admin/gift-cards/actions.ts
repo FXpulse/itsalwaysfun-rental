@@ -113,6 +113,18 @@ export async function deactivateGiftCard(id: string) {
   return { success: true };
 }
 
+export async function toggleGiftCardActive(id: string, currentlyActive: boolean) {
+  await requireAdmin();
+  const supabase = createAdminClient();
+  const { error } = await supabase
+    .from("gift_cards")
+    .update({ is_active: !currentlyActive })
+    .eq("id", id);
+  if (error) return { error: error.message };
+  revalidatePath("/admin/gift-cards");
+  return { success: true };
+}
+
 /** Toggle whether customers can buy gift cards from /gift-cards.
  *  Stored in site_settings.gift_card_sales_enabled ("true"/"false").
  *  Default = enabled when key missing. */

@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUserRole } from "@/lib/auth/roles";
 import { formatCurrency } from "@/lib/utils";
 import { Plus, Package as PackageIcon, ArrowRight } from "lucide-react";
+import { PackageActiveToggle } from "./PackageActiveToggle";
 
 export const dynamic = "force-dynamic";
 
@@ -51,18 +52,30 @@ export default async function AdminPackagesPage() {
             >
               <div className="flex items-start justify-between gap-3 mb-2">
                 <div className="flex-1 min-w-0">
-                  <h2 className="font-bold text-brand-navy">{p.name}</h2>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h2 className="font-bold text-brand-navy">{p.name}</h2>
+                    {p.is_active ? (
+                      <span className="text-[10px] bg-green-100 text-green-800 rounded px-1.5 py-0.5">
+                        LIVE
+                      </span>
+                    ) : (
+                      <span className="text-[10px] bg-slate-200 text-slate-600 rounded px-1.5 py-0.5">
+                        OFFLINE
+                      </span>
+                    )}
+                  </div>
                   <code className="text-xs text-slate-400">/{p.slug}</code>
                 </div>
-                <div className="text-right">
-                  <div className="font-bold text-brand-navy text-lg">
-                    {formatCurrency(p.price_cents)}
+                <div className="text-right flex items-start gap-3">
+                  <div>
+                    <div className="font-bold text-brand-navy text-lg">
+                      {formatCurrency(p.price_cents)}
+                    </div>
+                    <div className="text-[10px] text-slate-400 mt-0.5">
+                      {p.is_active ? "Visible on /packages" : "Hidden"}
+                    </div>
                   </div>
-                  {!p.is_active && (
-                    <span className="text-[10px] bg-slate-200 text-slate-600 rounded px-1.5">
-                      DISABLED
-                    </span>
-                  )}
+                  <PackageActiveToggle packageId={p.id} isActive={p.is_active} />
                 </div>
               </div>
               {p.description && (

@@ -332,6 +332,14 @@ export function HelpClient() {
             </ul>
           </div>
 
+          <p className="font-semibold">Quick online/offline toggle per gift card:</p>
+          <p className="text-xs">
+            In the gift cards table at <code>/admin/gift-cards</code>, the last
+            column has a <strong>green/grey switch</strong>. Click to disable
+            (customer can't redeem) or re-enable. Useful for fraud holds,
+            disputes, or expired-but-still-active cards. The toggle works in
+            both directions now — you can re-enable anything you disabled.
+          </p>
           <div className="bg-amber-50 border border-amber-200 rounded p-3 space-y-2">
             <p className="font-semibold text-amber-900">⚙️ Turn online sales ON or OFF</p>
             <p className="text-xs">
@@ -567,6 +575,15 @@ export function HelpClient() {
             <li>Preview thumbnail appears below the field once uploaded</li>
             <li>URL field still works for manually pasting an externally-hosted image</li>
           </ul>
+          <p className="font-semibold">Quick online/offline toggle:</p>
+          <p className="text-xs">
+            In the packages list at <code>/admin/packages</code>, each card has
+            a <strong>green/grey switch</strong> on the right. Click to toggle
+            between LIVE (visible on /packages publicly) and OFFLINE (hidden).
+            No need to enter the package detail — 1 click activates/deactivates.
+            Same toggle exists in the editor under "Active" if you prefer
+            doing it during edit.
+          </p>
         </div>
       ),
     },
