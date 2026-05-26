@@ -147,7 +147,7 @@ export function Header({
 
       <nav className="bg-brand-yellow hidden lg:block">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <ul className="flex items-center gap-1">
+          <ul className="flex items-center justify-center gap-1">
             {NAV_ITEMS.map((item) => (
               <li key={item.href}>
                 <Link
