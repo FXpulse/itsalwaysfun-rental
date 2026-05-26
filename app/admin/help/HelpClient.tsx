@@ -25,6 +25,7 @@ import {
   Inbox,
   AlertTriangle,
   History,
+  CalendarCheck as CalendarCheckIcon,
 } from "lucide-react";
 
 interface Section {
@@ -1071,7 +1072,7 @@ export function HelpClient() {
     {
       id: "extend-rental",
       title: "Customer extends rental from portal (self-service)",
-      icon: Plus,
+      icon: CalendarCheckIcon,
       content: (
         <div className="space-y-3 text-sm">
           <p>
