@@ -1257,45 +1257,49 @@ function CustomerInfoStep({
           </div>
         </div>
 
-        {/* Power source — required so we know whether to bring a generator */}
-        {powerSupply && (
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">
-              Power source available? <span className="text-red-500">*</span>
-            </label>
-            <p className="text-xs text-slate-500 mb-2">
-              Inflatables need a power outlet within ~75ft. If you don't have one,
-              we add a portable generator for ${(powerSupply.price_per_day / 100).toFixed(2)}/day.
-            </p>
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => onChange({ ...customer, powerSource: "yes" })}
-                className={`text-sm font-semibold py-3 px-2 rounded border transition ${
-                  customer.powerSource === "yes"
-                    ? "bg-brand-navy text-white border-brand-navy"
-                    : "bg-white text-slate-700 border-slate-300 hover:border-brand-navy"
-                }`}
-              >
-                ✓ Yes, I have an outlet
-              </button>
-              <button
-                type="button"
-                onClick={() => onChange({ ...customer, powerSource: "no" })}
-                className={`text-sm font-semibold py-3 px-2 rounded border transition ${
-                  customer.powerSource === "no"
-                    ? "bg-amber-600 text-white border-amber-600"
-                    : "bg-white text-slate-700 border-slate-300 hover:border-amber-600"
-                }`}
-              >
-                No — add Power Supply
+        {/* Power source — operationally important. Always ask the customer
+            so the dispatch team knows whether to bring a generator, regardless
+            of whether the power-supply add-on product is configured for sale. */}
+        <div>
+          <label className="block text-sm font-medium text-slate-700 mb-2">
+            Power source available?
+          </label>
+          <p className="text-xs text-slate-500 mb-2">
+            Inflatables need a power outlet within ~75ft.{" "}
+            {powerSupply
+              ? `If you don't have one, we add a portable generator for $${(powerSupply.price_per_day / 100).toFixed(2)}/day.`
+              : "If you don't have one, we'll bring a portable generator (call us for pricing)."}
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => onChange({ ...customer, powerSource: "yes" })}
+              className={`text-sm font-semibold py-3 px-2 rounded border transition ${
+                customer.powerSource === "yes"
+                  ? "bg-brand-navy text-white border-brand-navy"
+                  : "bg-white text-slate-700 border-slate-300 hover:border-brand-navy"
+              }`}
+            >
+              ✓ Yes, I have an outlet
+            </button>
+            <button
+              type="button"
+              onClick={() => onChange({ ...customer, powerSource: "no" })}
+              className={`text-sm font-semibold py-3 px-2 rounded border transition ${
+                customer.powerSource === "no"
+                  ? "bg-amber-600 text-white border-amber-600"
+                  : "bg-white text-slate-700 border-slate-300 hover:border-amber-600"
+              }`}
+            >
+              No — bring power supply
+              {powerSupply && (
                 <div className="text-[10px] font-normal opacity-80 mt-0.5">
                   +${(powerSupply.price_per_day / 100).toFixed(2)} × {numDays} day{numDays > 1 ? "s" : ""}
                 </div>
-              </button>
-            </div>
+              )}
+            </button>
           </div>
-        )}
+        </div>
 
         {/* Weekend pricing breakdown — show when ANY day is weekend AND the
             product has a weekend rate set (even if all chosen days are weekend
@@ -1578,6 +1582,38 @@ function CustomerInfoStep({
           defaultName={`${customer.firstName} ${customer.lastName}`.trim()}
         />
       )}
+
+      {/* Diagnostic: when the button is disabled, list what's missing so
+          the customer doesn't have to guess. */}
+      {!valid && !pending && (() => {
+        const missing: string[] = [];
+        if (!customer.firstName.trim()) missing.push("First name");
+        if (!customer.lastName.trim()) missing.push("Last name");
+        if (!customer.email.trim()) missing.push("Email");
+        if (!customer.phone.trim()) missing.push("Phone");
+        if (!customer.address.trim()) missing.push("Address");
+        if (!customer.city.trim()) missing.push("City");
+        if (!customer.zip.trim()) missing.push("Zip");
+        if (!customer.surfaceType) missing.push("Surface type");
+        if (powerSupply && !customer.powerSource) missing.push("Power source answer");
+        if (waiverEnabled && (!waiverAgreed || waiverSignedName.trim().length < 2)) {
+          missing.push("Sign the liability waiver");
+        }
+        if (coiRequested && !coiVenueName.trim()) missing.push("Venue name (for COI request)");
+        if (missing.length === 0) return null;
+        return (
+          <div className="mt-6 bg-amber-50 border border-amber-200 rounded p-3 text-xs text-amber-900">
+            <strong>To continue, complete:</strong>{" "}
+            {missing.map((m, i) => (
+              <span key={i}>
+                <span className="bg-white border border-amber-300 rounded px-1.5 py-0.5 mx-0.5">
+                  {m}
+                </span>
+              </span>
+            ))}
+          </div>
+        );
+      })()}
 
       <div className="flex justify-between mt-6">
         <button onClick={onBack} className="px-4 py-2 text-slate-600 hover:text-slate-900" disabled={pending}>
