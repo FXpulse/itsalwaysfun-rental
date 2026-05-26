@@ -94,6 +94,24 @@ export async function deletePackage(id: string) {
   return { success: true };
 }
 
+/** Global on/off for the whole Packages section on the public site.
+ *  Stored in site_settings.packages_section_enabled. Default = enabled. */
+export async function setPackagesSectionEnabled(enabled: boolean) {
+  await requireAdmin();
+  const supabase = createAdminClient();
+  const { error } = await supabase
+    .from("site_settings")
+    .upsert(
+      { key: "packages_section_enabled", value: enabled ? "true" : "false" },
+      { onConflict: "key" },
+    );
+  if (error) return { error: error.message };
+  revalidatePath("/admin/packages");
+  revalidatePath("/packages");
+  revalidatePath("/", "layout");
+  return { success: true };
+}
+
 export async function togglePackageActive(id: string, currentlyActive: boolean) {
   await requireAdmin();
   const supabase = createAdminClient();

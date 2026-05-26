@@ -5,6 +5,8 @@ import { Footer } from "@/components/public/Footer";
 import { ReferralTracker } from "@/components/public/ReferralTracker";
 import { CartProvider } from "@/lib/cart/context";
 import { getSiteSettings } from "@/lib/site-settings";
+import { isPackagesSectionEnabled } from "@/lib/sections";
+import { isGiftCardSalesEnabled } from "@/lib/gift-cards";
 
 export const revalidate = 60;
 
@@ -13,7 +15,11 @@ export default async function PublicLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const settings = await getSiteSettings();
+  const [settings, packagesOn, giftCardsOn] = await Promise.all([
+    getSiteSettings(),
+    isPackagesSectionEnabled(),
+    isGiftCardSalesEnabled(),
+  ]);
 
   // Build the font CSS — applied via global style tag so it cascades to every
   // public element while per-zone overrides still win.
@@ -68,6 +74,8 @@ export default async function PublicLayout({
           phone={settings.business_phone}
           instagramUrl={settings.instagram_url}
           facebookUrl={settings.facebook_url}
+          showPackages={packagesOn}
+          showGiftCards={giftCardsOn}
         />
         <main className="flex-1">{children}</main>
         <Footer

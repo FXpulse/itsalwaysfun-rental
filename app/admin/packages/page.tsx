@@ -5,6 +5,8 @@ import { getCurrentUserRole } from "@/lib/auth/roles";
 import { formatCurrency } from "@/lib/utils";
 import { Plus, Package as PackageIcon, ArrowRight } from "lucide-react";
 import { PackageActiveToggle } from "./PackageActiveToggle";
+import { PackagesSectionToggle } from "./PackagesSectionToggle";
+import { isPackagesSectionEnabled } from "@/lib/sections";
 
 export const dynamic = "force-dynamic";
 
@@ -13,11 +15,14 @@ export default async function AdminPackagesPage() {
   if (!me || me.role !== "admin") redirect("/admin/dashboard");
 
   const supabase = createAdminClient();
-  const { data: packages } = await supabase
-    .from("packages")
-    .select("*")
-    .order("display_order", { ascending: true })
-    .order("name", { ascending: true });
+  const [{ data: packages }, sectionOn] = await Promise.all([
+    supabase
+      .from("packages")
+      .select("*")
+      .order("display_order", { ascending: true })
+      .order("name", { ascending: true }),
+    isPackagesSectionEnabled(),
+  ]);
 
   const list = (packages as any[]) || [];
 
@@ -36,6 +41,8 @@ export default async function AdminPackagesPage() {
           <Plus className="h-4 w-4" /> New package
         </Link>
       </div>
+
+      <PackagesSectionToggle enabled={sectionOn} />
 
       {list.length === 0 ? (
         <div className="card text-center text-slate-400 py-12">

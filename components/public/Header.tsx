@@ -15,13 +15,13 @@ import {
 } from "lucide-react";
 import { useCart } from "@/lib/cart/context";
 
-const NAV_ITEMS = [
+const NAV_HOME = [
   { href: "/", label: "Home" },
   { href: "/order-by-date", label: "Order by Date" },
   { href: "/rentals", label: "Rentals" },
-  { href: "/packages", label: "Packages" },
-  { href: "/gift-cards", label: "🎁 Gift Cards" },
 ];
+const NAV_PACKAGES = { href: "/packages", label: "Packages" };
+const NAV_GIFT_CARDS = { href: "/gift-cards", label: "🎁 Gift Cards" };
 
 const INFO_ITEMS = [
   { href: "/info/faqs", label: "FAQs" },
@@ -36,6 +36,8 @@ interface Props {
   phone: string;
   instagramUrl: string;
   facebookUrl: string;
+  showPackages?: boolean;
+  showGiftCards?: boolean;
 }
 
 export function Header({
@@ -44,7 +46,14 @@ export function Header({
   phone,
   instagramUrl,
   facebookUrl,
+  showPackages = true,
+  showGiftCards = true,
 }: Props) {
+  const NAV_ITEMS = [
+    ...NAV_HOME,
+    ...(showPackages ? [NAV_PACKAGES] : []),
+    ...(showGiftCards ? [NAV_GIFT_CARDS] : []),
+  ];
   const { hasItem } = useCart();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [infoOpen, setInfoOpen] = useState(false);

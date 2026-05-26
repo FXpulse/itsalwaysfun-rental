@@ -2,11 +2,38 @@ import Link from "next/link";
 import Image from "next/image";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { formatCurrency } from "@/lib/utils";
-import { Package as PackageIcon, ArrowRight, Sparkles } from "lucide-react";
+import { Package as PackageIcon, ArrowRight, Sparkles, Phone } from "lucide-react";
+import { isPackagesSectionEnabled } from "@/lib/sections";
+import { getSiteSettings } from "@/lib/site-settings";
 
 export const dynamic = "force-dynamic";
 
 export default async function PublicPackagesPage() {
+  const sectionOn = await isPackagesSectionEnabled();
+  if (!sectionOn) {
+    const settings = await getSiteSettings();
+    return (
+      <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-16 text-center">
+        <PackageIcon className="h-12 w-12 mx-auto mb-3 text-slate-300" />
+        <h1 className="text-2xl font-bold text-brand-navy mb-2">
+          Packages coming soon
+        </h1>
+        <p className="text-slate-600 mb-6">
+          We're updating our packages right now. Call us and we'll put together
+          a custom bundle for your event.
+        </p>
+        {settings.business_phone && (
+          <a
+            href={`tel:${settings.business_phone.replace(/\D/g, "")}`}
+            className="inline-flex items-center gap-2 bg-brand-navy text-white font-semibold px-5 py-2.5 rounded hover:bg-brand-navy-dark"
+          >
+            <Phone className="h-4 w-4" /> Call {settings.business_phone}
+          </a>
+        )}
+      </div>
+    );
+  }
+
   const supabase = createAdminClient();
   const { data: packages } = await supabase
     .from("packages")
