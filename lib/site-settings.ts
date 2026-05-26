@@ -40,6 +40,9 @@ export interface SiteSettings {
   footer_bg_color: string;
   footer_text_color: string;
   footer_font_family: string;
+  // Global site font (overrides Tailwind default, overridden by per-zone fonts)
+  site_font_family: string;
+  site_font_google_url: string;
 }
 
 // Sensible defaults (used if DB query fails or key missing)
@@ -84,6 +87,9 @@ const DEFAULTS: SiteSettings = {
   footer_bg_color: "",
   footer_text_color: "",
   footer_font_family: "",
+  site_font_family: "Quicksand",
+  site_font_google_url:
+    "https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&display=swap",
 };
 
 export async function getSiteSettings(): Promise<SiteSettings> {

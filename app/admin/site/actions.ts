@@ -29,12 +29,14 @@ export async function updateSiteSettings(formData: FormData) {
     return { error: "No fields to update" };
   }
 
-  // Upsert each
+  // Upsert each (insert if missing, update if exists)
   for (const u of updates) {
     const { error } = await supabase
       .from("site_settings")
-      .update({ value: u.value, updated_by: user.email })
-      .eq("key", u.key);
+      .upsert(
+        { key: u.key, value: u.value, updated_by: user.email },
+        { onConflict: "key" },
+      );
     if (error) {
       return { error: `Failed to update ${u.key}: ${error.message}` };
     }

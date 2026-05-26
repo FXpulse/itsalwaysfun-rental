@@ -31,15 +31,17 @@ const LONG_TEXT_KEYS = new Set([
   "service_area",
 ]);
 
-// Font family options — covers common system + web-safe choices
+// Font family options — for per-zone overrides (full CSS values with fallback).
 const FONT_OPTIONS = [
   { value: "", label: "Default (system)" },
   { value: "system-ui, sans-serif", label: "System UI" },
+  { value: "'Quicksand', sans-serif", label: "Quicksand (LGC twin)" },
   { value: "'Inter', sans-serif", label: "Inter" },
   { value: "'Roboto', sans-serif", label: "Roboto" },
   { value: "'Open Sans', sans-serif", label: "Open Sans" },
   { value: "'Poppins', sans-serif", label: "Poppins" },
   { value: "'Montserrat', sans-serif", label: "Montserrat" },
+  { value: "'Nunito', sans-serif", label: "Nunito" },
   { value: "'Lato', sans-serif", label: "Lato" },
   { value: "Georgia, serif", label: "Georgia (serif)" },
   { value: "'Playfair Display', serif", label: "Playfair Display (serif)" },
@@ -47,13 +49,62 @@ const FONT_OPTIONS = [
   { value: "'Courier New', monospace", label: "Courier (mono)" },
   { value: "Impact, sans-serif", label: "Impact" },
   { value: "'Comic Sans MS', cursive", label: "Comic Sans (fun)" },
+  { value: "'Louis George Cafe', sans-serif", label: "Louis George Cafe (self-hosted)" },
 ];
+
+// Global site font presets: each option sets BOTH family name + Google Fonts URL at once.
+// "Louis George Cafe" is special-cased: not on Google Fonts, requires self-hosted @font-face
+// (see /admin/help section "Custom self-hosted font").
+const SITE_FONT_PRESETS = [
+  {
+    label: "Quicksand (Louis George Cafe twin — recommended)",
+    family: "Quicksand",
+    url: "https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&display=swap",
+  },
+  {
+    label: "Nunito",
+    family: "Nunito",
+    url: "https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap",
+  },
+  {
+    label: "Poppins",
+    family: "Poppins",
+    url: "https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap",
+  },
+  {
+    label: "Inter",
+    family: "Inter",
+    url: "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap",
+  },
+  {
+    label: "Montserrat",
+    family: "Montserrat",
+    url: "https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap",
+  },
+  {
+    label: "Playfair Display (elegant serif)",
+    family: "Playfair Display",
+    url: "https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&display=swap",
+  },
+  {
+    label: "Louis George Cafe (self-hosted — requires upload)",
+    family: "Louis George Cafe",
+    url: "",  // empty URL means admin self-hosts via @font-face in globals.css
+  },
+  {
+    label: "Custom (type your own)",
+    family: "",
+    url: "",
+  },
+];
+
+const GLOBAL_SITE_FONT_KEYS = new Set(["site_font_family", "site_font_google_url"]);
 
 function isColorKey(key: string) {
   return key.endsWith("_color") || key.endsWith("_bg_color") || key.endsWith("_text_color");
 }
 function isFontKey(key: string) {
-  return key.endsWith("_font_family");
+  return key.endsWith("_font_family") && !GLOBAL_SITE_FONT_KEYS.has(key);
 }
 
 export function SiteSettingsForm({
@@ -154,13 +205,31 @@ export function SiteSettingsForm({
       {/* Settings grouped by category */}
       {Object.entries(groupedSettings).map(([category, items]) => {
         if (category === "branding") return null; // handled above
+
+        // Global font picker is rendered as a special widget at the top of "appearance"
+        const globalFontFamily =
+          items.find((i) => i.key === "site_font_family")?.value || "";
+        const globalFontUrl =
+          items.find((i) => i.key === "site_font_google_url")?.value || "";
+        const showSiteFontPicker = category === "appearance";
+
         return (
           <div key={category} className="card">
             <h2 className="text-lg font-semibold text-brand-navy mb-4">
               {CATEGORY_LABELS[category] || category}
             </h2>
+
+            {showSiteFontPicker && (
+              <SiteFontPicker
+                initialFamily={globalFontFamily}
+                initialUrl={globalFontUrl}
+              />
+            )}
+
             <div className="space-y-4">
               {items.map((s) => {
+                // Skip the two global-font keys (handled by SiteFontPicker above)
+                if (GLOBAL_SITE_FONT_KEYS.has(s.key)) return null;
                 const isLong = LONG_TEXT_KEYS.has(s.key);
                 const isColor = isColorKey(s.key);
                 const isFont = isFontKey(s.key);
@@ -260,4 +329,136 @@ function humanizeKey(key: string): string {
   return key
     .replace(/_/g, " ")
     .replace(/\b\w/g, (l) => l.toUpperCase());
+}
+
+/** Site-wide font picker. Sets both `site_font_family` (family name) and
+ *  `site_font_google_url` (Google Fonts stylesheet) at once. */
+function SiteFontPicker({
+  initialFamily,
+  initialUrl,
+}: {
+  initialFamily: string;
+  initialUrl: string;
+}) {
+  // Match current values against presets to pick the initial dropdown index
+  const initialPresetIdx = (() => {
+    const idx = SITE_FONT_PRESETS.findIndex(
+      (p) => p.family === initialFamily && p.url === initialUrl,
+    );
+    if (idx >= 0) return idx;
+    // No exact match → "Custom"
+    return SITE_FONT_PRESETS.length - 1;
+  })();
+
+  const [presetIdx, setPresetIdx] = useState(initialPresetIdx);
+  const [customFamily, setCustomFamily] = useState(initialFamily);
+  const [customUrl, setCustomUrl] = useState(initialUrl);
+
+  const preset = SITE_FONT_PRESETS[presetIdx];
+  const isCustom = presetIdx === SITE_FONT_PRESETS.length - 1;
+  const isLouisGeorge = preset?.family === "Louis George Cafe";
+
+  // Effective values that go into hidden inputs
+  const family = isCustom ? customFamily : preset.family;
+  const url = isCustom ? customUrl : preset.url;
+
+  return (
+    <div className="mb-6 bg-brand-yellow/10 border-l-4 border-brand-yellow rounded p-4">
+      <div className="flex items-start gap-3 mb-3">
+        <div className="text-2xl">🅰️</div>
+        <div className="flex-1">
+          <h3 className="font-bold text-brand-navy">Site-wide font</h3>
+          <p className="text-xs text-slate-600">
+            Applied to ALL public pages (Home, Rentals, Items, Order, Reviews, etc.).
+            Per-zone fonts below override this for individual sections if you want.
+          </p>
+        </div>
+      </div>
+
+      <label className="block text-sm font-medium text-slate-700 mb-1">
+        Choose a font
+      </label>
+      <select
+        value={presetIdx}
+        onChange={(e) => setPresetIdx(parseInt(e.target.value, 10))}
+        className="input mb-3"
+      >
+        {SITE_FONT_PRESETS.map((p, i) => (
+          <option key={i} value={i}>
+            {p.label}
+          </option>
+        ))}
+      </select>
+
+      {isLouisGeorge && (
+        <div className="bg-amber-50 border border-amber-200 rounded p-3 text-xs text-amber-900 mb-3">
+          <strong>Louis George Cafe requires self-hosting.</strong> It's not on
+          Google Fonts. To activate:
+          <ol className="list-decimal pl-5 mt-1 space-y-0.5">
+            <li>Download the .woff2 + .woff files (free at 1001fonts.com or your design tool)</li>
+            <li>Upload to your Supabase Storage <code>site-assets</code> bucket under <code>fonts/</code></li>
+            <li>
+              Add this to <code>app/globals.css</code>:
+              <pre className="bg-white border border-amber-300 rounded p-2 mt-1 text-[10px] overflow-x-auto">{`@font-face {
+  font-family: "Louis George Cafe";
+  src: url("YOUR_SUPABASE_FONTS_URL/LouisGeorgeCafe.woff2") format("woff2");
+  font-weight: 400;
+  font-display: swap;
+}`}</pre>
+            </li>
+            <li>Redeploy. Then save this setting and the font will work.</li>
+          </ol>
+          <p className="mt-2">
+            💡 Until then, customers will see the system fallback. The <strong>Quicksand</strong>{" "}
+            option above looks almost identical and works instantly.
+          </p>
+        </div>
+      )}
+
+      {isCustom && (
+        <div className="space-y-2 mb-3">
+          <div>
+            <label className="block text-xs text-slate-600 mb-1">
+              Family name
+            </label>
+            <input
+              type="text"
+              value={customFamily}
+              onChange={(e) => setCustomFamily(e.target.value)}
+              placeholder="e.g. Raleway"
+              className="input"
+            />
+          </div>
+          <div>
+            <label className="block text-xs text-slate-600 mb-1">
+              Google Fonts stylesheet URL (leave empty if self-hosted)
+            </label>
+            <input
+              type="url"
+              value={customUrl}
+              onChange={(e) => setCustomUrl(e.target.value)}
+              placeholder="https://fonts.googleapis.com/css2?family=..."
+              className="input"
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Hidden inputs that get sent to the server action */}
+      <input type="hidden" name="site_font_family" value={family} />
+      <input type="hidden" name="site_font_google_url" value={url} />
+
+      {family && (
+        <p className="text-xs text-slate-500 mt-2">
+          Preview:{" "}
+          <span
+            style={{ fontFamily: `"${family}", system-ui, sans-serif` }}
+            className="text-base"
+          >
+            The quick brown fox jumps over the lazy dog · 1234567890
+          </span>
+        </p>
+      )}
+    </div>
+  );
 }

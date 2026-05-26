@@ -15,8 +15,30 @@ export default async function PublicLayout({
 }) {
   const settings = await getSiteSettings();
 
+  // Build the font CSS — applied via global style tag so it cascades to every
+  // public element while per-zone overrides still win.
+  const fontFamily = (settings.site_font_family || "").trim();
+  const fontUrl = (settings.site_font_google_url || "").trim();
+  // Whitelist URL host to avoid arbitrary CSS injection from a compromised setting
+  const fontUrlSafe = /^https:\/\/fonts\.googleapis\.com\//.test(fontUrl) ? fontUrl : "";
+
   return (
     <CartProvider>
+      {fontUrlSafe && (
+        <link
+          rel="preconnect"
+          href="https://fonts.gstatic.com"
+          crossOrigin="anonymous"
+        />
+      )}
+      {fontUrlSafe && <link rel="stylesheet" href={fontUrlSafe} />}
+      {fontFamily && (
+        <style
+          dangerouslySetInnerHTML={{
+            __html: `:root { --site-font: ${JSON.stringify(fontFamily)}, system-ui, -apple-system, sans-serif; } body { font-family: var(--site-font); }`,
+          }}
+        />
+      )}
       <Suspense fallback={null}>
         <ReferralTracker />
       </Suspense>
