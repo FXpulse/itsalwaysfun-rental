@@ -232,16 +232,7 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* Customer reviews carousel (above footer, only if enabled + has featured) */}
-      {reviewsEnabled && featuredReviews.length > 0 && (
-        <ReviewsCarousel
-          reviews={featuredReviews as any}
-          title={reviewsTitle}
-          googleReviewUrl={googleReviewUrl}
-        />
-      )}
-
-      {/* Trust strip */}
+      {/* Trust strip (now ABOVE reviews so the page closes on social proof) */}
       <section className="bg-brand-yellow text-brand-navy py-8" style={trustStyle}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-1 sm:grid-cols-3 gap-6 text-center">
           {[settings.trust_delivery, settings.trust_cleaned, settings.trust_rating].map((line, i) => {
@@ -255,6 +246,15 @@ export default async function HomePage() {
           })}
         </div>
       </section>
+
+      {/* Customer reviews carousel (last block before footer — closes with social proof) */}
+      {reviewsEnabled && featuredReviews.length > 0 && (
+        <ReviewsCarousel
+          reviews={featuredReviews as any}
+          title={reviewsTitle}
+          googleReviewUrl={googleReviewUrl}
+        />
+      )}
     </div>
   );
 }
