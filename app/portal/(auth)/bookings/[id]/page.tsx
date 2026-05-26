@@ -14,6 +14,9 @@ import {
 } from "lucide-react";
 import { BookingActionsCustomer } from "./BookingActionsCustomer";
 import { WeatherCancelPanel } from "./WeatherCancelPanel";
+import { TrackingTimeline, type TrackingStop } from "./TrackingTimeline";
+import { ExtendRentalPanel } from "./ExtendRentalPanel";
+import { isStripeConfigured } from "@/lib/stripe/server";
 
 export const dynamic = "force-dynamic";
 
@@ -92,6 +95,32 @@ export default async function PortalBookingDetail({
     .eq("booking_id", booking.id)
     .maybeSingle();
 
+  // Dispatch stops + route info for the tracking timeline (delivery + pickup)
+  const { data: stopRows } = await admin
+    .from("dispatch_stops")
+    .select(
+      `status, route_id,
+       dispatch_routes!inner ( route_type, status, driver_name, vehicles ( name ) )`,
+    )
+    .eq("booking_id", booking.id);
+
+  let deliveryStop: TrackingStop | null = null;
+  let pickupStop: TrackingStop | null = null;
+  for (const s of (stopRows as any[]) || []) {
+    const route = s.dispatch_routes;
+    if (!route) continue;
+    const ts: TrackingStop = {
+      // Route status (planned/loaded/out_for_delivery/completed) is what
+      // moves through the day — surface that to the customer.
+      status: (route.status || "pending") as TrackingStop["status"],
+      type: route.route_type,
+      driver_name: route.driver_name || null,
+      vehicle_name: route.vehicles?.name || null,
+    };
+    if (route.route_type === "pickup") pickupStop = ts;
+    else deliveryStop = ts;
+  }
+
   return (
     <div className="max-w-3xl">
       <Link
@@ -126,6 +155,19 @@ export default async function PortalBookingDetail({
           </div>
         </div>
       )}
+
+      {/* Customer tracking timeline — "where is my rental right now?" */}
+      <div className="mb-6">
+        <TrackingTimeline
+          bookingStatus={booking.booking_status}
+          paymentStatus={booking.stripe_payment_status}
+          eventDate={booking.event_date}
+          eventEndDate={booking.event_end_date}
+          cancelledDueToWeather={booking.cancelled_due_to_weather || false}
+          deliveryStop={deliveryStop}
+          pickupStop={pickupStop}
+        />
+      </div>
 
       <div className="grid md:grid-cols-2 gap-4 mb-6">
         <div className="card">
@@ -232,6 +274,17 @@ export default async function PortalBookingDetail({
             </p>
           </div>
         )}
+
+        <ExtendRentalPanel
+          bookingId={booking.id}
+          currentEndDate={booking.event_end_date || booking.event_date}
+          eventDate={booking.event_date}
+          startTime={booking.start_time}
+          bookingStatus={booking.booking_status}
+          paymentStatus={booking.stripe_payment_status}
+          stripeConfigured={isStripeConfigured()}
+          stripePublishableKey={process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || ""}
+        />
 
         {coiRow && (
           <div className="card border-blue-200 bg-blue-50/50">

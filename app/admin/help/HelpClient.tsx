@@ -1033,6 +1033,81 @@ export function HelpClient() {
       ),
     },
     {
+      id: "customer-tracking",
+      title: "Customer tracking page (Domino's-style timeline)",
+      icon: Sparkles,
+      content: (
+        <div className="space-y-3 text-sm">
+          <p>
+            Every customer booking detail page at <code>/portal/bookings/[id]</code>
+            now shows a 6-step visual timeline that updates in real time as the
+            booking moves through its lifecycle. No more "where's my rental?"
+            phone calls.
+          </p>
+          <p className="font-semibold">The 6 steps:</p>
+          <ol className="list-decimal pl-5 text-xs space-y-1">
+            <li>✅ <strong>Payment confirmed</strong> — green check once Stripe clears</li>
+            <li>⏳ <strong>X days until your event</strong> — countdown with context-aware copy ("we'll send a reminder 3 days before" / "your event is tomorrow!")</li>
+            <li>📦 <strong>Loaded on the truck</strong> — activates when admin marks the route as <code>loaded</code> in /admin/dispatch. Shows driver + vehicle name.</li>
+            <li>🚚 <strong>Driver on the way</strong> — activates when route status is <code>out_for_delivery</code></li>
+            <li>✨ <strong>Delivered & set up</strong> — when delivery stop is marked completed</li>
+            <li>📅 <strong>Picked up</strong> — when the pickup route is completed</li>
+          </ol>
+          <p className="text-xs">
+            The active step pulses with a yellow ring; done steps are green
+            with strikethrough. Special states handled: cancelled bookings
+            short-circuit to a single "Cancelled" card; weather cancellations
+            show the credit message.
+          </p>
+          <p className="text-xs text-slate-500">
+            💡 To make the timeline progress through "loaded" and "out for
+            delivery", you (admin) need to update the <code>dispatch_routes.status</code>
+            field as the day goes on — in <code>/admin/dispatch/[date]</code> there
+            should be a status dropdown per route.
+          </p>
+        </div>
+      ),
+    },
+    {
+      id: "extend-rental",
+      title: "Customer extends rental from portal (self-service)",
+      icon: Plus,
+      content: (
+        <div className="space-y-3 text-sm">
+          <p>
+            On the customer's portal booking detail, an amber "Extend rental"
+            card lets them add days to an active booking. The customer picks
+            a new end date, the system validates availability + computes the
+            additional cost (30% per added day, honoring weekend rates), then
+            charges them via Stripe.
+          </p>
+          <p className="font-semibold">Validation rules:</p>
+          <ul className="list-disc pl-5 text-xs space-y-1">
+            <li>Booking must be PAID (no extensions on unpaid)</li>
+            <li>Not cancelled or completed</li>
+            <li>New end date must be AFTER current end date</li>
+            <li>Total rental can't exceed 14 days</li>
+            <li>Each new day must be available (no conflict with other bookings or blocked dates)</li>
+            <li>Cutoff: must request at least 6 hours before event start</li>
+          </ul>
+          <p className="font-semibold">Payment flow:</p>
+          <ol className="list-decimal pl-5 text-xs space-y-1">
+            <li>Customer picks new end date → "Check price"</li>
+            <li>System creates a row in <code>booking_extensions</code> (pending) + Stripe PaymentIntent</li>
+            <li>Stripe Elements appears inline → customer pays</li>
+            <li>Webhook fires <code>payment_intent.succeeded</code> with <code>metadata.type=booking_extension</code></li>
+            <li>Webhook bumps <code>bookings.event_end_date</code>, adds to <code>total_amount</code>, appends audit line to notes</li>
+            <li>Customer's tracking timeline updates with the new end date</li>
+          </ol>
+          <p className="text-xs text-slate-500">
+            💡 Extension rows in <code>booking_extensions</code> table give you a
+            clean refund target if needed — refund the extension PaymentIntent
+            directly without touching the original booking charge.
+          </p>
+        </div>
+      ),
+    },
+    {
       id: "quote-followup",
       title: "Quote follow-up reminder (auto)",
       icon: Mail,

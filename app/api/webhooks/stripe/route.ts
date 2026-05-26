@@ -62,6 +62,9 @@ export async function POST(request: Request) {
     if (pi.metadata?.type === "gift_card_purchase") {
       return await fulfillGiftCardPurchase(pi);
     }
+    if (pi.metadata?.type === "booking_extension") {
+      return await fulfillBookingExtension(pi);
+    }
 
     const bookingId = pi.metadata?.booking_id;
 
@@ -182,6 +185,69 @@ export async function POST(request: Request) {
 
   // Other events — ack but ignore
   return NextResponse.json({ received: true, event_type: event.type });
+}
+
+// ── Booking extension fulfillment ────────────────────────────────
+// Idempotent: if the extension row is already 'paid' (webhook retry) we no-op.
+// On success: flip extension to paid + bump bookings.event_end_date + add to
+// total_amount + audit-line in notes.
+async function fulfillBookingExtension(pi: Stripe.PaymentIntent) {
+  const supabase = createAdminClient();
+  const extensionId = pi.metadata?.extension_id;
+  if (!extensionId) {
+    return NextResponse.json(
+      { received: true, error: "Missing extension_id in metadata" },
+      { status: 200 },
+    );
+  }
+
+  const { data: extension } = await supabase
+    .from("booking_extensions")
+    .select("*")
+    .eq("id", extensionId)
+    .single();
+  if (!extension) {
+    return NextResponse.json({ received: true, error: "Extension not found" }, { status: 200 });
+  }
+  if (extension.stripe_payment_status === "paid") {
+    return NextResponse.json({ received: true, idempotent: true });
+  }
+
+  // Mark extension paid
+  await supabase
+    .from("booking_extensions")
+    .update({
+      stripe_payment_status: "paid",
+      paid_at: new Date().toISOString(),
+    })
+    .eq("id", extensionId);
+
+  // Bump the parent booking's end date + total
+  const { data: booking } = await supabase
+    .from("bookings")
+    .select("total_amount, notes, event_end_date, event_date")
+    .eq("id", extension.booking_id)
+    .single();
+  if (booking) {
+    const newTotal = (booking.total_amount || 0) + extension.additional_amount_cents;
+    const auditLine = `[${new Date().toISOString().split("T")[0]}] Extended to ${extension.new_end_date} (+${extension.additional_days} day${extension.additional_days > 1 ? "s" : ""}, +$${(extension.additional_amount_cents / 100).toFixed(2)})`;
+    const newNotes = booking.notes ? `${booking.notes}\n${auditLine}` : auditLine;
+    await supabase
+      .from("bookings")
+      .update({
+        event_end_date: extension.new_end_date,
+        total_amount: newTotal,
+        notes: newNotes,
+      })
+      .eq("id", extension.booking_id);
+  }
+
+  return NextResponse.json({
+    received: true,
+    type: "booking_extension",
+    status: "paid",
+    extension_id: extensionId,
+  });
 }
 
 // ── Gift card purchase fulfillment ───────────────────────────────
