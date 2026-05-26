@@ -516,6 +516,47 @@ export function HelpClient() {
       ),
     },
     {
+      id: "packages",
+      title: "Package deals (bundle multiple products at a fixed price)",
+      icon: Package,
+      content: (
+        <div className="space-y-3 text-sm">
+          <p>
+            Packages bundle several products into one fixed-price reservation
+            (e.g. "Birthday Premium = bouncer + slide + 2 tables + 12 chairs +
+            cotton candy for $549"). Customers see them on <code>/packages</code>
+            and reserve the bundle like one product — internally it reserves
+            the whole list.
+          </p>
+          <p className="font-semibold">Creating a package:</p>
+          <ol className="list-decimal pl-5 space-y-1 text-xs">
+            <li><code>/admin/packages</code> → <strong>+ New package</strong></li>
+            <li>Fill name, slug (URL-safe), description, fixed price (dollars)</li>
+            <li><strong>Image</strong>: paste a URL OR click <strong>Upload</strong> to push a file directly to Supabase storage. Preview thumbnail appears below.</li>
+            <li>In "Items in bundle": pick products from the dropdown, set quantities (e.g. 1× Game On bouncer, 6× folding chair, 1× cotton candy machine)</li>
+            <li>Save → toggle <strong>Active</strong> to publish on /packages</li>
+          </ol>
+          <p className="font-semibold">Starter packages (8 pre-seeded — INACTIVE):</p>
+          <p className="text-xs">
+            Running <code>supabase/seed_starter_packages.sql</code> creates 8
+            common packages (Birthday Classic, Premium, Tiny Tots, Splash,
+            Backyard Bash, Family Reunion, Corporate, Princess Tea). They come
+            with names + descriptions + suggested prices + Unsplash placeholder
+            images. <strong>Items list is empty</strong> — you must edit each
+            package and add YOUR products before activating it. Toggle{" "}
+            <code>is_active</code> to true once configured.
+          </p>
+          <p className="font-semibold">Custom AI-generated images:</p>
+          <p className="text-xs">
+            See <code>docs/package-image-prompts.md</code> in the repo — has
+            ready-to-paste prompts for Claude/DALL-E/Midjourney for each of the
+            8 packages, plus a brand style guide and template for new packages.
+            Generate → download → upload via the package editor's Upload button.
+          </p>
+        </div>
+      ),
+    },
+    {
       id: "product-gallery",
       title: "Product photo galleries (multiple photos per bouncer)",
       icon: ImageIcon,

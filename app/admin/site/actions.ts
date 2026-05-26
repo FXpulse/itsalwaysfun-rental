@@ -144,6 +144,27 @@ export async function clearCustomFont() {
   return { success: true };
 }
 
+/** Upload an image for a package (cover image shown on /packages page).
+ *  Returns the public URL — caller persists it to packages.image_url. */
+export async function uploadPackageImage(formData: FormData): Promise<
+  { success: true; url: string } | { error: string }
+> {
+  await requireAdmin();
+  const file = formData.get("image") as File | null;
+  if (!file || file.size === 0) {
+    return { error: "No file selected" };
+  }
+  const hint = String(formData.get("filename_hint") || "package").trim();
+  const upload = await uploadImage({
+    bucket: "site-assets",
+    file,
+    pathPrefix: "packages",
+    filenameHint: hint || "package",
+  });
+  if ("error" in upload) return { error: upload.error };
+  return { success: true, url: upload.url };
+}
+
 /** Upload product image and update products.image_url. */
 export async function uploadProductImage(productId: string, formData: FormData) {
   await requireAdmin();

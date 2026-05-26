@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useRef } from "react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Plus, Trash2, ArrowLeft, Save } from "lucide-react";
+import { Plus, Trash2, ArrowLeft, Save, Upload } from "lucide-react";
 import { createPackage, updatePackage, deletePackage } from "./actions";
+import { uploadPackageImage } from "../site/actions";
 import { formatCurrency } from "@/lib/utils";
 
 interface ProductOption {
@@ -180,12 +181,11 @@ export function PackageEditor({
             placeholder="Perfect for kids parties — includes everything you need"
           />
         </Field>
-        <Field label="Image URL (optional)">
-          <input
-            className="input"
+        <Field label="Image (cover for /packages page)">
+          <PackageImageField
             value={data.image_url}
-            onChange={(e) => patch({ image_url: e.target.value })}
-            placeholder="https://..."
+            onChange={(url) => patch({ image_url: url })}
+            slug={data.slug}
           />
         </Field>
       </section>
@@ -350,6 +350,71 @@ function Field({
         {label} {required && <span className="text-red-500">*</span>}
       </label>
       {children}
+    </div>
+  );
+}
+
+function PackageImageField({
+  value,
+  onChange,
+  slug,
+}: {
+  value: string;
+  onChange: (url: string) => void;
+  slug: string;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+
+  async function handleUpload(file: File) {
+    setUploading(true);
+    const fd = new FormData();
+    fd.append("image", file);
+    fd.append("filename_hint", slug || "package");
+    const r = await uploadPackageImage(fd);
+    setUploading(false);
+    if ("error" in r) {
+      toast.error(r.error);
+      return;
+    }
+    onChange(r.url);
+    toast.success("Image uploaded");
+  }
+
+  return (
+    <div className="space-y-2">
+      <div className="flex gap-2">
+        <input
+          className="input flex-1"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder="https://... or upload →"
+        />
+        <input
+          ref={inputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={(e) => e.target.files?.[0] && handleUpload(e.target.files[0])}
+        />
+        <button
+          type="button"
+          onClick={() => inputRef.current?.click()}
+          disabled={uploading}
+          className="inline-flex items-center gap-2 border border-slate-300 rounded-md px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+        >
+          <Upload className="h-4 w-4" />
+          {uploading ? "Uploading..." : "Upload"}
+        </button>
+      </div>
+      {value && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={value}
+          alt="Package preview"
+          className="h-32 w-32 object-cover rounded border border-slate-200"
+        />
+      )}
     </div>
   );
 }
