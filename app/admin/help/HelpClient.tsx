@@ -531,7 +531,7 @@ export function HelpClient() {
           <ul className="list-disc pl-5 text-xs space-y-1">
             <li><code>/admin/coi</code> — pending requests panel with upload</li>
             <li>Each booking detail page links to its COI request</li>
-            <li>Disable the option at checkout by toggling <code>coi_request_enabled</code> in <code>/admin/site</code> → legal category</li>
+            <li>Disable the checkbox at checkout with the green/grey toggle at the top of <code>/admin/coi</code> (mirrors the Packages + Gift cards toggles)</li>
           </ul>
           <p className="text-xs text-slate-500">
             💡 The PDF lives in your public Supabase storage (site-assets bucket).

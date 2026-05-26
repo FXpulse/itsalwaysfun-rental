@@ -110,3 +110,20 @@ export async function cancelCoiRequest(requestId: string, reason: string) {
   revalidatePath("/admin/coi");
   return { success: true };
 }
+
+/** Global on/off for the COI request checkbox on the public checkout.
+ *  Stored in site_settings.coi_request_enabled. Default = enabled. */
+export async function setCoiRequestEnabled(enabled: boolean) {
+  await requireAdmin();
+  const supabase = createAdminClient();
+  const { error } = await supabase
+    .from("site_settings")
+    .upsert(
+      { key: "coi_request_enabled", value: enabled ? "true" : "false" },
+      { onConflict: "key" },
+    );
+  if (error) return { error: error.message };
+  revalidatePath("/admin/coi");
+  revalidatePath("/order-by-date");
+  return { success: true };
+}

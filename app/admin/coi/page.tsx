@@ -1,9 +1,9 @@
 import { redirect } from "next/navigation";
-import Link from "next/link";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUserRole } from "@/lib/auth/roles";
 import { ShieldCheck } from "lucide-react";
 import { CoiPanel } from "./CoiPanel";
+import { CoiRequestToggle } from "./CoiRequestToggle";
 
 export const dynamic = "force-dynamic";
 
@@ -32,14 +32,25 @@ export default async function AdminCoiPage() {
   if (!me || me.role !== "admin") redirect("/admin/dashboard");
 
   const supabase = createAdminClient();
-  // Join bookings for context
-  const { data: rows } = await supabase
-    .from("coi_requests")
-    .select(
-      `*, bookings ( event_date, customer_first_name, customer_last_name, customer_phone )`,
-    )
-    .order("status")
-    .order("requested_at", { ascending: false });
+  // Join bookings for context + read the public toggle setting
+  const [{ data: rows }, { data: toggleSetting }] = await Promise.all([
+    supabase
+      .from("coi_requests")
+      .select(
+        `*, bookings ( event_date, customer_first_name, customer_last_name, customer_phone )`,
+      )
+      .order("status")
+      .order("requested_at", { ascending: false }),
+    supabase
+      .from("site_settings")
+      .select("value")
+      .eq("key", "coi_request_enabled")
+      .maybeSingle(),
+  ]);
+
+  // Default to enabled when setting is missing (back-compat)
+  const coiEnabled =
+    !toggleSetting || (toggleSetting.value as string)?.toLowerCase() !== "false";
 
   const list: CoiRow[] = ((rows as any[]) || []).map((r) => ({
     ...r,
@@ -67,6 +78,8 @@ export default async function AdminCoiPage() {
         gets emailed automatically + can download from their portal.
       </p>
 
+      <CoiRequestToggle enabled={coiEnabled} />
+
       <div className="grid grid-cols-4 gap-3 mb-6">
         <Stat label="Pending request" value={String(counts.requested)} accent={counts.requested > 0} />
         <Stat label="Uploaded" value={String(counts.uploaded)} />
@@ -91,11 +104,6 @@ export default async function AdminCoiPage() {
         </div>
       )}
 
-      <p className="text-xs text-slate-400 mt-6 text-center">
-        Need to disable the COI option at checkout? Toggle{" "}
-        <code>coi_request_enabled</code> in{" "}
-        <Link href="/admin/site" className="underline">Website content → legal</Link>.
-      </p>
     </div>
   );
 }
