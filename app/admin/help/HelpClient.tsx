@@ -893,6 +893,14 @@ export function HelpClient() {
             <li>☐ Book a rental + check "My venue requires a COI" → fill venue info → admin sees it in <code>/admin/coi</code> → uploads PDF → customer gets email + sees download in portal</li>
             <li>☐ As a customer with a paid booking 8+ hours out: click "Bad weather forecast?" → confirm → gift card code appears in email + booking shows cancelled</li>
             <li>☐ Add a review in <code>/admin/reviews</code> → toggle Featured ON → check it appears in homepage carousel + on <code>/reviews</code> page</li>
+            <li>☐ Upload extra product photos in <code>/admin/products/[id]</code> → public <code>/items/[slug]</code> shows carousel + lightbox</li>
+            <li>☐ Enable unit tracking on Blowers → bulk-add 14 (BLW-01..BLW-14) → in dispatch, "Pick units" → confirm tags show in truck load</li>
+            <li>☐ Add a propane requirement to a generator product with "Per day" checked → book 3 days → checklist shows 3 tanks (not 1)</li>
+            <li>☐ In <code>/admin/fleet</code> edit a trailer → mark "electric dolly" as compatible → tag shows in the "Can carry" column</li>
+            <li>☐ Add VIN + tag on a vehicle → confirm columns render with uppercase monospace</li>
+            <li>☐ Add a CRUD inventory category → confirm it appears in the dropdown when creating an item</li>
+            <li>☐ Submit the public <code>/contact</code> form → check (1) row appears in <code>/admin/inbox</code>, (2) admin gets email at ADMIN_ALERT_EMAIL, (3) GHL contact created with general_inquiry tag</li>
+            <li>☐ Reply to a contact message from <code>/admin/inbox</code> → check customer receives the reply email, reply appears in the thread, and message is marked resolved</li>
             <li>☐ Create staff + driver users → login as each → verify role gating</li>
             <li>☐ Driver marks stop delivered → captures proof photos + signature</li>
             <li>☐ Record damage with protection vs without → check chargeable amounts</li>
