@@ -541,10 +541,16 @@ export function HelpClient() {
             Running <code>supabase/seed_starter_packages.sql</code> creates 8
             common packages (Birthday Classic, Premium, Tiny Tots, Splash,
             Backyard Bash, Family Reunion, Corporate, Princess Tea). They come
-            with names + descriptions + suggested prices + Unsplash placeholder
-            images. <strong>Items list is empty</strong> — you must edit each
-            package and add YOUR products before activating it. Toggle{" "}
-            <code>is_active</code> to true once configured.
+            with names + descriptions + suggested prices. <strong>Items list is
+            empty</strong> — you must edit each package and add YOUR products
+            before activating it. Toggle <code>is_active</code> to true once
+            configured.
+          </p>
+          <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded p-2">
+            ⚠ The seed initially included Unsplash placeholder images, but
+            some IDs may not resolve. Run <code>supabase/fix_package_images.sql</code>{" "}
+            to clear them — then upload custom AI-generated images via the
+            editor's Upload button (recommended anyway for brand consistency).
           </p>
           <p className="font-semibold">Custom AI-generated images:</p>
           <p className="text-xs">
@@ -553,6 +559,14 @@ export function HelpClient() {
             8 packages, plus a brand style guide and template for new packages.
             Generate → download → upload via the package editor's Upload button.
           </p>
+          <p className="font-semibold">Uploading images:</p>
+          <ul className="list-disc pl-5 text-xs space-y-1">
+            <li><code>/admin/packages/[id]</code> → "Image" field has an <strong>Upload</strong> button next to the URL input</li>
+            <li>Accepts any image format (PNG, JPG, WebP, SVG)</li>
+            <li>File goes to your Supabase storage <code>site-assets/packages/</code></li>
+            <li>Preview thumbnail appears below the field once uploaded</li>
+            <li>URL field still works for manually pasting an externally-hosted image</li>
+          </ul>
         </div>
       ),
     },
@@ -1028,6 +1042,8 @@ export function HelpClient() {
             <li>☐ Submit the public <code>/contact</code> form → check (1) row appears in <code>/admin/inbox</code>, (2) admin gets email at ADMIN_ALERT_EMAIL, (3) GHL contact created with general_inquiry tag</li>
             <li>☐ Reply to a contact message from <code>/admin/inbox</code> → check customer receives the reply email, reply appears in the thread, and message is marked resolved</li>
             <li>☐ With unresolved messages: dashboard shows amber "X unread messages in Contact Inbox" panel with top 5</li>
+            <li>☐ Run seed_starter_packages.sql → 8 packages appear in <code>/admin/packages</code> (all inactive)</li>
+            <li>☐ Edit a package → add 2-3 products from inventory → upload custom image via Upload button → toggle Active → confirm it appears at <code>/packages</code> public</li>
             <li>☐ Change site font: <code>/admin/site</code> → SiteFontPicker → "Quicksand" → Save → public homepage refresh shows new font everywhere</li>
             <li>☐ Self-hosted font: pick "Louis George Cafe (self-hosted)" → upload a .woff2 → Save → public site loads it via @font-face (check page source for the @font-face rule)</li>
             <li>☐ (When configured) Send test email from Gmail to bookings@itsalwaysfun.net → Cloudflare Worker forwards → appears in /admin/inbox within ~30s with blue "Email" badge</li>
