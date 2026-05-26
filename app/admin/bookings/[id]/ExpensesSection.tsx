@@ -3,19 +3,10 @@
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
-import { Plus, Trash2, DollarSign, Receipt } from "lucide-react";
+import { Plus, Trash2, DollarSign, Receipt, Settings2 } from "lucide-react";
 import { addBookingExpense, deleteBookingExpense } from "./expense-actions";
 import { formatCurrency } from "@/lib/utils";
-
-const CATEGORIES = [
-  { value: "gas", label: "⛽ Gas / fuel", icon: "⛽" },
-  { value: "payroll", label: "👥 Payroll (driver hours)", icon: "👥" },
-  { value: "tolls", label: "🛣 Tolls", icon: "🛣" },
-  { value: "consumables", label: "📦 Consumables (propane, ice, etc.)", icon: "📦" },
-  { value: "damage_repair", label: "🔧 Damage repair", icon: "🔧" },
-  { value: "permit_fee", label: "📋 Permit / venue fee", icon: "📋" },
-  { value: "other", label: "🗂 Other", icon: "🗂" },
-];
+import { ExpenseCategoryManager } from "./ExpenseCategoryManager";
 
 export interface ExpenseRow {
   id: string;
@@ -29,22 +20,39 @@ export interface ExpenseRow {
   notes: string | null;
 }
 
+export interface ExpenseCategoryRow {
+  key: string;
+  label: string;
+  sort_order: number;
+  is_active: boolean;
+  supports_payroll_hours: boolean;
+}
+
 export function ExpensesSection({
   bookingId,
   expenses,
+  categories,
   defaultDriverRateCents,
   bookingTotalAmount,
 }: {
   bookingId: string;
   expenses: ExpenseRow[];
+  categories: ExpenseCategoryRow[];
   defaultDriverRateCents: number;
   bookingTotalAmount: number;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [adding, setAdding] = useState(false);
-  const [category, setCategory] = useState("gas");
+  const [showCategoryMgr, setShowCategoryMgr] = useState(false);
+
+  const activeCategories = categories.filter((c) => c.is_active);
+  const categoriesByKey = new Map(categories.map((c) => [c.key, c]));
+  const defaultCategoryKey = activeCategories[0]?.key || "other";
+  const [category, setCategory] = useState(defaultCategoryKey);
   const [hours, setHours] = useState("");
+  const selectedCategory = categoriesByKey.get(category);
+  const showHoursUI = selectedCategory?.supports_payroll_hours || false;
 
   const totalExpenses = expenses.reduce((s, e) => s + e.amount_cents, 0);
   const grossProfit = (bookingTotalAmount || 0) - totalExpenses;
@@ -61,7 +69,7 @@ export function ExpensesSection({
       toast.success("Expense recorded");
       setAdding(false);
       setHours("");
-      setCategory("gas");
+      setCategory(defaultCategoryKey);
       router.refresh();
     });
   }
@@ -79,9 +87,10 @@ export function ExpensesSection({
     });
   }
 
-  // Auto-compute payroll amount when hours change
+  // Auto-compute payroll amount when hours change (any category with the
+  // supports_payroll_hours flag — e.g. payroll, setup_labor, teardown_labor)
   const autoPayrollAmount =
-    category === "payroll" && hours
+    showHoursUI && hours
       ? ((parseFloat(hours) || 0) * defaultDriverRateCents) / 100
       : "";
 
@@ -97,14 +106,29 @@ export function ExpensesSection({
           </p>
         </div>
         {!adding && (
-          <button
-            onClick={() => setAdding(true)}
-            className="btn-primary text-sm inline-flex items-center gap-1"
-          >
-            <Plus className="h-3 w-3" /> Add expense
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowCategoryMgr(true)}
+              className="text-xs text-slate-500 hover:text-brand-navy inline-flex items-center gap-1"
+              title="Manage expense categories"
+            >
+              <Settings2 className="h-3 w-3" /> Categories
+            </button>
+            <button
+              onClick={() => setAdding(true)}
+              className="btn-primary text-sm inline-flex items-center gap-1"
+            >
+              <Plus className="h-3 w-3" /> Add expense
+            </button>
+          </div>
         )}
       </div>
+
+      <ExpenseCategoryManager
+        open={showCategoryMgr}
+        onClose={() => setShowCategoryMgr(false)}
+        categories={categories}
+      />
 
       {/* Margin summary */}
       <div className="grid grid-cols-3 gap-2 mb-4 text-xs">
@@ -153,15 +177,15 @@ export function ExpensesSection({
                 onChange={(e) => setCategory(e.target.value)}
                 className="input"
               >
-                {CATEGORIES.map((c) => (
-                  <option key={c.value} value={c.value}>
+                {activeCategories.map((c) => (
+                  <option key={c.key} value={c.key}>
                     {c.label}
                   </option>
                 ))}
               </select>
             </div>
 
-            {category === "payroll" && (
+            {showHoursUI && (
               <>
                 <div>
                   <label className="block text-xs text-slate-600 mb-1">
@@ -197,10 +221,10 @@ export function ExpensesSection({
               </>
             )}
 
-            <div className={category === "payroll" ? "col-span-2" : ""}>
+            <div className={showHoursUI ? "col-span-2" : ""}>
               <label className="block text-xs text-slate-600 mb-1">
                 Amount (USD) *
-                {category === "payroll" && autoPayrollAmount && (
+                {showHoursUI && autoPayrollAmount && (
                   <span className="text-[10px] text-slate-400 ml-1">
                     (suggested ${typeof autoPayrollAmount === "number" ? autoPayrollAmount.toFixed(2) : autoPayrollAmount})
                   </span>
@@ -241,7 +265,7 @@ export function ExpensesSection({
               onClick={() => {
                 setAdding(false);
                 setHours("");
-                setCategory("gas");
+                setCategory(defaultCategoryKey);
               }}
               className="text-xs text-slate-600 hover:text-slate-900 px-3 py-2"
             >
@@ -269,12 +293,15 @@ export function ExpensesSection({
             </thead>
             <tbody className="divide-y divide-slate-100">
               {expenses.map((e) => {
-                const cat = CATEGORIES.find((c) => c.value === e.category);
+                const cat = categoriesByKey.get(e.category);
                 return (
                   <tr key={e.id}>
                     <td className="px-3 py-2 text-xs">
                       <span className="inline-flex items-center gap-1">
-                        {cat?.icon} {cat?.label.replace(/^.. /, "") || e.category}
+                        {cat?.label || e.category}
+                        {cat && !cat.is_active && (
+                          <span className="text-[10px] text-amber-600">(inactive)</span>
+                        )}
                       </span>
                       {e.driver_hours != null && (
                         <div className="text-[10px] text-slate-400">

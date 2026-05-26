@@ -1392,8 +1392,9 @@ export function HelpClient() {
             <strong>+ Add expense</strong>:
           </p>
           <ul className="list-disc pl-5 text-xs space-y-1">
-            <li>⛽ <strong>Gas / fuel</strong>, 🛣 <strong>Tolls</strong>, 📦 <strong>Consumables</strong> (propane, ice, batteries), 🔧 <strong>Damage repair</strong>, 📋 <strong>Permit / venue fee</strong>, 🗂 <strong>Other</strong> — type description + amount</li>
-            <li>👥 <strong>Payroll (driver hours)</strong> — enter the hours; the form auto-suggests the dollar amount from the default driver hourly rate (set as <code>default_driver_hourly_rate_cents</code> in site_settings, defaults to $20/hr). Optionally tag a driver email for payroll attribution.</li>
+            <li>⛽ <strong>Gas / fuel</strong>, 🛣 <strong>Tolls</strong>, 📦 <strong>Consumables</strong> (propane, ice, batteries), 🔧 <strong>Damage repair</strong>, 📋 <strong>Permit / venue fee</strong>, 🧼 <strong>Cleaning fee</strong>, 🅿️ <strong>Parking</strong>, 🏨 <strong>Lodging</strong>, 🗂 <strong>Other</strong> — type description + amount</li>
+            <li>👥 <strong>Payroll (driver hours)</strong>, 🔨 <strong>Setup labor</strong>, 🧹 <strong>Teardown labor</strong> — enter the hours; the form auto-suggests the dollar amount from the default driver hourly rate (set as <code>default_driver_hourly_rate_cents</code> in site_settings, defaults to $20/hr). Optionally tag a driver email for payroll attribution.</li>
+            <li className="text-slate-500">Click <strong>Categories</strong> next to the Add expense button to manage the list — add new categories (e.g. "Vehicle rental"), edit labels, deactivate ones you don't use. Categories with the labor-hours flag show the hours UI automatically.</li>
           </ul>
           <p className="text-xs">
             Every expense is logged in the audit log (<code>expense.gas</code>,{" "}
@@ -1468,9 +1469,14 @@ export function HelpClient() {
                 the dynamic <code>overhead_categories</code> table, drops the
                 fixed CHECK on <code>overhead_costs.category</code>, and seeds
                 ~36 standard categories</li>
+              <li>Run <code>supabase/booking_expense_categories.sql</code> —
+                creates the dynamic <code>booking_expense_categories</code>{" "}
+                table (with <code>supports_payroll_hours</code> flag for
+                labor-style categories), drops the fixed CHECK on{" "}
+                <code>booking_expenses.category</code>, and seeds 12 categories</li>
             </ol>
-            Until you run both, <code>/admin/overhead</code> and booking detail
-            pages will throw errors.
+            Until you run all three, <code>/admin/overhead</code> and booking
+            detail pages will throw errors.
           </p>
         </div>
       ),

@@ -8,15 +8,9 @@ import { z } from "zod";
 
 const ExpenseInput = z.object({
   booking_id: z.string().uuid(),
-  category: z.enum([
-    "gas",
-    "payroll",
-    "tolls",
-    "consumables",
-    "damage_repair",
-    "permit_fee",
-    "other",
-  ]),
+  // Dynamic key from booking_expense_categories (guard against tampering —
+  // the form dropdown only shows active rows)
+  category: z.string().min(1).max(64).regex(/^[a-z0-9_]+$/),
   description: z.string().max(500).optional().nullable(),
   amount_dollars: z.number().min(0),
   driver_hours: z.number().min(0).max(48).optional().nullable(),

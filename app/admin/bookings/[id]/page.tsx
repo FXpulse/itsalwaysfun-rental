@@ -7,7 +7,11 @@ import { BookingActions } from "./BookingActions";
 import { DeliveryChecklist } from "./DeliveryChecklist";
 import { ProofCapture } from "./ProofCapture";
 import { DamagesSection } from "./DamagesSection";
-import { ExpensesSection, type ExpenseRow } from "./ExpensesSection";
+import {
+  ExpensesSection,
+  type ExpenseRow,
+  type ExpenseCategoryRow,
+} from "./ExpensesSection";
 import { getDeliveryChecklist } from "@/lib/delivery-checklist";
 import type { Booking } from "@/types/database";
 import { z } from "zod";
@@ -40,7 +44,7 @@ export default async function BookingDetailPage({
   // Compute delivery checklist from product inventory requirements
   const checklist = await getDeliveryChecklist(params.id);
 
-  // Load proofs, damages, inventory, protection setting, expenses + driver rate in parallel
+  // Load proofs, damages, inventory, protection setting, expenses + driver rate + expense categories in parallel
   const [
     { data: proofs },
     { data: damagesRaw },
@@ -48,6 +52,7 @@ export default async function BookingDetailPage({
     { data: protectionSetting },
     { data: expensesRaw },
     { data: driverRateSetting },
+    { data: expenseCategoriesRaw },
   ] = await Promise.all([
     supabase.from("booking_proofs").select("*").eq("booking_id", params.id),
     supabase
@@ -81,9 +86,16 @@ export default async function BookingDetailPage({
       .select("value")
       .eq("key", "default_driver_hourly_rate_cents")
       .maybeSingle(),
+    supabase
+      .from("booking_expense_categories")
+      .select("key, label, sort_order, is_active, supports_payroll_hours")
+      .order("sort_order")
+      .order("label"),
   ]);
 
   const expenses: ExpenseRow[] = (expensesRaw as ExpenseRow[]) || [];
+  const expenseCategories: ExpenseCategoryRow[] =
+    (expenseCategoriesRaw as ExpenseCategoryRow[]) || [];
   const defaultDriverRateCents =
     parseInt((driverRateSetting?.value as string) || "2000", 10) || 2000;
 
@@ -286,6 +298,7 @@ export default async function BookingDetailPage({
         <ExpensesSection
           bookingId={b.id}
           expenses={expenses}
+          categories={expenseCategories}
           defaultDriverRateCents={defaultDriverRateCents}
           bookingTotalAmount={b.total_amount || 0}
         />

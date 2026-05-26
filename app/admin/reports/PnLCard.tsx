@@ -5,29 +5,23 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { formatCurrency } from "@/lib/utils";
 import { TrendingUp, TrendingDown, Receipt, Calculator } from "lucide-react";
 
-// Booking expense categories are fixed in code (they're operational, not
-// accounting). Overhead categories are dynamic — fetched at render time.
-const BOOKING_EXPENSE_LABELS: Record<string, string> = {
-  gas: "⛽ Gas",
-  payroll: "👥 Payroll",
-  tolls: "🛣 Tolls",
-  consumables: "📦 Consumables",
-  damage_repair: "🔧 Damage repair",
-  permit_fee: "📋 Permits",
-  other: "🗂 Other",
-};
-
+// Both booking-expense and overhead categories are dynamic — fetched at
+// render time so admin renames propagate everywhere.
 export async function PnLCard({ from, to }: { from: string; to: string }) {
   const supabase = createAdminClient();
-  const [pnl, { data: overheadCats }] = await Promise.all([
+  const [pnl, { data: overheadCats }, { data: expenseCats }] = await Promise.all([
     computePnL(from, to),
     supabase.from("overhead_categories").select("key, label"),
+    supabase.from("booking_expense_categories").select("key, label"),
   ]);
   const overheadLabelByKey = new Map<string, string>(
     ((overheadCats as { key: string; label: string }[]) || []).map((c) => [c.key, c.label]),
   );
+  const expenseLabelByKey = new Map<string, string>(
+    ((expenseCats as { key: string; label: string }[]) || []).map((c) => [c.key, c.label]),
+  );
   const labelFor = (cat: string, scope: "expense" | "overhead") => {
-    if (scope === "expense") return BOOKING_EXPENSE_LABELS[cat] || cat;
+    if (scope === "expense") return expenseLabelByKey.get(cat) || cat;
     return overheadLabelByKey.get(cat) || cat;
   };
   const isProfit = pnl.net_profit_cents > 0;
