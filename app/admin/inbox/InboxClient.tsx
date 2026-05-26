@@ -272,7 +272,7 @@ export function InboxClient({
                     ? "bg-green-100 text-green-800"
                     : "bg-red-100 text-red-800"
                 }`}
-                title={m.emailed_to_admin_at || "Not sent"}
+                title={m.emailed_to_admin_at || m.email_send_error || "Not sent — no error logged"}
               >
                 {m.emailed_to_admin_at ? "✓" : "✗"} Email
               </span>
@@ -294,6 +294,22 @@ export function InboxClient({
                 </span>
               )}
             </div>
+
+            {/* Show the actual email error in a banner so admin can diagnose */}
+            {(m.email_send_error || m.ghl_webhook_error) && (
+              <div className="text-[10px] text-red-700 bg-red-50 border border-red-200 rounded p-2 mb-3 font-mono break-all">
+                {m.email_send_error && (
+                  <div>
+                    <strong>Email error:</strong> {m.email_send_error}
+                  </div>
+                )}
+                {m.ghl_webhook_error && (
+                  <div>
+                    <strong>GHL error:</strong> {m.ghl_webhook_error}
+                  </div>
+                )}
+              </div>
+            )}
 
             {m.admin_notes && (
               <div className="text-xs text-slate-600 bg-blue-50 border border-blue-200 rounded p-2 mb-3">

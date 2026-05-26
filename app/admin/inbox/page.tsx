@@ -23,6 +23,7 @@ export interface ContactMessage {
   message: string;
   source: string;
   emailed_to_admin_at: string | null;
+  email_send_error: string | null;
   ghl_webhook_fired_at: string | null;
   ghl_webhook_error: string | null;
   is_resolved: boolean;

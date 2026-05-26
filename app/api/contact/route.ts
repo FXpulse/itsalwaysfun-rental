@@ -73,9 +73,18 @@ export async function POST(request: Request) {
     );
   }
 
-  // 2. Email admin via Resend (best-effort, non-blocking failure)
-  if (isEmailConfigured()) {
-    const adminEmail = process.env.ADMIN_ALERT_EMAIL || "admin@itsalwaysfun.com";
+  // 2. Email admin via Resend (best-effort). Failures logged to email_send_error
+  // so they're visible in /admin/inbox (don't fail the request — the DB row is
+  // the source of truth).
+  const adminEmail = process.env.ADMIN_ALERT_EMAIL || "admin@itsalwaysfun.com";
+  if (!isEmailConfigured()) {
+    await supabase
+      .from("contact_messages")
+      .update({
+        email_send_error: `Resend not configured: missing ${process.env.RESEND_API_KEY ? "" : "RESEND_API_KEY "}${process.env.EMAIL_FROM ? "" : "EMAIL_FROM"}`.trim(),
+      })
+      .eq("id", row.id);
+  } else {
     try {
       const res = await sendEmail({
         to: adminEmail,
@@ -93,6 +102,7 @@ export async function POST(request: Request) {
   <p style="margin:0;white-space:pre-wrap;line-height:1.5;">${escapeHtml(data.message)}</p>
 </div>
 <p style="color:#64748b;font-size:12px;">Hit Reply to respond directly to ${escapeHtml(data.email)}.</p>
+<p style="color:#94a3b8;font-size:11px;">Sent to: ${escapeHtml(adminEmail)}</p>
 </div>`,
         text: `New contact from ${data.firstName} ${data.lastName}\nEmail: ${data.email}\n${data.phone ? `Phone: ${data.phone}\n` : ""}\nMessage:\n${data.message}`,
         tags: [{ name: "type", value: "contact_form" }],
@@ -100,11 +110,28 @@ export async function POST(request: Request) {
       if (res.ok) {
         await supabase
           .from("contact_messages")
-          .update({ emailed_to_admin_at: new Date().toISOString() })
+          .update({
+            emailed_to_admin_at: new Date().toISOString(),
+            email_send_error: null,
+          })
+          .eq("id", row.id);
+      } else {
+        console.error("[Contact email failed]", res.error);
+        await supabase
+          .from("contact_messages")
+          .update({
+            email_send_error: `to:${adminEmail} → ${(res.error || "unknown").substring(0, 400)}`,
+          })
           .eq("id", row.id);
       }
-    } catch (e) {
-      console.error("[Contact email failed, non-fatal]", e);
+    } catch (e: any) {
+      console.error("[Contact email exception]", e);
+      await supabase
+        .from("contact_messages")
+        .update({
+          email_send_error: `to:${adminEmail} → exception: ${(e.message || "unknown").substring(0, 400)}`,
+        })
+        .eq("id", row.id);
     }
   }
 
