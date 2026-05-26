@@ -26,6 +26,7 @@ import {
   AlertTriangle,
   History,
   CalendarCheck as CalendarCheckIcon,
+  Calculator,
 } from "lucide-react";
 
 interface Section {
@@ -1369,6 +1370,96 @@ export function HelpClient() {
       ),
     },
     {
+      id: "accounting",
+      title: "Accounting — true profit per booking + monthly overhead",
+      icon: Calculator,
+      content: (
+        <div className="space-y-3 text-sm">
+          <p>
+            Most rental businesses look at booking <strong>revenue</strong> and call it a
+            day. To know your <strong>real</strong> profit you also need: (a) the
+            direct costs of running each event (gas, payroll, tolls, propane,
+            damage repairs) and (b) the fixed monthly burden you carry whether
+            you book or not (rent, insurance, software, vehicle payments). The
+            accounting module gives you both.
+          </p>
+
+          <p className="font-semibold">1. Direct costs per booking</p>
+          <p className="text-xs">
+            Open any booking in <code>/admin/bookings/[id]</code> — there's now a{" "}
+            <strong>Costs for this booking</strong> card under Damages with a live
+            margin summary (Revenue / Direct costs / Gross margin). Click{" "}
+            <strong>+ Add expense</strong>:
+          </p>
+          <ul className="list-disc pl-5 text-xs space-y-1">
+            <li>⛽ <strong>Gas / fuel</strong>, 🛣 <strong>Tolls</strong>, 📦 <strong>Consumables</strong> (propane, ice, batteries), 🔧 <strong>Damage repair</strong>, 📋 <strong>Permit / venue fee</strong>, 🗂 <strong>Other</strong> — type description + amount</li>
+            <li>👥 <strong>Payroll (driver hours)</strong> — enter the hours; the form auto-suggests the dollar amount from the default driver hourly rate (set as <code>default_driver_hourly_rate_cents</code> in site_settings, defaults to $20/hr). Optionally tag a driver email for payroll attribution.</li>
+          </ul>
+          <p className="text-xs">
+            Every expense is logged in the audit log (<code>expense.gas</code>,{" "}
+            <code>expense.payroll</code>, etc.) with the admin email + amount, so
+            you have an immutable record for tax season.
+          </p>
+
+          <p className="font-semibold">2. Monthly overhead</p>
+          <p className="text-xs">
+            Go to <code>/admin/overhead</code> (admin-only nav entry). Add one
+            line per fixed monthly cost:
+          </p>
+          <ul className="list-disc pl-5 text-xs space-y-1">
+            <li>🏢 Rent (storage unit, warehouse)</li>
+            <li>🛡 Insurance (general liability, vehicle)</li>
+            <li>💻 Software (Vercel, Supabase, Resend, Stripe, this platform)</li>
+            <li>💡 Utilities, 📣 Marketing (GHL, ads), 🚚 Vehicle payments, 👥 Payroll (recurring), 👔 Professional (accountant, attorney), 🗂 Other</li>
+          </ul>
+          <p className="text-xs">
+            Each item has an <strong>Effective from</strong> date (when the cost
+            started) and optional <strong>Effective to</strong> (if it ended — use
+            the <em>End</em> button on the row). Cost changes are recorded as new
+            rows so you have history (e.g. insurance went from $400 → $450 in
+            Feb).
+          </p>
+
+          <p className="font-semibold">3. Profit &amp; Loss report</p>
+          <p className="text-xs">
+            <code>/admin/reports</code> now shows a yellow-bordered{" "}
+            <strong>Profit &amp; Loss</strong> card at the top, scoped to the
+            same date range as the rest of the page:
+          </p>
+          <ul className="list-disc pl-5 text-xs space-y-1">
+            <li><strong>Revenue</strong> — paid bookings whose event_date falls in range</li>
+            <li><strong>Direct costs</strong> — sum of all booking_expenses for those bookings, broken down by category</li>
+            <li><strong>Gross profit</strong> — Revenue − Direct costs (with % margin)</li>
+            <li><strong>Overhead allocated</strong> — monthly overhead prorated by days the cost was active during the period (e.g. $1500/mo over 30 days = $50/day × 30 days = $1500). Broken down by category.</li>
+            <li><strong>NET PROFIT</strong> — Gross profit − Allocated overhead, with net margin %. Green ring if positive, amber if negative.</li>
+          </ul>
+
+          <p className="text-xs text-slate-500">
+            💡 <strong>If your "net profit" shows 100%</strong>, you have zero
+            costs recorded — you'll see an amber warning telling you to record
+            expenses + overhead. Most rentals run at 30-50% real margin once
+            gas + payroll + overhead are honest.
+          </p>
+          <p className="text-xs text-slate-500">
+            💡 The P&amp;L pulls revenue by <strong>event_date</strong> (not
+            created_at) — this matches the way the rest of the reports page
+            thinks about "when revenue happened" (the day you delivered),
+            which is also how your accountant will want to see it.
+          </p>
+          <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded p-2">
+            ⚙️ <strong>Setup required (one time):</strong> run{" "}
+            <code>supabase/accounting.sql</code> in the Supabase SQL editor.
+            This creates <code>booking_expenses</code> +{" "}
+            <code>overhead_costs</code> tables, RLS policies (admin manages
+            overhead; staff can read), and the{" "}
+            <code>default_driver_hourly_rate_cents</code> setting. Until you
+            run it, the booking detail will throw an error trying to load
+            expenses.
+          </p>
+        </div>
+      ),
+    },
+    {
       id: "tests",
       title: "Testing checklist",
       icon: HelpCircle,
@@ -1406,6 +1497,7 @@ export function HelpClient() {
             <li>☐ Create staff + driver users → login as each → verify role gating</li>
             <li>☐ Driver marks stop delivered → captures proof photos + signature</li>
             <li>☐ Record damage with protection vs without → check chargeable amounts</li>
+            <li>☐ Run <code>supabase/accounting.sql</code> → in <code>/admin/overhead</code> add a $1500/mo rent line (effective from today) → in any paid booking add a $40 gas expense + 3hr payroll → open <code>/admin/reports</code> → P&amp;L card shows Revenue / Direct costs / Gross / Overhead / NET correctly</li>
           </ul>
         </div>
       ),

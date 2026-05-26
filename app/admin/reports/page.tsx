@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUserRole } from "@/lib/auth/roles";
 import { formatCurrency } from "@/lib/utils";
 import { DateRangeForm } from "./DateRangeForm";
+import { PnLCard } from "./PnLCard";
 import {
   TrendingUp,
   ShoppingBag,
@@ -243,6 +244,9 @@ export default async function AdminReportsPage({
         </p>
         <DateRangeForm initialFrom={from} initialTo={to} />
       </div>
+
+      {/* P&L summary — Revenue minus direct costs minus allocated overhead */}
+      <PnLCard from={from} to={to} />
 
       {/* Summary cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
