@@ -30,6 +30,7 @@ import {
   Gift,
   Star,
   ShieldCheck,
+  Inbox,
 } from "lucide-react";
 
 type Role = "admin" | "staff";
@@ -48,6 +49,7 @@ const ALL_NAV: NavItem[] = [
   { href: "/admin/dispatch", label: "Dispatch", icon: Truck, minRole: "staff" },
   { href: "/admin/quotes", label: "Quotes", icon: FileText, minRole: "admin" },
   { href: "/admin/customers", label: "Customers", icon: UserCircle, minRole: "staff" },
+  { href: "/admin/inbox", label: "Contact inbox", icon: Inbox, minRole: "staff" },
   { href: "/admin/inventory", label: "Inventory", icon: Boxes, minRole: "staff" },
   { href: "/admin/fleet", label: "Fleet", icon: TruckIcon, minRole: "admin" },
   { href: "/admin/availability", label: "Availability", icon: Calendar, minRole: "staff" },

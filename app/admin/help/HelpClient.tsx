@@ -22,6 +22,7 @@ import {
   Star,
   CloudRain,
   Hash,
+  Inbox,
 } from "lucide-react";
 
 interface Section {
@@ -800,6 +801,38 @@ export function HelpClient() {
             <li>Per-zone colors + fonts (Hero, Categories, Featured, Trust, Footer)</li>
           </ul>
           <p>Go to <code>Home banners</code> to upload carousel images (1920×600 recommended).</p>
+        </div>
+      ),
+    },
+    {
+      id: "contact-inbox",
+      title: "Contact form inbox — where messages land",
+      icon: Inbox,
+      content: (
+        <div className="space-y-3 text-sm">
+          <p>
+            Every submission from the public <code>/contact</code> page goes
+            through three channels simultaneously so a message can't slip
+            through the cracks:
+          </p>
+          <ol className="list-decimal pl-5 space-y-1 text-xs">
+            <li><strong>Saved to DB</strong> (<code>contact_messages</code>) — source of truth, always works</li>
+            <li><strong>Emailed to admin</strong> via Resend → goes to <code>ADMIN_ALERT_EMAIL</code> env var (defaults to admin@itsalwaysfun.com). Reply-to is set to the customer's email so hitting Reply goes straight to them.</li>
+            <li><strong>Pushed to GHL</strong> via webhook → workflow 1 creates/updates the contact with tag <code>general_inquiry</code></li>
+          </ol>
+          <p className="font-semibold">Manage from <code>/admin/inbox</code>:</p>
+          <ul className="list-disc pl-5 text-xs space-y-1">
+            <li>Open messages show at the top; resolved ones at the bottom (greyed out)</li>
+            <li>Click <strong>Reply</strong> to open your email client pre-addressed to the sender</li>
+            <li>Click <strong>Mark resolved</strong> after handling, optionally add a note ("called back, booked")</li>
+            <li>Green/red badges show delivery status per channel (email ✓ / GHL ✓). If GHL failed, you'll see the error — message is still safe in DB.</li>
+            <li>Admin can <strong>Reopen</strong> or <strong>Delete</strong> any message</li>
+          </ul>
+          <p className="text-xs text-slate-500">
+            💡 The "Delivery issues" stat at the top counts unresolved messages
+            where email or GHL didn't go through — those are the ones to
+            handle first.
+          </p>
         </div>
       ),
     },

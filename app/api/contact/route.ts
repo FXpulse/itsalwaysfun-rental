@@ -1,9 +1,16 @@
 // POST /api/contact
-// Fires GHL booking webhook with contact-message payload (general inquiry, not a booking).
-// Workflow 1 in GHL handles creating the contact + sending notifications.
+// Triple-redundant delivery:
+//  1. Persist to contact_messages (source of truth — never lose a message)
+//  2. Email admin via Resend (instant inbox notification)
+//  3. Fire GHL webhook (CRM sync — workflow 1 creates contact + tags)
+//
+// If 1 succeeds we return ok=true even if 2/3 fail (the message is safely
+// stored and admin will see it in /admin/inbox).
 
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { sendEmail, isEmailConfigured } from "@/lib/email/send";
 
 export const dynamic = "force-dynamic";
 
@@ -15,6 +22,15 @@ const BodySchema = z.object({
   message: z.string().min(1).max(5000),
   source: z.string().optional(),
 });
+
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
 
 export async function POST(request: Request) {
   let body: unknown;
@@ -32,44 +48,104 @@ export async function POST(request: Request) {
     );
   }
 
-  const webhookUrl = process.env.GHL_BOOKING_WEBHOOK_URL;
-  if (!webhookUrl) {
+  const data = parsed.data;
+  const supabase = createAdminClient();
+
+  // 1. Persist to DB — source of truth
+  const { data: row, error: insertErr } = await supabase
+    .from("contact_messages")
+    .insert({
+      first_name: data.firstName,
+      last_name: data.lastName,
+      email: data.email.trim().toLowerCase(),
+      phone: data.phone || null,
+      message: data.message,
+      source: data.source || "website-contact",
+    })
+    .select("id")
+    .single();
+
+  if (insertErr || !row) {
+    console.error("[Contact insert failed]", insertErr);
     return NextResponse.json(
-      { error: "Contact form not configured (missing webhook)" },
-      { status: 500 }
+      { error: "Could not save message — please call us at (904) 584-3047" },
+      { status: 500 },
     );
   }
 
-  try {
-    const ghlPayload = {
-      firstName: parsed.data.firstName,
-      lastName: parsed.data.lastName,
-      email: parsed.data.email,
-      phone: parsed.data.phone || "",
-      notes: parsed.data.message,
-      source: parsed.data.source || "website-contact",
-      // Flag so admin can distinguish contact form from booking form
-      contactType: "general_inquiry",
-    };
-
-    const r = await fetch(webhookUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(ghlPayload),
-    });
-
-    if (!r.ok) {
-      const text = await r.text();
-      console.error("[Contact GHL webhook failed]", r.status, text);
-      return NextResponse.json(
-        { error: "Failed to deliver message" },
-        { status: 502 }
-      );
+  // 2. Email admin via Resend (best-effort, non-blocking failure)
+  if (isEmailConfigured()) {
+    const adminEmail = process.env.ADMIN_ALERT_EMAIL || "admin@itsalwaysfun.com";
+    try {
+      const res = await sendEmail({
+        to: adminEmail,
+        replyTo: data.email,                       // reply goes straight to customer
+        subject: `📨 New contact form: ${data.firstName} ${data.lastName}`,
+        html: `<div style="font-family:system-ui,sans-serif;max-width:600px;">
+<h2 style="color:#1a1a6e;margin-bottom:8px;">New website contact</h2>
+<p style="color:#64748b;font-size:13px;margin-top:0;">Source: ${escapeHtml(data.source || "website-contact")}</p>
+<table style="border-collapse:collapse;width:100%;margin-bottom:16px;">
+  <tr><td style="padding:6px 0;color:#64748b;width:90px;">Name</td><td style="padding:6px 0;font-weight:600;">${escapeHtml(data.firstName)} ${escapeHtml(data.lastName)}</td></tr>
+  <tr><td style="padding:6px 0;color:#64748b;">Email</td><td style="padding:6px 0;"><a href="mailto:${escapeHtml(data.email)}">${escapeHtml(data.email)}</a></td></tr>
+  ${data.phone ? `<tr><td style="padding:6px 0;color:#64748b;">Phone</td><td style="padding:6px 0;"><a href="tel:${escapeHtml(data.phone)}">${escapeHtml(data.phone)}</a></td></tr>` : ""}
+</table>
+<div style="background:#f8fafc;border-left:4px solid #1a1a6e;padding:12px 16px;border-radius:4px;margin-bottom:16px;">
+  <p style="margin:0;white-space:pre-wrap;line-height:1.5;">${escapeHtml(data.message)}</p>
+</div>
+<p style="color:#64748b;font-size:12px;">Hit Reply to respond directly to ${escapeHtml(data.email)}.</p>
+</div>`,
+        text: `New contact from ${data.firstName} ${data.lastName}\nEmail: ${data.email}\n${data.phone ? `Phone: ${data.phone}\n` : ""}\nMessage:\n${data.message}`,
+        tags: [{ name: "type", value: "contact_form" }],
+      });
+      if (res.ok) {
+        await supabase
+          .from("contact_messages")
+          .update({ emailed_to_admin_at: new Date().toISOString() })
+          .eq("id", row.id);
+      }
+    } catch (e) {
+      console.error("[Contact email failed, non-fatal]", e);
     }
-
-    return NextResponse.json({ ok: true });
-  } catch (e: any) {
-    console.error("[Contact form error]", e);
-    return NextResponse.json({ error: e.message || "Network error" }, { status: 500 });
   }
+
+  // 3. Fire GHL webhook (best-effort, non-blocking failure)
+  const webhookUrl = process.env.GHL_BOOKING_WEBHOOK_URL;
+  if (webhookUrl) {
+    try {
+      const r = await fetch(webhookUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          firstName: data.firstName,
+          lastName: data.lastName,
+          email: data.email,
+          phone: data.phone || "",
+          notes: data.message,
+          source: data.source || "website-contact",
+          contactType: "general_inquiry",
+        }),
+      });
+      if (r.ok) {
+        await supabase
+          .from("contact_messages")
+          .update({ ghl_webhook_fired_at: new Date().toISOString() })
+          .eq("id", row.id);
+      } else {
+        const text = await r.text();
+        console.error("[Contact GHL webhook failed]", r.status, text);
+        await supabase
+          .from("contact_messages")
+          .update({ ghl_webhook_error: `${r.status}: ${text.substring(0, 300)}` })
+          .eq("id", row.id);
+      }
+    } catch (e: any) {
+      console.error("[Contact GHL webhook exception]", e);
+      await supabase
+        .from("contact_messages")
+        .update({ ghl_webhook_error: e.message?.substring(0, 300) || "exception" })
+        .eq("id", row.id);
+    }
+  }
+
+  return NextResponse.json({ ok: true, id: row.id });
 }
