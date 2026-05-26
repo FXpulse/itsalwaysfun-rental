@@ -7,6 +7,7 @@ import { BookingActions } from "./BookingActions";
 import { DeliveryChecklist } from "./DeliveryChecklist";
 import { ProofCapture } from "./ProofCapture";
 import { DamagesSection } from "./DamagesSection";
+import { ExpensesSection, type ExpenseRow } from "./ExpensesSection";
 import { getDeliveryChecklist } from "@/lib/delivery-checklist";
 import type { Booking } from "@/types/database";
 import { z } from "zod";
@@ -39,12 +40,14 @@ export default async function BookingDetailPage({
   // Compute delivery checklist from product inventory requirements
   const checklist = await getDeliveryChecklist(params.id);
 
-  // Load proofs (delivery + pickup), damages, inventory, + protection setting in parallel
+  // Load proofs, damages, inventory, protection setting, expenses + driver rate in parallel
   const [
     { data: proofs },
     { data: damagesRaw },
     { data: inventory },
     { data: protectionSetting },
+    { data: expensesRaw },
+    { data: driverRateSetting },
   ] = await Promise.all([
     supabase.from("booking_proofs").select("*").eq("booking_id", params.id),
     supabase
@@ -68,7 +71,21 @@ export default async function BookingDetailPage({
       .select("value")
       .eq("key", "damage_protection_coverage_cents")
       .maybeSingle(),
+    supabase
+      .from("booking_expenses")
+      .select("*")
+      .eq("booking_id", params.id)
+      .order("recorded_at", { ascending: false }),
+    supabase
+      .from("site_settings")
+      .select("value")
+      .eq("key", "default_driver_hourly_rate_cents")
+      .maybeSingle(),
   ]);
+
+  const expenses: ExpenseRow[] = (expensesRaw as ExpenseRow[]) || [];
+  const defaultDriverRateCents =
+    parseInt((driverRateSetting?.value as string) || "2000", 10) || 2000;
 
   const protectionCoverageCents = parseInt(
     (protectionSetting?.value as string) || "50000",
@@ -264,6 +281,13 @@ export default async function BookingDetailPage({
           inventory={(inventory as any[]) || []}
           hasProtection={!!(b as any).damage_protection_purchased}
           protectionCoverageCents={protectionCoverageCents}
+        />
+
+        <ExpensesSection
+          bookingId={b.id}
+          expenses={expenses}
+          defaultDriverRateCents={defaultDriverRateCents}
+          bookingTotalAmount={b.total_amount || 0}
         />
       </div>
 
