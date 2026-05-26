@@ -5,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin } from "@/lib/auth/roles";
 import { sendTemplated } from "@/lib/email/send-template";
 import { isEmailConfigured } from "@/lib/email/send";
+import { logAuditEvent } from "@/lib/audit";
 import { z } from "zod";
 
 const IssueSchema = z.object({
@@ -114,13 +115,29 @@ export async function deactivateGiftCard(id: string) {
 }
 
 export async function toggleGiftCardActive(id: string, currentlyActive: boolean) {
-  await requireAdmin();
+  const me = await requireAdmin();
   const supabase = createAdminClient();
+  const { data: card } = await supabase
+    .from("gift_cards")
+    .select("code, balance_cents, recipient_email")
+    .eq("id", id)
+    .single();
   const { error } = await supabase
     .from("gift_cards")
     .update({ is_active: !currentlyActive })
     .eq("id", id);
   if (error) return { error: error.message };
+  await logAuditEvent({
+    userEmail: me.email || "unknown",
+    action: currentlyActive ? "gift_card.deactivated" : "gift_card.reactivated",
+    entityType: "gift_card",
+    entityId: id,
+    details: {
+      code: card?.code,
+      balance_cents: card?.balance_cents,
+      recipient_email: card?.recipient_email,
+    },
+  });
   revalidatePath("/admin/gift-cards");
   return { success: true };
 }

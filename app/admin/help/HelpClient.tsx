@@ -23,6 +23,8 @@ import {
   CloudRain,
   Hash,
   Inbox,
+  AlertTriangle,
+  History,
 } from "lucide-react";
 
 interface Section {
@@ -1027,6 +1029,72 @@ export function HelpClient() {
             <li>Every reply is logged in the message's thread (sent_by + timestamp), so staff can see what was already said before replying again</li>
             <li>If Resend fails to deliver, the reply still saves to the log with the error — you can copy the text and resend manually</li>
           </ul>
+        </div>
+      ),
+    },
+    {
+      id: "quote-followup",
+      title: "Quote follow-up reminder (auto)",
+      icon: Mail,
+      content: (
+        <div className="space-y-3 text-sm">
+          <p>
+            Quotes sent but not accepted often sit in a customer's inbox and
+            get forgotten. A daily cron at 4 PM EST finds quotes that are{" "}
+            <strong>3+ days old, still in 'sent' or 'viewed' status, not
+            expired</strong> — and emails a friendly reminder with a big
+            "View and Accept" button.
+          </p>
+          <p className="font-semibold">Logic:</p>
+          <ul className="list-disc pl-5 text-xs space-y-1">
+            <li>Runs daily at 16:00 UTC (cron in vercel.json)</li>
+            <li>Only sends ONE reminder per quote (followup_sent_at marks it)</li>
+            <li>Skips paid, declined, or expired quotes</li>
+            <li>Up to 50 reminders per run (cap to avoid bursts)</li>
+            <li>Email tagged in Resend as <code>quote_followup</code> for analytics</li>
+          </ul>
+          <p className="text-xs text-slate-500">
+            💡 To trigger manually for testing:{" "}
+            <code>curl -H "Authorization: Bearer $CRON_SECRET" https://itsalwaysfun-rental.vercel.app/api/cron/quote-followup</code>
+          </p>
+        </div>
+      ),
+    },
+    {
+      id: "audit-log",
+      title: "Audit log — who did what, when",
+      icon: History,
+      content: (
+        <div className="space-y-3 text-sm">
+          <p>
+            Every sensitive admin action is recorded automatically in{" "}
+            <code>/admin/audit-log</code> with: who did it (email), what they
+            did (action name), what entity (booking/gift card/payout/etc.),
+            when, IP address, and a JSON details blob with the relevant context
+            (amounts, codes, customer email, etc.).
+          </p>
+          <p className="font-semibold">What gets logged today:</p>
+          <ul className="list-disc pl-5 text-xs space-y-1">
+            <li><code>booking.refunded</code> — admin refunded a paid booking (amount, method, Stripe refund ID, customer)</li>
+            <li><code>payout.approved.credit</code> — referrer payout approved as gift card credit</li>
+            <li><code>payout.approved.cash</code> — referrer payout approved as cash (W9 required)</li>
+            <li><code>gift_card.deactivated</code> / <code>.reactivated</code> — code disabled or re-enabled</li>
+          </ul>
+          <p className="text-xs">
+            Filter by user email, entity type, or action contains text. Last
+            500 events kept (older ones auto-rotate). Staff only see their own
+            actions; admins see everyone's.
+          </p>
+          <p className="text-xs text-slate-500">
+            💡 Use cases: investigate "who refunded that booking?" — search by
+            customer email or booking ID. Comply with audit requests from
+            insurance / IRS. Track if a new staff member is making mistakes.
+          </p>
+          <p className="text-xs text-slate-500">
+            💡 More actions can be hooked into the audit log easily — ask if
+            you want to track other things (e.g. customer cancellations from
+            portal, product price changes, user role changes).
+          </p>
         </div>
       ),
     },

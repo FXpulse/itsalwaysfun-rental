@@ -6,6 +6,7 @@ import { requireAdmin } from "@/lib/auth/roles";
 import { sendTemplated } from "@/lib/email/send-template";
 import { isEmailConfigured } from "@/lib/email/send";
 import { getSignedUrl } from "@/lib/storage/upload";
+import { logAuditEvent } from "@/lib/audit";
 
 /** Admin-only: returns a time-limited signed URL to view a W9 in the private bucket.
  *  Path is stored in payout_requests.w9_url / customer_profiles.w9_url. */
@@ -143,6 +144,18 @@ export async function approvePayoutRequest(requestId: string, adminNotes?: strin
 
     revalidatePath("/admin/loyalty");
     revalidatePath(`/admin/loyalty/${req.user_id}`);
+    await logAuditEvent({
+      userEmail: me.email || "unknown",
+      action: "payout.approved.credit",
+      entityType: "payout_request",
+      entityId: requestId,
+      details: {
+        amount_cents: req.amount_cents,
+        recipient_user_id: req.user_id,
+        gift_card_code: card.code,
+        admin_notes: adminNotes || null,
+      },
+    });
     return { success: true, type: "credit_issued", code: card.code };
   } else {
     // Stripe / cash payout — mark approved, admin processes externally
@@ -157,6 +170,17 @@ export async function approvePayoutRequest(requestId: string, adminNotes?: strin
       .eq("id", requestId);
 
     revalidatePath("/admin/loyalty");
+    await logAuditEvent({
+      userEmail: me.email || "unknown",
+      action: "payout.approved.cash",
+      entityType: "payout_request",
+      entityId: requestId,
+      details: {
+        amount_cents: req.amount_cents,
+        recipient_user_id: req.user_id,
+        admin_notes: adminNotes || null,
+      },
+    });
     return {
       success: true,
       type: "approved_pending_payment",

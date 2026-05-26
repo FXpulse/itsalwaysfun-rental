@@ -7,6 +7,7 @@ import { getStripe, isStripeConfigured } from "@/lib/stripe/server";
 import { awardForPaidBooking } from "@/lib/loyalty";
 import { sendBookingConfirmation } from "@/lib/email/scheduled-emails";
 import { sendBookingRefunded, sendBookingCancelled } from "@/lib/email/booking-lifecycle";
+import { logAuditEvent } from "@/lib/audit";
 import { z } from "zod";
 
 async function requireAdmin() {
@@ -142,6 +143,22 @@ export async function refundBooking(bookingId: string, note: string) {
   } catch (e) {
     console.error("[refund email failed, non-fatal]", e);
   }
+
+  // Audit log
+  await logAuditEvent({
+    userEmail: user.email || "unknown",
+    action: "booking.refunded",
+    entityType: "booking",
+    entityId: bookingId,
+    details: {
+      amount_cents: booking.total_amount,
+      method: methodLabel,
+      stripe_refund_id: stripeRefundId,
+      note: note || null,
+      customer_email: booking.customer_email,
+      event_date: booking.event_date,
+    },
+  });
 
   revalidatePath("/admin/bookings");
   revalidatePath(`/admin/bookings/${bookingId}`);
