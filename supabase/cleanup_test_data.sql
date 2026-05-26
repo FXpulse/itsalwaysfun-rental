@@ -1,18 +1,19 @@
 -- ─────────────────────────────────────────────────────────────────────────
 -- PRE-LAUNCH CLEANUP — wipe all test bookings + customer accounts
 -- ─────────────────────────────────────────────────────────────────────────
--- Use this BEFORE going live with real customers. Removes all test data
--- but KEEPS your configuration intact:
+-- NO TRANSACTION VERSION — each DELETE is auto-committed immediately when
+-- you click Run. Faster + simpler than the transaction version (Supabase
+-- SQL Editor closes sessions between Runs, which auto-rollback BEGIN blocks).
 --
 -- KEEPS:
 --   ✓ All products, inventory_items, fleet, categories, packages
 --   ✓ All site_settings (Stripe keys, brand colors, content, etc.)
 --   ✓ All user_roles (admin / staff / driver accounts)
---   ✓ All coupons, gift_card configurations (templates)
+--   ✓ All coupons, gift_card products (templates)
 --   ✓ All overhead_costs, overhead_categories, booking_expense_categories
---   ✓ All faqs, banners, reviews
---   ✓ audit_log (kept by default — comment out the DELETE line below if
---     you want to wipe it too)
+--   ✓ All faqs, banners
+--   ✓ audit_log (kept by default — uncomment the safe_delete call below
+--     if you want to wipe it too)
 --
 -- WIPES:
 --   ✗ All bookings + booking_expenses, booking_damages, booking_proofs,
@@ -23,29 +24,25 @@
 --   ✗ All payout_requests
 --   ✗ All contact_messages + replies
 --   ✗ All gift_cards (issued instances) + gift_card_transactions
---   ✗ All customer_profiles + loyalty data
+--   ✗ All customer_profiles + loyalty data + reviews
 --   ✗ All auth.users that are NOT in user_roles (i.e. customers, not staff)
 --
 -- ─────────────────────────────────────────────────────────────────────────
--- HOW TO USE (run in Supabase → SQL editor):
+-- HOW TO USE (Supabase → SQL Editor):
 --
--- STEP 1: Run "SECTION 1 — PREVIEW" to see what will be deleted
--- STEP 2: Run "SECTION 2 — TRANSACTION" (everything from BEGIN to the end)
--- STEP 3: Run "SECTION 3 — VERIFY" to confirm counts dropped to 0
--- STEP 4: Run "COMMIT;" by itself if happy, OR "ROLLBACK;" to undo
+-- STEP 1: Run "SECTION 1 — PREVIEW" alone to see what'll be deleted
+-- STEP 2: Run "SECTION 2 — DELETE" alone (paste from --- DELETE --- start
+--         to its end). All deletions auto-commit immediately.
+-- STEP 3: Run "SECTION 3 — VERIFY" alone to confirm zeros.
 --
--- The transaction means NOTHING is permanent until you COMMIT. If anything
--- looks wrong after step 3, just type ROLLBACK; and you're back to where
--- you started.
+-- ⚠ WARNING: This version has NO ROLLBACK. Once Section 2 runs, the
+-- deletions are permanent. Run Section 1 first to be sure of what's going.
 -- ─────────────────────────────────────────────────────────────────────────
 
 
 -- ═════════════════════════════════════════════════════════════════════════
 -- SECTION 1 — PREVIEW (read-only, safe to run anytime)
 -- ═════════════════════════════════════════════════════════════════════════
--- Just shows you what's about to disappear. Run this first.
--- Uses a function that returns 0 for tables that don't exist (defensive
--- against schema differences across deployments).
 
 do $$ begin
   create or replace function pg_temp.safe_count(t text) returns bigint as $f$
@@ -77,76 +74,77 @@ order by table_name;
 
 
 -- ═════════════════════════════════════════════════════════════════════════
--- SECTION 2 — TRANSACTION (the actual cleanup)
+-- SECTION 2 — DELETE (no transaction — runs immediately + permanent)
 -- ═════════════════════════════════════════════════════════════════════════
--- Run everything from BEGIN to the end of section 2 as ONE block.
--- Nothing is permanent yet — you still need to COMMIT in step 4.
+-- Run the whole block below as one query. Each statement commits as it goes.
 
-begin;
-
--- Helper: delete from a table only if it exists in this DB
-do $$ begin
-  create or replace function pg_temp.safe_delete(t text) returns void as $f$
-  begin
+do $$
+declare
+  tables_to_clear text[] := array[
+    -- booking children (delete before parents)
+    'public.booking_expenses',
+    'public.booking_damages',
+    'public.booking_proofs',
+    'public.booking_waivers',
+    'public.booking_extensions',
+    'public.coi_requests',
+    -- dispatch (children first)
+    'public.dispatch_stops',
+    'public.dispatch_routes',
+    -- bookings
+    'public.bookings',
+    -- quotes
+    'public.quote_items',
+    'public.quotes',
+    -- customer-facing
+    'public.contact_message_replies',
+    'public.contact_messages',
+    'public.payout_requests',
+    'public.loyalty_points_history',
+    'public.loyalty_transactions',
+    'public.gift_card_transactions',
+    'public.gift_cards',
+    'public.reviews',
+    'public.customer_profiles'
+    -- uncomment to also wipe audit log:
+    -- , 'public.audit_log'
+  ];
+  t text;
+  deleted_count bigint;
+begin
+  foreach t in array tables_to_clear loop
     if to_regclass(t) is not null then
       execute format('delete from %s', t);
+      get diagnostics deleted_count = row_count;
+      raise notice '✓ deleted % rows from %', deleted_count, t;
+    else
+      raise notice '⊘ skipped % (table does not exist)', t;
     end if;
-  end $f$ language plpgsql;
+  end loop;
+
+  -- Auth users (delete customers — keep active admin/staff/driver)
+  delete from auth.users
+  where id not in (select user_id from public.user_roles where is_active = true);
+  get diagnostics deleted_count = row_count;
+  raise notice '✓ deleted % auth.users (kept your team)', deleted_count;
 end $$;
 
--- ── booking-anchored rows (delete children first, then parents) ────────
-select pg_temp.safe_delete('public.booking_expenses');
-select pg_temp.safe_delete('public.booking_damages');
-select pg_temp.safe_delete('public.booking_proofs');
-select pg_temp.safe_delete('public.booking_waivers');
-select pg_temp.safe_delete('public.booking_extensions');
-select pg_temp.safe_delete('public.coi_requests');
-
--- dispatch (stops FK to bookings + routes)
-select pg_temp.safe_delete('public.dispatch_stops');
-select pg_temp.safe_delete('public.dispatch_routes');
-
--- bookings themselves
-delete from public.bookings;
-
--- ── quote system ───────────────────────────────────────────────────────
-select pg_temp.safe_delete('public.quote_items');
-select pg_temp.safe_delete('public.quotes');
-
--- ── customer-facing data ───────────────────────────────────────────────
-select pg_temp.safe_delete('public.contact_message_replies');
-select pg_temp.safe_delete('public.contact_messages');
-select pg_temp.safe_delete('public.payout_requests');
-
--- Loyalty history (table name varies between schema versions)
-select pg_temp.safe_delete('public.loyalty_points_history');
-select pg_temp.safe_delete('public.loyalty_transactions');
-
--- Gift cards issued (instances) — NOT the gift_card products in `products` table
-select pg_temp.safe_delete('public.gift_card_transactions');
-select pg_temp.safe_delete('public.gift_cards');
-
--- Reviews (customer-submitted)
-select pg_temp.safe_delete('public.reviews');
-
--- Customer profiles
-select pg_temp.safe_delete('public.customer_profiles');
-
--- ── auth users (delete ONLY non-staff customer accounts) ───────────────
--- This is the most sensitive step. We keep everyone who is in user_roles
--- (admin, staff, driver). Everyone else gets deleted from auth.users.
-delete from auth.users
-where id not in (select user_id from public.user_roles where is_active = true);
-
--- ── audit_log (OPTIONAL — uncomment if you also want to wipe it) ──────
--- delete from public.audit_log;
-
 
 -- ═════════════════════════════════════════════════════════════════════════
--- SECTION 3 — VERIFY (still inside the transaction, run before COMMIT)
+-- SECTION 3 — VERIFY (re-run counts after the deletion)
 -- ═════════════════════════════════════════════════════════════════════════
--- Re-run the same counts. All should be 0 except auth.users (which should
--- match the count of user_roles — your staff).
+-- Everything should be 0 except auth.users (TOTAL) which equals
+-- user_roles (your team).
+
+do $$ begin
+  create or replace function pg_temp.safe_count(t text) returns bigint as $f$
+  declare n bigint;
+  begin
+    if to_regclass(t) is null then return 0; end if;
+    execute format('select count(*) from %s', t) into n;
+    return n;
+  end $f$ language plpgsql;
+end $$;
 
 select 'bookings'              as table_name, pg_temp.safe_count('public.bookings')              as rows
 union all select 'booking_expenses',       pg_temp.safe_count('public.booking_expenses')
@@ -165,21 +163,3 @@ union all select 'customer_profiles',      pg_temp.safe_count('public.customer_p
 union all select 'auth.users (TOTAL)',     (select count(*) from auth.users)
 union all select 'user_roles (your team)', (select count(*) from public.user_roles where is_active = true)
 order by table_name;
-
-
--- ═════════════════════════════════════════════════════════════════════════
--- SECTION 4 — FINALIZE (run ONE of these by itself)
--- ═════════════════════════════════════════════════════════════════════════
-
--- ✅ Looks good? Make it permanent:
--- commit;
-
--- ❌ Something off? Undo everything:
--- rollback;
-
--- ─────────────────────────────────────────────────────────────────────────
--- After COMMIT, you may also want to:
---   - Clear Stripe test customers from the Stripe Dashboard (Test mode →
---     Customers → bulk delete). Doesn't affect Live mode customers.
---   - Clear GHL test contacts (sub-account → Contacts → filter "test" → delete)
--- ─────────────────────────────────────────────────────────────────────────
