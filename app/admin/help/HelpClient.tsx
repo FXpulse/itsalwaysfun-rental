@@ -1370,6 +1370,80 @@ export function HelpClient() {
       ),
     },
     {
+      id: "reports-advanced",
+      title: "Advanced reports — cash flow, monthly trends, drivers, LTV",
+      icon: Calculator,
+      content: (
+        <div className="space-y-3 text-sm">
+          <p>
+            <code>/admin/reports</code> now has four advanced cards beyond the P&amp;L
+            summary. They appear in this order:
+          </p>
+
+          <p className="font-semibold">1. Cash flow projection (next 90 days)</p>
+          <p className="text-xs">
+            Bucketed into <strong>Next 7d / 8–30d / 31–60d / 61–90d</strong>. For
+            each bucket: confirmed (paid) vs pending payment in dollars, plus
+            booking counts. Stacked bar chart shows distribution at a glance.
+          </p>
+          <p className="text-xs">
+            Use it to: plan staffing for busy weekends, see if the rest of the
+            month is going to be slow (run a promo), spot when pending bookings
+            are too high (chase those payments).
+          </p>
+
+          <p className="font-semibold">2. Monthly P&amp;L (last 12 months side-by-side)</p>
+          <p className="text-xs">
+            One column per month: Bookings count, Revenue, − Direct costs,
+            = Gross profit, − Overhead, = NET. Plus a Total column on the right.
+            Independent of the date filter (always trailing 12 months).
+          </p>
+          <p className="text-xs">
+            Use it to: spot seasonality (which months are profitable vs which
+            burn cash), see if margins are improving month over month, identify
+            outlier months that need investigation.
+          </p>
+
+          <p className="font-semibold">3. Top drivers / crew (labor hours in date range)</p>
+          <p className="text-xs">
+            Sums any booking expense whose category has the{" "}
+            <strong>supports_payroll_hours</strong> flag (payroll, setup_labor,
+            teardown_labor, or any custom you add), grouped by{" "}
+            <code>driver_email</code>. Shows hours, payroll $, $ per hour,
+            bookings count.
+          </p>
+          <p className="text-xs">
+            Use it to: prepare payroll runs (export the date range, pay each
+            driver), spot top performers, prep 1099-NEC year-end totals (set
+            the range to YTD).
+          </p>
+          <p className="text-xs text-amber-700">
+            ⚠ This only shows drivers when the <code>driver_email</code> field is
+            filled on the expense. Make sure your team fills it when recording
+            payroll on a booking.
+          </p>
+
+          <p className="font-semibold">4. Customer LTV (lifetime value, top 25)</p>
+          <p className="text-xs">
+            All-time totals per customer. Shows bookings, lifetime revenue,
+            avg per booking, first/last booking date, days since last, plus a
+            status badge:
+          </p>
+          <ul className="list-disc pl-5 text-xs space-y-1">
+            <li>🐳 <strong>Whale</strong> — top 3 by LTV with 2+ bookings</li>
+            <li><strong>Active</strong> — booked in last 90 days + repeat</li>
+            <li><strong>Returning</strong> — repeat customer</li>
+            <li><strong>One-time</strong> — single booking on record</li>
+            <li><strong>Lapsed 1yr+</strong> — booked once but hasn't in over a year (great win-back targets)</li>
+          </ul>
+          <p className="text-xs">
+            Use it to: send a personal thank-you to whales, win-back coupons to
+            lapsed customers, mass-tag active customers in GHL for VIP campaigns.
+          </p>
+        </div>
+      ),
+    },
+    {
       id: "low-stock",
       title: "Inventory low-stock alerts (auto)",
       icon: AlertTriangle,

@@ -5,6 +5,10 @@ import { formatCurrency } from "@/lib/utils";
 import { DateRangeForm } from "./DateRangeForm";
 import { PnLCard } from "./PnLCard";
 import { AccountingExportButtons } from "./AccountingExportButtons";
+import { CashFlowProjection } from "./CashFlowProjection";
+import { MonthlyPnLTable } from "./MonthlyPnLTable";
+import { DriversReport } from "./DriversReport";
+import { CustomerLTVReport } from "./CustomerLTVReport";
 import {
   TrendingUp,
   ShoppingBag,
@@ -252,6 +256,12 @@ export default async function AdminReportsPage({
       {/* Download CSVs for QuickBooks / accountant */}
       <AccountingExportButtons from={from} to={to} />
 
+      {/* Cash flow projection (next 90 days, independent of date range) */}
+      <CashFlowProjection />
+
+      {/* Monthly P&L side-by-side (last 12 months, independent of date range) */}
+      <MonthlyPnLTable />
+
       {/* Summary cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <SummaryCard
@@ -339,6 +349,12 @@ export default async function AdminReportsPage({
           />
         </Section>
       )}
+
+      {/* Top drivers / crew (labor hours + payroll in date range) */}
+      <DriversReport from={from} to={to} />
+
+      {/* Customer LTV (all-time) */}
+      <CustomerLTVReport />
 
       {/* Top customers */}
       {topCustomers.length > 0 && (
