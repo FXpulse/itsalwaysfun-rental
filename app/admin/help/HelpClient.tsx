@@ -833,6 +833,16 @@ export function HelpClient() {
             where email or GHL didn't go through — those are the ones to
             handle first.
           </p>
+          <p className="font-semibold mt-3">Replying directly from the inbox:</p>
+          <ul className="list-disc pl-5 text-xs space-y-1">
+            <li>Click <strong>Reply</strong> → inline composer opens (no need to leave the app)</li>
+            <li>Type the reply in plain text — blank lines become paragraphs</li>
+            <li>Customer receives a clean HTML email from <code>bookings@itsalwaysfun.com</code> with your message, sign-off, and the original collapsed at the bottom</li>
+            <li><strong>Reply-To is set to your email</strong> so if they reply, it goes to your inbox (not Resend)</li>
+            <li>Check <strong>"Mark resolved after sending"</strong> to close the message in one click</li>
+            <li>Every reply is logged in the message's thread (sent_by + timestamp), so staff can see what was already said before replying again</li>
+            <li>If Resend fails to deliver, the reply still saves to the log with the error — you can copy the text and resend manually</li>
+          </ul>
         </div>
       ),
     },

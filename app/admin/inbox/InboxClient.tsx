@@ -14,8 +14,10 @@ import {
   Clock,
   X,
 } from "lucide-react";
-import { markResolved, reopenMessage, deleteMessage } from "./actions";
+import { markResolved, reopenMessage, deleteMessage, replyToMessage } from "./actions";
 import type { ContactMessage } from "./page";
+
+import { Send, MessageSquare } from "lucide-react";
 
 export function InboxClient({
   messages,
@@ -28,6 +30,9 @@ export function InboxClient({
   const [pending, startTransition] = useTransition();
   const [resolvingId, setResolvingId] = useState<string | null>(null);
   const [note, setNote] = useState("");
+  const [replyingId, setReplyingId] = useState<string | null>(null);
+  const [replyBody, setReplyBody] = useState("");
+  const [replyAndResolve, setReplyAndResolve] = useState(true);
 
   function handleResolve(m: ContactMessage) {
     startTransition(async () => {
@@ -51,6 +56,27 @@ export function InboxClient({
         return;
       }
       toast.success("Reopened");
+      router.refresh();
+    });
+  }
+
+  function handleSendReply(m: ContactMessage) {
+    if (!replyBody.trim()) {
+      toast.error("Write a reply first");
+      return;
+    }
+    startTransition(async () => {
+      const r = await replyToMessage(m.id, replyBody, replyAndResolve);
+      if (r.error) {
+        toast.error(r.error);
+        return;
+      }
+      toast.success(
+        replyAndResolve ? "Reply sent + marked resolved" : "Reply sent",
+      );
+      setReplyingId(null);
+      setReplyBody("");
+      setReplyAndResolve(true);
       router.refresh();
     });
   }
@@ -136,18 +162,107 @@ export function InboxClient({
                 </div>
               </div>
               <div className="flex gap-1">
-                <a
-                  href={`mailto:${m.email}?subject=Re%3A%20your%20message%20to%20It%27s%20Always%20Fun`}
-                  className="text-xs bg-brand-navy text-white rounded px-3 py-1.5 font-semibold hover:bg-brand-navy-dark inline-flex items-center gap-1"
-                >
-                  <Mail className="h-3 w-3" /> Reply
-                </a>
+                {!replyingId && (
+                  <button
+                    onClick={() => {
+                      setReplyingId(m.id);
+                      setReplyBody("");
+                      setReplyAndResolve(!m.is_resolved);
+                    }}
+                    className="text-xs bg-brand-navy text-white rounded px-3 py-1.5 font-semibold hover:bg-brand-navy-dark inline-flex items-center gap-1"
+                  >
+                    <Mail className="h-3 w-3" /> Reply
+                  </button>
+                )}
               </div>
             </div>
 
             <div className="bg-slate-50 border border-slate-200 rounded p-3 mb-3 text-sm whitespace-pre-wrap">
               {m.message}
             </div>
+
+            {/* Reply thread */}
+            {m.replies.length > 0 && (
+              <div className="mb-3 space-y-2">
+                <div className="text-[10px] uppercase tracking-wide text-slate-500 font-semibold inline-flex items-center gap-1">
+                  <MessageSquare className="h-3 w-3" /> Replies ({m.replies.length})
+                </div>
+                {m.replies.map((r) => (
+                  <div
+                    key={r.id}
+                    className={`rounded p-3 text-sm border-l-2 ${
+                      r.send_error
+                        ? "bg-red-50 border-red-300"
+                        : "bg-blue-50 border-blue-400"
+                    }`}
+                  >
+                    <div className="text-[10px] text-slate-500 mb-1 flex items-center gap-2 flex-wrap">
+                      <strong>{r.sent_by}</strong>
+                      <span>· {new Date(r.sent_at).toLocaleString()}</span>
+                      {r.send_error && (
+                        <span className="text-red-700 inline-flex items-center gap-0.5">
+                          <AlertTriangle className="h-3 w-3" /> Failed: {r.send_error}
+                        </span>
+                      )}
+                    </div>
+                    <p className="whitespace-pre-wrap text-slate-700">{r.body}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Inline reply composer */}
+            {replyingId === m.id && (
+              <div className="bg-white border-2 border-brand-navy rounded p-3 mb-3 space-y-2">
+                <div className="text-xs text-slate-600">
+                  To: <strong>{m.email}</strong>{" "}
+                  <span className="text-slate-400">· From: bookings@itsalwaysfun.com (your replies route to your inbox)</span>
+                </div>
+                <textarea
+                  value={replyBody}
+                  onChange={(e) => setReplyBody(e.target.value)}
+                  rows={6}
+                  autoFocus
+                  placeholder={`Hi ${m.first_name},\n\nThanks for reaching out...`}
+                  className="input font-sans"
+                />
+                <div className="flex items-center justify-between gap-3 flex-wrap">
+                  <label className="inline-flex items-center gap-2 text-xs text-slate-600">
+                    <input
+                      type="checkbox"
+                      checked={replyAndResolve}
+                      onChange={(e) => setReplyAndResolve(e.target.checked)}
+                      className="h-3.5 w-3.5"
+                    />
+                    Mark resolved after sending
+                  </label>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => handleSendReply(m)}
+                      disabled={pending || !replyBody.trim()}
+                      className="bg-brand-navy text-white text-sm font-semibold rounded px-4 py-1.5 hover:bg-brand-navy-dark disabled:opacity-50 inline-flex items-center gap-1"
+                    >
+                      <Send className="h-3 w-3" />
+                      {pending ? "Sending..." : "Send reply"}
+                    </button>
+                    <button
+                      onClick={() => {
+                        setReplyingId(null);
+                        setReplyBody("");
+                      }}
+                      className="text-xs text-slate-600 hover:text-slate-900 px-2"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+                <p className="text-[10px] text-slate-400">
+                  💡 Plain text only — paragraphs split by blank lines. Customer
+                  sees a clean email with your reply, your sign-off, and the
+                  original message collapsed at the bottom.
+                </p>
+              </div>
+            )}
 
             {/* Delivery audit */}
             <div className="flex flex-wrap gap-2 text-[10px] mb-3">

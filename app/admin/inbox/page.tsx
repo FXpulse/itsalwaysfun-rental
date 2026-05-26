@@ -6,6 +6,14 @@ import { InboxClient } from "./InboxClient";
 
 export const dynamic = "force-dynamic";
 
+export interface ReplyRow {
+  id: string;
+  body: string;
+  sent_by: string;
+  send_error: string | null;
+  sent_at: string;
+}
+
 export interface ContactMessage {
   id: string;
   first_name: string;
@@ -22,6 +30,7 @@ export interface ContactMessage {
   resolved_by: string | null;
   admin_notes: string | null;
   created_at: string;
+  replies: ReplyRow[];
 }
 
 export default async function AdminInboxPage() {
@@ -31,12 +40,18 @@ export default async function AdminInboxPage() {
   const supabase = createAdminClient();
   const { data: messages } = await supabase
     .from("contact_messages")
-    .select("*")
+    .select(`*, replies:contact_message_replies(id, body, sent_by, send_error, sent_at)`)
     .order("is_resolved", { ascending: true })
     .order("created_at", { ascending: false })
     .limit(500);
 
-  const list: ContactMessage[] = (messages as ContactMessage[]) || [];
+  // Sort replies oldest-first within each message
+  const list: ContactMessage[] = ((messages as any[]) || []).map((m) => ({
+    ...m,
+    replies: ((m.replies as ReplyRow[]) || []).sort(
+      (a, b) => new Date(a.sent_at).getTime() - new Date(b.sent_at).getTime(),
+    ),
+  }));
   const unresolvedCount = list.filter((m) => !m.is_resolved).length;
   const deliveryIssues = list.filter(
     (m) => !m.is_resolved && (m.ghl_webhook_error || !m.emailed_to_admin_at),
