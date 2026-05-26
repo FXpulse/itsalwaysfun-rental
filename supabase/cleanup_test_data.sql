@@ -7,7 +7,7 @@
 -- KEEPS:
 --   ✓ All products, inventory_items, fleet, categories, packages
 --   ✓ All site_settings (Stripe keys, brand colors, content, etc.)
---   ✓ All app_users (admin / staff / driver accounts)
+--   ✓ All user_roles (admin / staff / driver accounts)
 --   ✓ All coupons, gift_card configurations (templates)
 --   ✓ All overhead_costs, overhead_categories, booking_expense_categories
 --   ✓ All faqs, banners, reviews
@@ -24,7 +24,7 @@
 --   ✗ All contact_messages + replies
 --   ✗ All gift_cards (issued instances) + gift_card_transactions
 --   ✗ All customer_profiles + loyalty data
---   ✗ All auth.users that are NOT in app_users (i.e. customers, not staff)
+--   ✗ All auth.users that are NOT in user_roles (i.e. customers, not staff)
 --
 -- ─────────────────────────────────────────────────────────────────────────
 -- HOW TO USE (run in Supabase → SQL editor):
@@ -72,7 +72,7 @@ union all select 'contact_messages',       pg_temp.safe_count('public.contact_me
 union all select 'gift_cards',             pg_temp.safe_count('public.gift_cards')
 union all select 'customer_profiles',      pg_temp.safe_count('public.customer_profiles')
 union all select 'auth.users (non-staff)',
-  (select count(*) from auth.users where id not in (select id from public.app_users))
+  (select count(*) from auth.users where id not in (select user_id from public.user_roles where is_active = true))
 order by table_name;
 
 
@@ -133,10 +133,10 @@ select pg_temp.safe_delete('public.reviews');
 select pg_temp.safe_delete('public.customer_profiles');
 
 -- ── auth users (delete ONLY non-staff customer accounts) ───────────────
--- This is the most sensitive step. We keep everyone who is in app_users
+-- This is the most sensitive step. We keep everyone who is in user_roles
 -- (admin, staff, driver). Everyone else gets deleted from auth.users.
 delete from auth.users
-where id not in (select id from public.app_users);
+where id not in (select user_id from public.user_roles where is_active = true);
 
 -- ── audit_log (OPTIONAL — uncomment if you also want to wipe it) ──────
 -- delete from public.audit_log;
@@ -146,7 +146,7 @@ where id not in (select id from public.app_users);
 -- SECTION 3 — VERIFY (still inside the transaction, run before COMMIT)
 -- ═════════════════════════════════════════════════════════════════════════
 -- Re-run the same counts. All should be 0 except auth.users (which should
--- match the count of app_users — your staff).
+-- match the count of user_roles — your staff).
 
 select 'bookings'              as table_name, pg_temp.safe_count('public.bookings')              as rows
 union all select 'booking_expenses',       pg_temp.safe_count('public.booking_expenses')
@@ -163,7 +163,7 @@ union all select 'contact_messages',       pg_temp.safe_count('public.contact_me
 union all select 'gift_cards',             pg_temp.safe_count('public.gift_cards')
 union all select 'customer_profiles',      pg_temp.safe_count('public.customer_profiles')
 union all select 'auth.users (TOTAL)',     (select count(*) from auth.users)
-union all select 'app_users (your team)',  (select count(*) from public.app_users)
+union all select 'user_roles (your team)', (select count(*) from public.user_roles where is_active = true)
 order by table_name;
 
 
