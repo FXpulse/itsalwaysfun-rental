@@ -67,6 +67,7 @@ const ItemInput = z.object({
   maintenance_notes: z.string().max(2000).optional().nullable(),
   notes: z.string().max(2000).optional().nullable(),
   is_active: z.boolean(),
+  low_stock_threshold: z.number().int().min(0).max(99999).optional(),
 });
 
 function parseForm(formData: FormData) {
@@ -93,6 +94,7 @@ function parseForm(formData: FormData) {
     maintenance_notes: str("maintenance_notes"),
     notes: str("notes"),
     is_active: formData.get("is_active") === "on",
+    low_stock_threshold: Math.max(0, Math.round(num("low_stock_threshold"))),
   };
 }
 

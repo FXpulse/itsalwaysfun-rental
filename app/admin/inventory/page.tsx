@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { AlertTriangle } from "lucide-react";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUserRole } from "@/lib/auth/roles";
 import { InventoryManager } from "./InventoryManager";
@@ -23,6 +24,7 @@ export interface InventoryItem {
   maintenance_notes: string | null;
   notes: string | null;
   is_active: boolean;
+  low_stock_threshold: number;
 }
 
 export interface InventoryCategory {
@@ -82,6 +84,50 @@ export default async function AdminInventoryPage() {
         Operational gear (generators, blowers, anchors, supplies, vehicles, tools).
         For rental products (bounce houses, accessories), use the Products page.
       </p>
+
+      {(() => {
+        const lowStock = list.filter(
+          (i) =>
+            i.is_active &&
+            i.low_stock_threshold > 0 &&
+            i.quantity_owned - i.quantity_in_use <= i.low_stock_threshold,
+        );
+        if (lowStock.length === 0) return null;
+        return (
+          <div className="bg-amber-50 border-l-4 border-amber-400 rounded p-3 mb-4">
+            <div className="flex items-start gap-2">
+              <AlertTriangle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <div className="font-bold text-amber-900 text-sm mb-1">
+                  ⚠ {lowStock.length} item{lowStock.length === 1 ? "" : "s"} at or below low-stock threshold
+                </div>
+                <ul className="text-xs text-amber-900 space-y-0.5">
+                  {lowStock.slice(0, 10).map((i) => {
+                    const avail = i.quantity_owned - i.quantity_in_use;
+                    return (
+                      <li key={i.id}>
+                        <strong>{i.name}</strong>{" "}
+                        <span className="text-amber-700">({i.category})</span>:{" "}
+                        <span className="font-mono">
+                          {avail} available / {i.quantity_owned} owned
+                        </span>{" "}
+                        <span className="text-amber-600">
+                          · threshold ≤ {i.low_stock_threshold}
+                        </span>
+                      </li>
+                    );
+                  })}
+                  {lowStock.length > 10 && (
+                    <li className="italic text-amber-700">
+                      ...and {lowStock.length - 10} more
+                    </li>
+                  )}
+                </ul>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {me.role === "admin" && (
         <CategoriesPanel

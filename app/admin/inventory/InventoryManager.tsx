@@ -212,7 +212,11 @@ export function InventoryManager({
                   <tbody className="divide-y divide-slate-100">
                     {list.map((item) => {
                       const available = item.quantity_owned - item.quantity_in_use;
-                      const lowStock = available === 0 && item.quantity_owned > 0;
+                      const allOut = available === 0 && item.quantity_owned > 0;
+                      const belowThreshold =
+                        item.low_stock_threshold > 0 &&
+                        available <= item.low_stock_threshold;
+                      const lowStockBadge = allOut || belowThreshold;
                       return (
                         <tr key={item.id}>
                           <td className="px-4 py-3">
@@ -225,15 +229,21 @@ export function InventoryManager({
                           </td>
                           <td className="px-4 py-3 text-center">
                             <span
-                              className={`font-mono font-semibold ${lowStock ? "text-red-600" : "text-brand-navy"}`}
+                              className={`font-mono font-semibold ${
+                                lowStockBadge ? "text-red-600" : "text-brand-navy"
+                              }`}
                             >
                               {available}
                             </span>
                             <span className="text-slate-400"> / {item.quantity_owned}</span>
-                            {lowStock && (
+                            {allOut && (
                               <div className="text-[10px] text-red-600 inline-flex items-center gap-0.5 ml-1">
-                                <AlertTriangle className="h-3 w-3" />
-                                all out
+                                <AlertTriangle className="h-3 w-3" /> all out
+                              </div>
+                            )}
+                            {!allOut && belowThreshold && (
+                              <div className="text-[10px] text-amber-700 inline-flex items-center gap-0.5 ml-1">
+                                <AlertTriangle className="h-3 w-3" /> low (≤{item.low_stock_threshold})
                               </div>
                             )}
                           </td>
@@ -456,6 +466,24 @@ function ItemFormModal({
               defaultValue={item?.quantity_in_use ?? 0}
               className="input"
             />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">
+              Low-stock alert at ≤
+              <span className="text-xs text-slate-400 ml-1">(0 = off)</span>
+            </label>
+            <input
+              name="low_stock_threshold"
+              type="number"
+              min={0}
+              max={9999}
+              defaultValue={item?.low_stock_threshold ?? 0}
+              className="input"
+              placeholder="0"
+            />
+            <p className="text-[10px] text-slate-400 mt-0.5">
+              Daily email when available (owned − in use) drops to this number or below.
+            </p>
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Condition</label>

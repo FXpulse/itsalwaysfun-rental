@@ -1370,6 +1370,44 @@ export function HelpClient() {
       ),
     },
     {
+      id: "low-stock",
+      title: "Inventory low-stock alerts (auto)",
+      icon: AlertTriangle,
+      content: (
+        <div className="space-y-3 text-sm">
+          <p>
+            Each inventory item can set a <strong>Low-stock alert at ≤</strong>{" "}
+            threshold (in the item form). A daily cron at 1 PM UTC scans every
+            active item and emails the admin if{" "}
+            <code>(quantity_owned - quantity_in_use) ≤ threshold</code>.
+          </p>
+          <p className="font-semibold">Smart re-alert logic:</p>
+          <ul className="list-disc pl-5 text-xs space-y-1">
+            <li>You only get ONE email per item per low-stock event</li>
+            <li>Once you restock above the threshold, the alert flag resets — next time it dips below you get a fresh alert</li>
+            <li>0 (default) disables the alert for that item</li>
+          </ul>
+          <p className="font-semibold">Where alerts appear:</p>
+          <ul className="list-disc pl-5 text-xs space-y-1">
+            <li><strong>Email digest</strong> — grouped by category, shows available/owned, threshold, location. Goes to <code>low_stock_alert_email</code> site setting (or <code>ADMIN_ALERT_EMAIL</code> env var if blank)</li>
+            <li><strong>Amber banner on /admin/inventory</strong> — always-on, shows ALL items currently below threshold (not just newly-low). Updates live whenever you refresh the page.</li>
+            <li><strong>Per-row "low" badge</strong> in the inventory table — amber AlertTriangle next to the available count</li>
+          </ul>
+          <p className="text-xs text-slate-500">
+            💡 To trigger manually for testing:{" "}
+            <code>curl -H "Authorization: Bearer $CRON_SECRET" https://itsalwaysfun-rental.vercel.app/api/cron/low-stock-alert</code>
+          </p>
+          <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded p-2">
+            ⚙️ <strong>Setup required (one time):</strong> run{" "}
+            <code>supabase/inventory_low_stock.sql</code> in the Supabase SQL editor.
+            This adds <code>low_stock_threshold</code> + <code>low_stock_alerted_at</code>{" "}
+            columns to <code>inventory_items</code> and seeds the <code>low_stock_alert_email</code>{" "}
+            site setting.
+          </p>
+        </div>
+      ),
+    },
+    {
       id: "accounting",
       title: "Accounting — true profit per booking + monthly overhead",
       icon: Calculator,
