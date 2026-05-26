@@ -1458,6 +1458,24 @@ export function HelpClient() {
             thinks about "when revenue happened" (the day you delivered),
             which is also how your accountant will want to see it.
           </p>
+
+          <p className="font-semibold">4. CSV export for accountant / QuickBooks</p>
+          <p className="text-xs">
+            Below the P&amp;L card on <code>/admin/reports</code> there's a green
+            "Accounting CSV export" box with three download buttons (scoped to
+            the same date range):
+          </p>
+          <ul className="list-disc pl-5 text-xs space-y-1">
+            <li><strong>Booking expenses</strong> — one row per per-booking expense (date, category label, amount, booking ID, customer, event date, driver hours, etc.)</li>
+            <li><strong>Overhead</strong> — one row per fixed monthly line active in the period (with group, category, monthly + annual amounts)</li>
+            <li><strong>P&amp;L summary</strong> — single multi-line CSV (Revenue, each direct-cost category, Gross profit, each overhead category, NET PROFIT)</li>
+          </ul>
+          <p className="text-xs text-slate-500">
+            💡 Send the three files to your accountant at tax time, or import
+            into QuickBooks Online / Xero / a spreadsheet. Dates are ISO format
+            (YYYY-MM-DD) and amounts are plain decimals with no $ signs — universally
+            compatible.
+          </p>
           <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded p-2">
             ⚙️ <strong>Setup required (one time, in this order):</strong>
             <ol className="list-decimal pl-5 mt-1">

@@ -4,6 +4,7 @@ import { getCurrentUserRole } from "@/lib/auth/roles";
 import { formatCurrency } from "@/lib/utils";
 import { DateRangeForm } from "./DateRangeForm";
 import { PnLCard } from "./PnLCard";
+import { AccountingExportButtons } from "./AccountingExportButtons";
 import {
   TrendingUp,
   ShoppingBag,
@@ -247,6 +248,9 @@ export default async function AdminReportsPage({
 
       {/* P&L summary — Revenue minus direct costs minus allocated overhead */}
       <PnLCard from={from} to={to} />
+
+      {/* Download CSVs for QuickBooks / accountant */}
+      <AccountingExportButtons from={from} to={to} />
 
       {/* Summary cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
