@@ -30,3 +30,11 @@ next-env.d.ts
 
 # Vercel
 .vercel
+
+# PWA — service worker + workbox bundles are generated at build time
+public/sw.js
+public/sw.js.map
+public/workbox-*.js
+public/workbox-*.js.map
+public/fallback-*.js
+public/fallback-*.js.map

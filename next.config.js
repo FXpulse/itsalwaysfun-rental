@@ -11,26 +11,44 @@ const nextConfig = {
   },
 };
 
-// Sentry wrapping: only applied if SENTRY_DSN env var is set.
-// If Sentry isn't configured yet (no DSN), the app builds + runs normally.
+// Compose wrappers in order: nextConfig → withPWA → withSentryConfig.
+// Each layer is optional and degrades gracefully if its dependency or
+// env vars are missing.
+
 let exported = nextConfig;
+
+// PWA layer — registers service worker for offline + installability.
+// Disabled in dev mode to avoid SW cache fighting hot-reload.
+try {
+  const withPWA = require("next-pwa")({
+    dest: "public",
+    register: true,
+    skipWaiting: true,
+    disable: process.env.NODE_ENV === "development",
+    // Don't pre-cache auth pages or stale-cache admin (security + freshness)
+    publicExcludes: ["!noprecache/**/*"],
+    buildExcludes: [/middleware-manifest\.json$/],
+  });
+  exported = withPWA(exported);
+} catch (e) {
+  console.warn("[pwa] next-pwa not installed — skipping wrap");
+}
+
+// Sentry layer — only when DSN configured
 if (process.env.SENTRY_DSN || process.env.NEXT_PUBLIC_SENTRY_DSN) {
   try {
     const { withSentryConfig } = require("@sentry/nextjs");
-    exported = withSentryConfig(nextConfig, {
-      // Sentry source-map upload options. Org + project are required for
-      // source maps. Get them from your Sentry project URL.
+    exported = withSentryConfig(exported, {
       org: process.env.SENTRY_ORG,
       project: process.env.SENTRY_PROJECT,
-      authToken: process.env.SENTRY_AUTH_TOKEN, // for CI uploads
+      authToken: process.env.SENTRY_AUTH_TOKEN,
       silent: !process.env.CI,
       widenClientFileUpload: true,
-      // Hide source maps from browser bundles after upload to Sentry
       hideSourceMaps: true,
       disableLogger: true,
     });
   } catch (e) {
-    console.warn("[sentry] @sentry/nextjs not installed yet — skipping wrap");
+    console.warn("[sentry] @sentry/nextjs not installed — skipping wrap");
   }
 }
 

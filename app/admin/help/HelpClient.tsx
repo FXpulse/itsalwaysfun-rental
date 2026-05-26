@@ -1215,6 +1215,53 @@ export function HelpClient() {
       ),
     },
     {
+      id: "pwa",
+      title: "Driver mobile app (PWA — install on phone home screen)",
+      icon: Smartphone,
+      content: (
+        <div className="space-y-3 text-sm">
+          <p>
+            The driver view at <code>/driver</code> can now be installed on
+            phones as an app — icon on home screen, full-screen mode (no
+            browser bar), offline support for venues with bad signal.
+          </p>
+          <p className="font-semibold">Driver onboarding (one time per phone):</p>
+          <ol className="list-decimal pl-5 space-y-1 text-xs">
+            <li>Driver opens <code>https://itsalwaysfun-rental.vercel.app/driver</code> in their phone browser</li>
+            <li><strong>Android (Chrome)</strong>: a navy banner appears bottom of screen — "Install the driver app" → tap <strong>Install</strong> → done</li>
+            <li><strong>iPhone (Safari)</strong>: same banner shows iOS-specific instructions — tap Share button → "Add to Home Screen"</li>
+            <li>App icon "IAF Driver" appears on home screen — tap to open in standalone mode</li>
+          </ol>
+          <p className="font-semibold">What it does:</p>
+          <ul className="list-disc pl-5 text-xs space-y-1">
+            <li>Opens full-screen (no URL bar / tabs) — looks like a native app</li>
+            <li>Loads in &lt;1 second after first install (cached)</li>
+            <li>Routes + booking data work offline (cached); marking stops, photos, signatures sync when signal returns</li>
+            <li>Auto-updates when you deploy changes — driver never needs to reinstall</li>
+            <li>Customer portal + admin pages also installable (same manifest covers the whole app)</li>
+          </ul>
+          <p className="font-semibold text-amber-800 bg-amber-50 border border-amber-200 rounded p-2">
+            ⚠ <strong>For best icon branding:</strong> upload 3 PNG files to{" "}
+            <code>public/icons/</code>:
+            <code className="block mt-1">icon-192.png · icon-512.png · icon-180.png</code>
+            Use <a href="https://realfavicongenerator.net/" target="_blank" rel="noopener noreferrer" className="underline">realfavicongenerator.net</a> to generate
+            them from your logo. Without these the PWA still works — just uses a
+            generic browser icon. See <code>public/icons/README.md</code> in the
+            repo for details.
+          </p>
+          <p className="text-xs text-slate-500">
+            💡 The install prompt remembers if the driver dismissed it for 7
+            days so they're not nagged. After 7 days it shows again.
+          </p>
+          <p className="text-xs text-slate-500">
+            💡 PWA is built on the same domain — no Apple Developer account or
+            Google Play submission required. Drivers can install it free in
+            seconds from the website.
+          </p>
+        </div>
+      ),
+    },
+    {
       id: "realtime",
       title: "Live notifications — bookings, messages, payouts, COI",
       icon: Sparkles,

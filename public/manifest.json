@@ -1,0 +1,47 @@
+{
+  "name": "It's Always Fun — Admin",
+  "short_name": "IAF Driver",
+  "description": "Bounce house rental management for It's Always Fun, LLC. Drivers can view today's routes, mark deliveries, capture proof + signatures offline.",
+  "start_url": "/driver",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#1a1a6e",
+  "theme_color": "#1a1a6e",
+  "lang": "en-US",
+  "categories": ["business", "productivity"],
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/icon-180.png",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Today's Routes",
+      "short_name": "Today",
+      "url": "/driver",
+      "description": "Jump straight to today's driver routes"
+    },
+    {
+      "name": "Admin Dashboard",
+      "short_name": "Dashboard",
+      "url": "/admin/dashboard",
+      "description": "Open the admin home"
+    }
+  ]
+}

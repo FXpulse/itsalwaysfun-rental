@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUserRole } from "@/lib/auth/roles";
 import { LogOut, Truck } from "lucide-react";
+import { InstallPWAPrompt } from "@/components/InstallPWAPrompt";
 
 export default async function DriverLayout({
   children,
@@ -50,6 +51,9 @@ export default async function DriverLayout({
         <p className="mb-1">{user.email} · {role.role}</p>
         <p>Questions? Call (904) 584-3047</p>
       </footer>
+
+      {/* PWA install prompt — auto-shows on Android/Chrome + iOS Safari helper */}
+      <InstallPWAPrompt label="Install the driver app on your phone" />
     </div>
   );
 }
