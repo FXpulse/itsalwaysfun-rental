@@ -104,7 +104,10 @@ export async function getSiteSettings(): Promise<SiteSettings> {
 
     const overrides: Partial<SiteSettings> = {};
     for (const row of data || []) {
-      if (row.value !== null && row.value !== "") {
+      // Honor whatever the admin saved — including empty strings (they may
+      // intentionally want to hide a field like address). Only fall back to
+      // DEFAULTS when the row is missing entirely.
+      if (row.value !== null) {
         (overrides as any)[row.key] = row.value;
       }
     }

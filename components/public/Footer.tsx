@@ -67,28 +67,34 @@ export function Footer({
             Contact
           </h4>
           <ul className="space-y-2 text-sm">
-            <li className="flex items-start gap-2">
-              <Phone className="h-4 w-4 mt-0.5 text-brand-yellow flex-shrink-0" />
-              <a
-                href={`tel:${phone.replace(/\D/g, "")}`}
-                className="hover:text-brand-yellow transition"
-              >
-                {phone}
-              </a>
-            </li>
-            <li className="flex items-start gap-2">
-              <Mail className="h-4 w-4 mt-0.5 text-brand-yellow flex-shrink-0" />
-              <a
-                href={`mailto:${email}`}
-                className="hover:text-brand-yellow transition break-all"
-              >
-                {email}
-              </a>
-            </li>
-            <li className="flex items-start gap-2">
-              <MapPin className="h-4 w-4 mt-0.5 text-brand-yellow flex-shrink-0" />
-              <span className="text-white/80">{address}</span>
-            </li>
+            {phone && (
+              <li className="flex items-start gap-2">
+                <Phone className="h-4 w-4 mt-0.5 text-brand-yellow flex-shrink-0" />
+                <a
+                  href={`tel:${phone.replace(/\D/g, "")}`}
+                  className="hover:text-brand-yellow transition"
+                >
+                  {phone}
+                </a>
+              </li>
+            )}
+            {email && (
+              <li className="flex items-start gap-2">
+                <Mail className="h-4 w-4 mt-0.5 text-brand-yellow flex-shrink-0" />
+                <a
+                  href={`mailto:${email}`}
+                  className="hover:text-brand-yellow transition break-all"
+                >
+                  {email}
+                </a>
+              </li>
+            )}
+            {address && (
+              <li className="flex items-start gap-2">
+                <MapPin className="h-4 w-4 mt-0.5 text-brand-yellow flex-shrink-0" />
+                <span className="text-white/80">{address}</span>
+              </li>
+            )}
           </ul>
         </div>
 
