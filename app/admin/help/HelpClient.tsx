@@ -879,7 +879,14 @@ export function HelpClient() {
           <p className="text-xs text-slate-500">
             💡 The "Delivery issues" stat at the top counts unresolved messages
             where email or GHL didn't go through — those are the ones to
-            handle first.
+            handle first. When a delivery fails, you'll see a <strong>red banner
+            inside the message card</strong> with the exact Resend/GHL error
+            (no need to dig in Vercel logs).
+          </p>
+          <p className="text-xs text-slate-500">
+            💡 New unresolved messages also show as a <strong>red alert panel
+            on the Dashboard</strong> (top 5 with sender, subject, badge). The
+            "X need attention" pill in the header counts them.
           </p>
 
           <div className="bg-blue-50 border-l-4 border-blue-400 rounded p-3 mt-3 space-y-2">
@@ -979,6 +986,10 @@ export function HelpClient() {
             <li>☐ Add a CRUD inventory category → confirm it appears in the dropdown when creating an item</li>
             <li>☐ Submit the public <code>/contact</code> form → check (1) row appears in <code>/admin/inbox</code>, (2) admin gets email at ADMIN_ALERT_EMAIL, (3) GHL contact created with general_inquiry tag</li>
             <li>☐ Reply to a contact message from <code>/admin/inbox</code> → check customer receives the reply email, reply appears in the thread, and message is marked resolved</li>
+            <li>☐ With unresolved messages: dashboard shows amber "X unread messages in Contact Inbox" panel with top 5</li>
+            <li>☐ Change site font: <code>/admin/site</code> → SiteFontPicker → "Quicksand" → Save → public homepage refresh shows new font everywhere</li>
+            <li>☐ Self-hosted font: pick "Louis George Cafe (self-hosted)" → upload a .woff2 → Save → public site loads it via @font-face (check page source for the @font-face rule)</li>
+            <li>☐ (When configured) Send test email from Gmail to bookings@itsalwaysfun.net → Cloudflare Worker forwards → appears in /admin/inbox within ~30s with blue "Email" badge</li>
             <li>☐ Create staff + driver users → login as each → verify role gating</li>
             <li>☐ Driver marks stop delivered → captures proof photos + signature</li>
             <li>☐ Record damage with protection vs without → check chargeable amounts</li>
