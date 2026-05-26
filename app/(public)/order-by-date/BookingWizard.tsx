@@ -1081,6 +1081,9 @@ function CustomerInfoStep({
 }) {
   const waiverOk = !waiverEnabled || (waiverAgreed && waiverSignedName.trim().length >= 2);
   const coiOk = !coiRequested || coiVenueName.trim().length > 0;
+  // Power source question only shows when powerSupply add-on product exists.
+  // If missing, don't block the form on it (defensive — old DBs without seed).
+  const powerSourceOk = !powerSupply || !!customer.powerSource;
 
   const valid =
     customer.firstName.trim() &&
@@ -1091,7 +1094,7 @@ function CustomerInfoStep({
     customer.city.trim() &&
     customer.zip.trim() &&
     customer.surfaceType &&
-    customer.powerSource &&
+    powerSourceOk &&
     waiverOk &&
     coiOk;
 
