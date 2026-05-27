@@ -61,7 +61,7 @@ export default async function AdminAuditLogPage({
           <input
             name="user"
             defaultValue={searchParams.user || ""}
-            placeholder="admin@itsalwaysfun.com"
+            placeholder="user@example.com"
             className="input"
           />
         </div>

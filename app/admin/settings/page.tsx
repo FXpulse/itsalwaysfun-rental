@@ -1,156 +1,155 @@
+import Link from "next/link";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { Check, X, ExternalLink } from "lucide-react";
+import { getCurrentTenantId } from "@/lib/tenant/server";
+import { CreditCard, Palette, Receipt, ShieldCheck, ExternalLink } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminSettingsPage() {
-  // System checks
-  const checks = {
-    supabaseUrl: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
-    supabaseAnon: !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-    supabaseService: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
-    stripe:
-      !!process.env.STRIPE_SECRET_KEY &&
-      process.env.STRIPE_SECRET_KEY !== "" &&
-      !process.env.STRIPE_SECRET_KEY.startsWith("PASTE"),
-    stripeWebhook:
-      !!process.env.STRIPE_WEBHOOK_SECRET &&
-      !process.env.STRIPE_WEBHOOK_SECRET.startsWith("PASTE"),
-    ghlApi:
-      !!process.env.GHL_API_KEY &&
-      process.env.GHL_API_KEY.startsWith("pit-"),
-    ghlWebhook: !!process.env.GHL_WEBHOOK_SECRET,
-  };
+  const tenantId = getCurrentTenantId();
+  const unscoped = createAdminClient({ unscoped: true });
 
-  // Active product count (sanity check)
-  const supabase = createAdminClient();
-  const { count: productCount } = await supabase
+  const { data: tenant } = await unscoped
+    .from("tenants")
+    .select("business_name, owner_email, owner_phone, custom_domain, slug, plan, trial_ends_at, stripe_account_id")
+    .eq("id", tenantId)
+    .maybeSingle();
+
+  const scoped = createAdminClient();
+  const { data: settingsRows } = await scoped
+    .from("site_settings")
+    .select("key, value")
+    .in("key", ["business_address", "business_email"]);
+  const settingsMap = new Map<string, string>(
+    (settingsRows || []).map((r: any) => [r.key as string, r.value as string]),
+  );
+  const { count: productCount } = await scoped
     .from("products")
     .select("id", { count: "exact", head: true })
     .eq("is_active", true);
+
+  const publicUrl = tenant?.custom_domain
+    ? `https://${tenant.custom_domain}`
+    : tenant?.slug
+    ? `https://${tenant.slug}.getrentalflow.com`
+    : "";
+  const stripeConnected = !!(tenant as any)?.stripe_account_id;
 
   return (
     <div className="max-w-3xl">
       <h1 className="text-2xl font-bold text-brand-navy mb-1">Settings</h1>
       <p className="text-sm text-slate-500 mb-6">
-        System status, integrations, and business info.
+        Your business info and account configuration.
       </p>
 
       {/* Business info */}
       <div className="card mb-6">
         <h2 className="text-lg font-semibold mb-4">Business info</h2>
         <dl className="space-y-3 text-sm">
-          <Row label="Business name" value={process.env.NEXT_PUBLIC_BUSINESS_NAME || "—"} />
-          <Row label="Phone" value={process.env.NEXT_PUBLIC_BUSINESS_PHONE || "(not set)"} />
-          <Row label="Address" value={process.env.NEXT_PUBLIC_BUSINESS_ADDRESS || "Jacksonville, FL"} />
-          <Row label="Notification email" value={process.env.NOTIFICATION_EMAIL || "—"} />
-          <Row label="App URL" value={process.env.NEXT_PUBLIC_APP_URL || "—"} />
+          <Row label="Business name" value={tenant?.business_name || "—"} />
+          <Row label="Owner email" value={tenant?.owner_email || "—"} />
+          <Row label="Phone" value={(tenant as any)?.owner_phone || "(not set)"} />
+          <Row label="Business email" value={settingsMap.get("business_email") || "—"} />
+          <Row label="Address" value={settingsMap.get("business_address") || "(not set)"} />
+          <Row label="Public site" value={publicUrl} link={publicUrl} />
         </dl>
         <p className="text-xs text-slate-400 mt-4">
-          To change these, edit env vars in Vercel: Settings → Environment Variables.
+          To change business name, logo, or colors, go to{" "}
+          <Link href="/admin/settings/branding" className="text-brand-navy underline">
+            Branding
+          </Link>
+          . For phone, email, address, hours, and other public content, go to{" "}
+          <Link href="/admin/site" className="text-brand-navy underline">
+            Website content
+          </Link>
+          .
         </p>
       </div>
 
-      {/* Integrations */}
+      {/* Account / Plan */}
       <div className="card mb-6">
-        <h2 className="text-lg font-semibold mb-4">Integrations</h2>
-        <dl className="space-y-3">
-          <Status
-            label="Supabase database"
-            ok={checks.supabaseUrl && checks.supabaseAnon && checks.supabaseService}
-            detail={`URL: ${process.env.NEXT_PUBLIC_SUPABASE_URL?.replace("https://", "") || "(missing)"}`}
-          />
-          <Status
-            label="Stripe payments"
-            ok={checks.stripe}
-            detail={
-              checks.stripe
-                ? checks.stripeWebhook
-                  ? "API key + webhook secret configured"
-                  : "API key OK, webhook secret missing (configure /api/webhooks/stripe)"
-                : "Not configured — Phase 2 pending"
+        <h2 className="text-lg font-semibold mb-4">Plan & billing</h2>
+        <dl className="space-y-3 text-sm">
+          <Row label="Plan" value={(tenant?.plan || "—").toString().toUpperCase()} />
+          <Row
+            label="Trial ends"
+            value={
+              tenant?.trial_ends_at
+                ? new Date(tenant.trial_ends_at).toLocaleDateString()
+                : "—"
             }
           />
-          <Status
-            label="GoHighLevel API"
-            ok={checks.ghlApi}
-            detail={
-              checks.ghlApi
-                ? `Sub-account: ${process.env.GHL_LOCATION_ID || "(missing location ID)"}`
-                : "PIT not configured"
-            }
+          <Row
+            label="Payments (Stripe Connect)"
+            value={stripeConnected ? "Connected ✓" : "Not connected"}
           />
         </dl>
+        <div className="flex gap-2 mt-4">
+          <Link href="/admin/settings/billing" className="text-xs text-brand-navy hover:underline inline-flex items-center gap-1">
+            <Receipt className="h-3 w-3" /> Manage billing →
+          </Link>
+          <span className="text-slate-300">·</span>
+          <Link href="/admin/settings/payments" className="text-xs text-brand-navy hover:underline inline-flex items-center gap-1">
+            <CreditCard className="h-3 w-3" /> Stripe Connect →
+          </Link>
+        </div>
       </div>
 
       {/* Inventory snapshot */}
       <div className="card mb-6">
         <h2 className="text-lg font-semibold mb-4">Inventory</h2>
         <dl className="space-y-3 text-sm">
-          <Row label="Active products" value={productCount?.toString() || "0"} />
+          <Row label="Active rental items" value={productCount?.toString() || "0"} />
         </dl>
         <p className="text-xs text-slate-400 mt-4">
-          Manage products in the <a href="/admin/products" className="text-brand-navy underline">Products</a> page.
+          Manage rental items on the{" "}
+          <Link href="/admin/products" className="text-brand-navy underline">
+            Products
+          </Link>{" "}
+          page.
         </p>
       </div>
 
-      {/* Reference links */}
+      {/* Quick links to other settings */}
       <div className="card">
-        <h2 className="text-lg font-semibold mb-4">Reference links</h2>
+        <h2 className="text-lg font-semibold mb-4">Other settings</h2>
         <ul className="space-y-2 text-sm">
-          <Link href="https://supabase.com/dashboard" label="Supabase Dashboard" />
-          <Link href="https://dashboard.stripe.com" label="Stripe Dashboard" />
-          <Link href="https://vercel.com/dashboard" label="Vercel Deployments" />
-          <Link
-            href={`https://panel.sclickmedia.com/v2/location/${process.env.GHL_LOCATION_ID || ""}/dashboard`}
-            label="GHL Sub-account (It's Always Fun)"
-          />
-          <Link href="https://github.com/FXpulse/itsalwaysfun-rental" label="GitHub Repo" />
+          <QuickLink href="/admin/settings/branding" icon={Palette} label="Branding — logo, colors, business name" />
+          <QuickLink href="/admin/settings/payments" icon={CreditCard} label="Payments (Stripe Connect)" />
+          <QuickLink href="/admin/settings/billing" icon={Receipt} label="Billing — your RentalFlow subscription" />
+          <QuickLink href="/admin/settings/damage-protection" icon={ShieldCheck} label="Damage protection — enable, price, coverage" />
         </ul>
       </div>
     </div>
   );
 }
 
-function Row({ label, value }: { label: string; value: string }) {
+function Row({ label, value, link }: { label: string; value: string; link?: string }) {
   return (
     <div className="flex items-baseline gap-3 border-b border-slate-100 pb-2">
       <dt className="text-slate-500 w-40 text-sm">{label}</dt>
-      <dd className="text-slate-900 font-medium">{value}</dd>
-    </div>
-  );
-}
-
-function Status({ label, ok, detail }: { label: string; ok: boolean; detail: string }) {
-  return (
-    <div className="flex items-start gap-3 border-b border-slate-100 pb-3">
-      <div className="mt-0.5">
-        {ok ? (
-          <Check className="h-5 w-5 text-emerald-600" />
+      <dd className="text-slate-900 font-medium">
+        {link ? (
+          <a href={link} target="_blank" rel="noopener noreferrer" className="text-brand-navy hover:underline inline-flex items-center gap-1">
+            {value} <ExternalLink className="h-3 w-3" />
+          </a>
         ) : (
-          <X className="h-5 w-5 text-amber-500" />
+          value
         )}
-      </div>
-      <div className="flex-1">
-        <div className="font-medium text-sm">{label}</div>
-        <div className="text-xs text-slate-500 mt-0.5">{detail}</div>
-      </div>
+      </dd>
     </div>
   );
 }
 
-function Link({ href, label }: { href: string; label: string }) {
+function QuickLink({ href, icon: Icon, label }: { href: string; icon: any; label: string }) {
   return (
     <li>
-      <a
+      <Link
         href={href}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="inline-flex items-center gap-1.5 text-brand-navy hover:underline"
+        className="inline-flex items-center gap-2 text-brand-navy hover:underline"
       >
-        <ExternalLink className="h-3.5 w-3.5" />
-        {label}
-      </a>
+        <Icon className="h-4 w-4" /> {label}
+      </Link>
     </li>
   );
 }

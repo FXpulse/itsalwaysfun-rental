@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { sendBookingCancelled } from "@/lib/email/booking-lifecycle";
 import { sendTemplated } from "@/lib/email/send-template";
 import { isEmailConfigured } from "@/lib/email/send";
+import { getTenantBusinessName } from "@/lib/tenant/business";
 import { z } from "zod";
 
 const CUTOFF_HOURS = 48;
@@ -302,7 +303,7 @@ export async function cancelBookingDueToWeather(bookingId: string) {
         balance_cents: paidCents,
         recipient_email: booking.customer_email,
         recipient_name: `${booking.customer_first_name} ${booking.customer_last_name}`.trim(),
-        purchaser_name: "It's Always Fun (weather cancellation credit)",
+        purchaser_name: `${(await getTenantBusinessName()) || "Rental Company"} (weather cancellation credit)`,
         message: `Credit for your ${booking.event_date} booking that was cancelled due to weather. Apply at checkout when you rebook.`,
         expires_at: oneYearFromNow.toISOString(),
         is_active: true,
@@ -352,7 +353,7 @@ export async function cancelBookingDueToWeather(bookingId: string) {
 <p>Amount: <strong>$${amountDollars}</strong> · Expires: ${oneYearFromNow.toLocaleDateString()}</p>
 <p>Use it at checkout when you rebook: <a href="${baseUrl}/order-by-date">${baseUrl}/order-by-date</a></p>
 <p>Stay safe — we look forward to setting you up on a better day.</p>
-<p>— The It's Always Fun team</p>`,
+<p>— Your rental team</p>`,
             text: `Weather credit: ${card.code} ($${amountDollars}) — valid 1 year. Use at ${baseUrl}/order-by-date`,
           }),
           tags: [{ name: "type", value: "weather_cancellation_credit" }],

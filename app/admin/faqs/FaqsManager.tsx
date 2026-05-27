@@ -191,7 +191,7 @@ function FaqFormCard({
             required
             rows={4}
             defaultValue={initial?.answer || ""}
-            placeholder="Jacksonville, FL and surrounding areas..."
+            placeholder="Your service area and any extra notes..."
             className="input"
             disabled={pending}
           />

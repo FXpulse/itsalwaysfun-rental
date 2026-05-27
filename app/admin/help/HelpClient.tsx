@@ -55,9 +55,9 @@ export function HelpClient() {
       content: (
         <div className="space-y-3 text-sm">
           <p>
-            This is your complete rental management system for It's Always Fun. It
-            handles bookings, payments, customers, inventory, dispatch, drivers,
-            damages — everything end-to-end.
+            This is your complete rental management system. It handles bookings,
+            payments, customers, inventory, dispatch, drivers, damages —
+            everything end-to-end.
           </p>
           <p>The platform is split into <strong>4 sections</strong>:</p>
           <ul className="list-disc pl-5 space-y-1">
@@ -997,30 +997,15 @@ export function HelpClient() {
 
           <div className="bg-blue-50 border-l-4 border-blue-400 rounded p-3 mt-3 space-y-2">
             <p className="font-bold text-blue-900 text-sm">
-              📥 Receive emails sent to bookings@itsalwaysfun.com directly in the inbox
+              📥 Optional: receive emails to your own address directly in the inbox
             </p>
             <p className="text-xs text-blue-900">
-              Customers replying to booking confirmations or anyone emailing
-              bookings@ directly can land in <code>/admin/inbox</code> as new
-              messages (with subject + body). One-time setup using Cloudflare
-              Email Workers (FREE):
-            </p>
-            <ol className="list-decimal pl-5 text-xs space-y-1 text-blue-900">
-              <li>Verify your domain (itsalwaysfun.com) is on Cloudflare DNS</li>
-              <li>Cloudflare dashboard → Email → Email Routing → enable for the domain (this adds MX records)</li>
-              <li>Workers & Pages → Create → Email Worker. Paste the Worker code from <code>/email-worker-template.js</code> (see below)</li>
-              <li>Set 2 Worker secrets: <code>INBOX_WEBHOOK_URL</code> = your <code>https://itsalwaysfun-rental.vercel.app/api/email/inbound</code> and <code>INBOX_SECRET</code> = a random string</li>
-              <li>In Vercel env vars: set <code>INBOUND_EMAIL_SECRET</code> = the SAME random string. Redeploy.</li>
-              <li>Email Routing → Routes → custom address <code>bookings@itsalwaysfun.com</code> → "Send to Worker" → pick the one you created</li>
-            </ol>
-            <p className="text-xs text-blue-900">
-              <strong>Test</strong>: send an email from Gmail to <code>bookings@itsalwaysfun.com</code> →
-              within ~30s it should appear in <code>/admin/inbox</code> as a new message
-              with a blue "Email" badge. Reply from the inbox like any other message.
-            </p>
-            <p className="text-xs text-blue-900">
-              💡 The Worker template is provided in this repo at <code>cloudflare/email-worker.js</code>.
-              Copy that whole file into the Worker editor and just deploy.
+              Want customer replies (and direct emails to e.g.{" "}
+              <code>bookings@yourdomain.com</code>) to land in{" "}
+              <code>/admin/inbox</code> automatically? This needs a small
+              one-time setup. Contact RentalFlow support and we'll walk you
+              through it — takes about 10 minutes if your domain is on
+              Cloudflare DNS.
             </p>
           </div>
 
@@ -1028,7 +1013,7 @@ export function HelpClient() {
           <ul className="list-disc pl-5 text-xs space-y-1">
             <li>Click <strong>Reply</strong> → inline composer opens (no need to leave the app)</li>
             <li>Type the reply in plain text — blank lines become paragraphs</li>
-            <li>Customer receives a clean HTML email from <code>bookings@itsalwaysfun.com</code> with your message, sign-off, and the original collapsed at the bottom</li>
+            <li>Customer receives a clean HTML email from your configured sender address with your message, sign-off, and the original collapsed at the bottom</li>
             <li><strong>Reply-To is set to your email</strong> so if they reply, it goes to your inbox</li>
             <li>Check <strong>"Mark resolved after sending"</strong> to close the message in one click</li>
             <li>Every reply is logged in the message's thread (sent_by + timestamp), so staff can see what was already said before replying again</li>
@@ -1391,8 +1376,8 @@ export function HelpClient() {
           </p>
 
           <p className="text-xs text-slate-500">
-            💡 To trigger the weekly cron manually for testing:{" "}
-            <code>curl -H "Authorization: Bearer $CRON_SECRET" https://itsalwaysfun.net/api/cron/weekly-backup</code>
+            💡 Need a backup right now (off-cycle)? Contact RentalFlow support
+            and we can run it on demand.
           </p>
           <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded p-2">
             ⚠ <strong>Setup required (one time):</strong> run{" "}
@@ -1785,7 +1770,7 @@ export function HelpClient() {
             <li>☐ Edit a package → add 2-3 products from inventory → upload custom image via Upload button → toggle Active → confirm it appears at <code>/packages</code> public</li>
             <li>☐ Change site font: <code>/admin/site</code> → SiteFontPicker → "Quicksand" → Save → public homepage refresh shows new font everywhere</li>
             <li>☐ Self-hosted font: pick "Louis George Cafe (self-hosted)" → upload a .woff2 → Save → public site loads it via @font-face (check page source for the @font-face rule)</li>
-            <li>☐ (When configured) Send test email from Gmail to bookings@itsalwaysfun.net → Cloudflare Worker forwards → appears in /admin/inbox within ~30s with blue "Email" badge</li>
+            <li>☐ (When configured) Send a test email to your inbound address → appears in /admin/inbox within ~30s with blue "Email" badge</li>
             <li>☐ Create staff + driver users → login as each → verify role gating</li>
             <li>☐ Driver marks stop delivered → captures proof photos + signature</li>
             <li>☐ Record damage with protection vs without → check chargeable amounts</li>
@@ -1862,8 +1847,8 @@ export function HelpClient() {
       {/* Footer help */}
       <div className="card text-center text-slate-500 text-sm">
         <p>
-          Need help with something not covered here? Email <strong>admin@itsalwaysfun.com</strong>{" "}
-          or check the GitHub repo for technical details.
+          Need help with something not covered here? Email{" "}
+          <strong>support@getrentalflow.com</strong> and we'll get back to you.
         </p>
       </div>
     </div>

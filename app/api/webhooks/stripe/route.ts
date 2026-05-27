@@ -18,6 +18,7 @@ import { awardForPaidBooking } from "@/lib/loyalty";
 import { sendBookingConfirmation } from "@/lib/email/scheduled-emails";
 import { sendTemplated } from "@/lib/email/send-template";
 import { isEmailConfigured } from "@/lib/email/send";
+import { getTenantInfo } from "@/lib/tenant/business";
 
 export const dynamic = "force-dynamic";
 
@@ -372,8 +373,12 @@ async function fulfillGiftCardPurchase(pi: Stripe.PaymentIntent) {
   // Email the recipient (best-effort)
   if (isEmailConfigured()) {
     const baseUrl =
-      process.env.NEXT_PUBLIC_APP_URL || "https://itsalwaysfun-rental.vercel.app";
+      process.env.NEXT_PUBLIC_APP_URL || "https://www.getrentalflow.com";
     const amountDollars = (purchase.amount_cents / 100).toFixed(2);
+    // Resolve tenant brand from the purchase row (webhook runs without
+    // request context so getCurrentTenantId() isn't available).
+    const tenantBrand = await getTenantInfo((purchase as any).tenant_id);
+    const brandName = tenantBrand.business_name;
     try {
       await sendTemplated({
         key: "gift_card_received",
@@ -390,11 +395,11 @@ async function fulfillGiftCardPurchase(pi: Stripe.PaymentIntent) {
         fallback: () => ({
           subject: `🎁 You received a $${amountDollars} gift card!`,
           html: `<p>Hi ${purchase.recipient_name || "there"},</p>
-<p><strong>${purchase.purchaser_name || "Someone"}</strong> sent you a gift card from It's Always Fun for <strong>$${amountDollars}</strong>!</p>
+<p><strong>${purchase.purchaser_name || "Someone"}</strong> sent you a gift card from ${brandName} for <strong>$${amountDollars}</strong>!</p>
 ${purchase.message ? `<blockquote>"${purchase.message}"</blockquote>` : ""}
 <p>Your code: <strong style="font-family:monospace;font-size:18px;background:#FFD700;padding:6px 12px;border-radius:4px;">${card.code}</strong></p>
 <p>Use it at checkout: <a href="${baseUrl}/order-by-date">${baseUrl}/order-by-date</a></p>
-<p>— The It's Always Fun team</p>`,
+<p>— The ${brandName} team</p>`,
           text: `You received a $${amountDollars} gift card!\nCode: ${card.code}\nUse it at ${baseUrl}/order-by-date`,
         }),
         tags: [{ name: "type", value: "gift_card_received" }],
@@ -426,7 +431,7 @@ ${purchase.message ? `<blockquote>"${purchase.message}"</blockquote>` : ""}
 <p>Thanks for your purchase! We've emailed a <strong>$${amountDollars}</strong> gift card to <strong>${purchase.recipient_email}</strong>.</p>
 <p>Gift card code (for your records): <code>${card.code}</code></p>
 <p>If they don't see it, ask them to check spam.</p>
-<p>— The It's Always Fun team</p>`,
+<p>— The ${brandName} team</p>`,
           text: `Your $${amountDollars} gift card to ${purchase.recipient_email} has been delivered.\nCode (for your records): ${card.code}`,
         }),
         tags: [{ name: "type", value: "gift_card_purchase_receipt" }],

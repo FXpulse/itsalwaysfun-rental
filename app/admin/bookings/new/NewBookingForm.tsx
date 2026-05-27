@@ -81,7 +81,7 @@ export function NewBookingForm({ products }: { products: Product[] }) {
 
       <div>
         <label className="block text-sm font-medium text-slate-700 mb-1">Delivery address</label>
-        <input name="customer_address" placeholder="123 Main St, Jacksonville, FL 32256" className="input" disabled={pending} />
+        <input name="customer_address" placeholder="123 Main St, City, ST 12345" className="input" disabled={pending} />
       </div>
 
       {/* Event */}

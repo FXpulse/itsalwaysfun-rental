@@ -270,7 +270,7 @@ export function ProductForm({ product, action, submitLabel = "Save", categories 
             disabled={pending}
           />
           <label htmlFor="is_active" className="text-sm text-slate-700">
-            Active (visible to customers on itsalwaysfun.net)
+            Active (visible to customers on your public site)
           </label>
         </div>
 

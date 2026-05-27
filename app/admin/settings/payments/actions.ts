@@ -58,7 +58,7 @@ export async function startStripeOnboarding(): Promise<{
 
   // Generate onboarding link
   const baseUrl =
-    process.env.NEXT_PUBLIC_APP_URL || "https://itsalwaysfun.net";
+    process.env.NEXT_PUBLIC_APP_URL || "https://www.getrentalflow.com";
   try {
     const url = await createOnboardingLink({
       accountId: accountId!,

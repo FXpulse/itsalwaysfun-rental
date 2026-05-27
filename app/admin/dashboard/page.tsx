@@ -210,7 +210,7 @@ export default async function AdminDashboardPage() {
           tone="amber"
           icon={Inbox}
           title={`${unresolvedMessagesCount} unread message${(unresolvedMessagesCount ?? 0) === 1 ? "" : "s"} in Contact Inbox`}
-          subtitle="From the website contact form or emails to bookings@itsalwaysfun.com. Reply directly from the inbox."
+          subtitle="From the website contact form or inbound emails. Reply directly from the inbox."
         >
           {unresolvedMessages.map((m: any) => (
             <Link

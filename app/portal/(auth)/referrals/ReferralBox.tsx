@@ -4,10 +4,16 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { Copy, Check, Share2, MessageCircle, Mail } from "lucide-react";
 
-export function ReferralBox({ code }: { code: string }) {
+export function ReferralBox({
+  code,
+  businessName,
+}: {
+  code: string;
+  businessName: string;
+}) {
   const [copied, setCopied] = useState(false);
   const baseUrl =
-    typeof window !== "undefined" ? window.location.origin : "https://itsalwaysfun-rental.vercel.app";
+    typeof window !== "undefined" ? window.location.origin : "";
   const link = `${baseUrl}/?ref=${code}`;
 
   function copyLink() {
@@ -18,16 +24,16 @@ export function ReferralBox({ code }: { code: string }) {
     });
   }
 
-  const message = `Hey! I rented from It's Always Fun (bounce houses in Jacksonville). They're great — book with my link and we both get rewards: ${link}`;
+  const message = `Hey! I rented from ${businessName} and they were great — book with my link and we both get rewards: ${link}`;
 
   const whatsappHref = `https://wa.me/?text=${encodeURIComponent(message)}`;
   const smsHref = `sms:?&body=${encodeURIComponent(message)}`;
-  const emailHref = `mailto:?subject=${encodeURIComponent("You'll love It's Always Fun rentals")}&body=${encodeURIComponent(message)}`;
+  const emailHref = `mailto:?subject=${encodeURIComponent(`You'll love ${businessName} rentals`)}&body=${encodeURIComponent(message)}`;
 
   function nativeShare() {
     if (typeof navigator !== "undefined" && (navigator as any).share) {
       (navigator as any)
-        .share({ title: "It's Always Fun", text: message, url: link })
+        .share({ title: businessName, text: message, url: link })
         .catch(() => {});
     } else {
       copyLink();

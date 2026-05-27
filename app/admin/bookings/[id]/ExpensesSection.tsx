@@ -214,7 +214,7 @@ export function ExpensesSection({
                   <input
                     name="driver_email"
                     type="email"
-                    placeholder="driver@itsalwaysfun.com"
+                    placeholder="driver@example.com"
                     className="input"
                   />
                 </div>

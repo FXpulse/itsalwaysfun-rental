@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { ensureCustomerProfile, getLoyaltySettings } from "@/lib/loyalty";
 import { formatCurrency } from "@/lib/utils";
+import { getTenantBusinessName } from "@/lib/tenant/business";
 import { ReferralBox } from "./ReferralBox";
 import { PayoutSection } from "./PayoutSection";
 import { Gift, Users, DollarSign } from "lucide-react";
@@ -78,6 +79,7 @@ export default async function PortalReferralsPage() {
     .limit(20);
 
   const settings = await getLoyaltySettings();
+  const businessName = await getTenantBusinessName();
 
   return (
     <div className="space-y-6">
@@ -110,7 +112,7 @@ export default async function PortalReferralsPage() {
       </div>
 
       {/* Referral code/link box */}
-      <ReferralBox code={profile?.referral_code || ""} />
+      <ReferralBox code={profile?.referral_code || ""} businessName={businessName} />
 
       {/* Payout request section */}
       <PayoutSection

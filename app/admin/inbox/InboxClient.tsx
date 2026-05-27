@@ -221,7 +221,7 @@ export function InboxClient({
               <div className="bg-white border-2 border-brand-navy rounded p-3 mb-3 space-y-2">
                 <div className="text-xs text-slate-600">
                   To: <strong>{m.email}</strong>{" "}
-                  <span className="text-slate-400">· From: bookings@itsalwaysfun.com (your replies route to your inbox)</span>
+                  <span className="text-slate-400">· Your replies route to your inbox automatically</span>
                 </div>
                 <textarea
                   value={replyBody}

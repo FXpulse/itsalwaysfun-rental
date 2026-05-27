@@ -1750,7 +1750,7 @@ function CoiBlock({
               type="text"
               value={venueAddress}
               onChange={(e) => onVenueAddressChange(e.target.value)}
-              placeholder="3848 Hartley Rd, Jacksonville, FL 32257"
+              placeholder="123 Main St, City, ST 12345"
               className="input"
             />
           </div>

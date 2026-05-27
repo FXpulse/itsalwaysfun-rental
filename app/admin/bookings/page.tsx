@@ -98,7 +98,7 @@ export default async function AdminBookingsPage({
       <div className="card p-0 overflow-hidden">
         {list.length === 0 ? (
           <div className="p-8 text-center text-slate-400">
-            No bookings in this range. Once customers book on itsalwaysfun.net, they show up here.
+            No bookings in this range. Once customers book on your public site, they show up here.
           </div>
         ) : (
           <div className="overflow-x-auto">

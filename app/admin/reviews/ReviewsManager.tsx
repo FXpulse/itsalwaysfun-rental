@@ -325,7 +325,7 @@ function ReviewForm({
             name="customer_location"
             defaultValue={review?.customer_location || ""}
             className="input"
-            placeholder="Jacksonville, FL"
+            placeholder="City, ST"
           />
         </div>
       </div>

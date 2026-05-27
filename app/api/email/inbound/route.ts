@@ -134,9 +134,9 @@ export async function POST(request: Request) {
       const res = await sendEmail({
         to: adminEmail,
         replyTo: data.from,
-        subject: `📥 Email to bookings@: ${data.subject || "(no subject)"}`,
+        subject: `📥 Inbound email: ${data.subject || "(no subject)"}`,
         html: `<div style="font-family:system-ui,sans-serif;max-width:600px;">
-<h2 style="color:#1a1a6e;margin-bottom:8px;">New email to bookings@itsalwaysfun.com</h2>
+<h2 style="color:#1a1a6e;margin-bottom:8px;">New inbound email</h2>
 <p style="color:#64748b;font-size:13px;margin-top:0;">From: <strong>${first} ${last}</strong> &lt;${data.from}&gt;</p>
 ${data.subject ? `<p style="margin:0 0 8px;"><strong>Subject:</strong> ${data.subject}</p>` : ""}
 <div style="background:#f8fafc;border-left:4px solid #1a1a6e;padding:12px 16px;border-radius:4px;margin-bottom:16px;">
