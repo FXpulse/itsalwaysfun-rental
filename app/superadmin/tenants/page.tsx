@@ -9,7 +9,7 @@ import {
   Pause,
   ExternalLink,
 } from "lucide-react";
-import { getCurrentUserRole } from "@/lib/auth/roles";
+import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export const dynamic = "force-dynamic";
@@ -29,18 +29,26 @@ interface Tenant {
 }
 
 export default async function SuperadminTenantsPage() {
-  const me = await getCurrentUserRole();
-  if (!me) redirect("/admin/login");
+  // Raw auth check — bypasses tenant scoping (which would fail at the
+  // marketing host where there's no tenant_id matching her user_roles).
+  const authClient = createClient();
+  const {
+    data: { user },
+  } = await authClient.auth.getUser();
+  if (!user) redirect("/superadmin/login");
 
-  // Check superadmin flag explicitly (admin role alone is not enough)
+  // Superadmin flag check via unscoped client (cross-tenant lookup).
+  // She just needs ANY active user_roles row with is_superadmin=true.
   const supabase = createAdminClient({ unscoped: true });
   const { data: roleRow } = await supabase
     .from("user_roles")
     .select("is_superadmin")
-    .eq("user_id", me.id)
-    .single();
-  if (!roleRow?.is_superadmin) {
-    redirect("/admin/dashboard");
+    .eq("user_id", user.id)
+    .eq("is_active", true)
+    .eq("is_superadmin", true)
+    .maybeSingle();
+  if (!roleRow) {
+    redirect("/superadmin/login?error=not_superadmin");
   }
 
   const { data: tenants } = await supabase

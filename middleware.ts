@@ -23,10 +23,11 @@ export async function middleware(request: NextRequest) {
   requestHeaders.set("x-tenant-slug", tenant.slug);
   requestHeaders.set("x-tenant-via", tenant.resolved_via);
 
-  // ─── Marketing host → rewrite to /marketing routes ─────────────────
-  // getrentalflow.com (apex / www) serves the SaaS marketing pages, not
-  // a tenant's rental site. Rewrite root path to /marketing, leave
-  // /signup as-is (already a marketing route).
+  // ─── Marketing host (getrentalflow.com apex) routing ──────────────
+  //   - "/" → rewrite to /marketing landing
+  //   - "/admin/*" → redirect to /superadmin/login (no tenant here)
+  //   - "/portal/*" or "/driver/*" → redirect to "/" (tenant-only routes)
+  //   - /signup, /superadmin/*, /marketing/* → pass through
   if (tenant.resolved_via === "marketing") {
     const path = request.nextUrl.pathname;
     if (path === "/") {
@@ -34,7 +35,16 @@ export async function middleware(request: NextRequest) {
         request: { headers: requestHeaders },
       });
     }
-    // /signup, /marketing/*, _next/* etc. pass through
+    if (path.startsWith("/admin")) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/superadmin/login";
+      return NextResponse.redirect(url);
+    }
+    if (path.startsWith("/portal") || path.startsWith("/driver")) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/";
+      return NextResponse.redirect(url);
+    }
   }
 
   let response = NextResponse.next({
