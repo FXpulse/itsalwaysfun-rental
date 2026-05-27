@@ -117,6 +117,16 @@ export default async function AdminLayout({
     redirect("/driver");
   }
 
+  // Superadmin check (for the "RentalFlow Superadmin" link)
+  const { createAdminClient: createAdmin } = await import("@/lib/supabase/admin");
+  const adminClient = createAdmin({ unscoped: true });
+  const { data: roleRow } = await adminClient
+    .from("user_roles")
+    .select("is_superadmin")
+    .eq("user_id", userRole.id)
+    .maybeSingle();
+  const isSuperadmin = !!roleRow?.is_superadmin;
+
   const nav = visibleNav(userRole.role);
   const roleBadge =
     userRole.role === "admin" ? (
@@ -137,6 +147,14 @@ export default async function AdminLayout({
           {roleBadge}
           <h1 className="text-lg font-bold">It's Always Fun</h1>
           <p className="text-xs text-white/60">Rental management</p>
+          {isSuperadmin && (
+            <Link
+              href="/superadmin/tenants"
+              className="mt-3 inline-flex items-center gap-1 text-xs bg-amber-500/20 text-amber-200 px-2 py-1 rounded hover:bg-amber-500/30"
+            >
+              👑 RentalFlow superadmin →
+            </Link>
+          )}
         </div>
 
         <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
