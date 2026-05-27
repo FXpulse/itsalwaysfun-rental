@@ -400,7 +400,13 @@ export function BookingWizard({
 
         const data = await res.json();
         if (!res.ok) {
-          toast.error(data.error || "Failed to start booking");
+          // Show the full error including details (helps debug Stripe/schema issues)
+          const fullMsg = data.details
+            ? `${data.error || "Error"}: ${data.details}`
+            : data.error || "Failed to start booking";
+          toast.error(fullMsg, { duration: 20000 });
+          // Also dump to console for copy-paste
+          console.error("Booking error:", data);
           return;
         }
 
