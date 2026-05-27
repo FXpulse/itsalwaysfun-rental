@@ -6,6 +6,7 @@ import { requireAdmin } from "@/lib/auth/roles";
 import { uploadImage, deleteImage } from "@/lib/storage/upload";
 import { sendTemplated } from "@/lib/email/send-template";
 import { isEmailConfigured } from "@/lib/email/send";
+import { getTenantBusinessName } from "@/lib/tenant/business";
 
 export async function uploadCoi(requestId: string, formData: FormData) {
   const me = await requireAdmin();
@@ -49,6 +50,7 @@ export async function uploadCoi(requestId: string, formData: FormData) {
   if (isEmailConfigured()) {
     const baseUrl =
       process.env.NEXT_PUBLIC_APP_URL || "https://itsalwaysfun-rental.vercel.app";
+    const brand = await getTenantBusinessName();
     try {
       await sendTemplated({
         key: "coi_ready",
@@ -65,7 +67,7 @@ export async function uploadCoi(requestId: string, formData: FormData) {
 <p><a href="${upload.url}" style="background:#1a1a6e;color:white;padding:8px 14px;border-radius:4px;text-decoration:none;font-weight:bold;">Download COI (PDF)</a></p>
 <p>You can also find it anytime in your <a href="${baseUrl}/portal/bookings/${req.booking_id}">booking page</a>.</p>
 <p>Forward it to your venue as requested.</p>
-<p>— The It's Always Fun team</p>`,
+<p>— The ${brand} team</p>`,
           text: `Your COI for ${req.venue_name} is ready: ${upload.url}\nPortal: ${baseUrl}/portal/bookings/${req.booking_id}`,
         }),
         tags: [{ name: "type", value: "coi_ready" }],

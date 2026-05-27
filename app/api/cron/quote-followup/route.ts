@@ -9,6 +9,7 @@ import { NextResponse } from "next/server";
 import { headers } from "next/headers";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendEmail, isEmailConfigured } from "@/lib/email/send";
+import { getTenantInfo } from "@/lib/tenant/business";
 
 export const dynamic = "force-dynamic";
 
@@ -71,10 +72,16 @@ export async function GET() {
       ? new Date(q.expires_at).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })
       : "";
 
+    // Look up this quote's tenant to brand the email
+    const tenant = await getTenantInfo(q.tenant_id);
+    const brand = tenant.business_name;
+    const replyTo = tenant.owner_email || undefined;
+
     try {
       const res = await sendEmail({
         to: q.customer_email,
-        subject: `Reminder: Your quote from It's Always Fun is waiting`,
+        replyTo,
+        subject: `Reminder: Your quote from ${brand} is waiting`,
         html: `<div style="font-family:system-ui,sans-serif;max-width:600px;color:#0f172a;">
 <p>Hi ${customerName},</p>
 <p>Just a friendly reminder that we sent you a quote for your event a few days ago. We don't want to let it slip through the cracks!</p>
@@ -90,9 +97,9 @@ export async function GET() {
   Questions? Reply to this email and we'll get back to you. We can also tweak the
   package if something doesn't fit your needs — just let us know.
 </p>
-<p style="color:#64748b;font-size:13px;">— The It's Always Fun team</p>
+<p style="color:#64748b;font-size:13px;">— The ${brand} team</p>
 </div>`,
-        text: `Hi ${customerName},\n\nJust a reminder — your quote is waiting:\nTotal: $${totalDollars}\n${expiresLabel ? `Expires: ${expiresLabel}\n` : ""}\nView & accept: ${quoteUrl}\n\nReply if you have questions or want adjustments.\n— It's Always Fun`,
+        text: `Hi ${customerName},\n\nJust a reminder — your quote is waiting:\nTotal: $${totalDollars}\n${expiresLabel ? `Expires: ${expiresLabel}\n` : ""}\nView & accept: ${quoteUrl}\n\nReply if you have questions or want adjustments.\n— ${brand}`,
         tags: [{ name: "type", value: "quote_followup" }],
       });
 

@@ -6,6 +6,7 @@ import { requireAdmin } from "@/lib/auth/roles";
 import { sendTemplated } from "@/lib/email/send-template";
 import { isEmailConfigured } from "@/lib/email/send";
 import { logAuditEvent } from "@/lib/audit";
+import { getTenantBusinessName } from "@/lib/tenant/business";
 import { z } from "zod";
 
 const IssueSchema = z.object({
@@ -66,6 +67,7 @@ export async function issueGiftCard(formData: FormData) {
   if (isEmailConfigured() && card) {
     const baseUrl =
       process.env.NEXT_PUBLIC_APP_URL || "https://itsalwaysfun-rental.vercel.app";
+    const brand = await getTenantBusinessName();
     await sendTemplated({
       key: "gift_card_received",
       to: parsed.data.recipient_email,
@@ -81,13 +83,13 @@ export async function issueGiftCard(formData: FormData) {
       fallback: () => ({
         subject: `🎁 You received a $${parsed.data.amount_dollars.toFixed(2)} gift card!`,
         html: `<p>Hi ${parsed.data.recipient_name || "there"},</p>
-<p><strong>${parsed.data.purchaser_name || "Someone"}</strong> sent you a gift card from It's Always Fun for <strong>$${parsed.data.amount_dollars.toFixed(2)}</strong>!</p>
+<p><strong>${parsed.data.purchaser_name || "Someone"}</strong> sent you a gift card from ${brand} for <strong>$${parsed.data.amount_dollars.toFixed(2)}</strong>!</p>
 ${parsed.data.message ? `<blockquote>"${parsed.data.message}"</blockquote>` : ""}
 <p>Your code: <strong style="font-family:monospace;font-size:18px;background:#FFD700;padding:6px 12px;border-radius:4px;">${card.code}</strong></p>
 <p>Use it at checkout when you book your rental: <a href="${baseUrl}/order-by-date">${baseUrl}/order-by-date</a></p>
 ${expiresAt ? `<p>Expires: ${new Date(expiresAt).toLocaleDateString()}</p>` : ""}
-<p>— The It's Always Fun team</p>`,
-        text: `You received a $${parsed.data.amount_dollars.toFixed(2)} gift card from It's Always Fun!\nCode: ${card.code}\nUse it at ${baseUrl}/order-by-date`,
+<p>— The ${brand} team</p>`,
+        text: `You received a $${parsed.data.amount_dollars.toFixed(2)} gift card from ${brand}!\nCode: ${card.code}\nUse it at ${baseUrl}/order-by-date`,
       }),
       tags: [{ name: "type", value: "gift_card_received" }],
     });
