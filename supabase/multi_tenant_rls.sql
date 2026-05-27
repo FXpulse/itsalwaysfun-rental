@@ -40,8 +40,11 @@ returns uuid language sql stable as $$
          and is_active = true
        limit 1),
     -- 2. Anon path: X-Tenant-Id request header (set by Next.js middleware)
-    nullif(current_setting('request.headers', true), '')::jsonb->>'x-tenant-id'
-  )::uuid;
+    nullif(
+      nullif(current_setting('request.headers', true), '')::jsonb->>'x-tenant-id',
+      ''
+    )::uuid
+  );
 $$;
 
 -- Helper: is this user a superadmin? (cross-tenant access for SaaS owner)
