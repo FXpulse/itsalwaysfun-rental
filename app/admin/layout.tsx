@@ -117,15 +117,24 @@ export default async function AdminLayout({
     redirect("/driver");
   }
 
-  // Superadmin check (for the "RentalFlow Superadmin" link)
+  // Fetch superadmin flag + current tenant business_name in parallel
   const { createAdminClient: createAdmin } = await import("@/lib/supabase/admin");
+  const { getCurrentTenantId } = await import("@/lib/tenant/server");
   const adminClient = createAdmin({ unscoped: true });
-  const { data: roleRow } = await adminClient
-    .from("user_roles")
-    .select("is_superadmin")
-    .eq("user_id", userRole.id)
-    .maybeSingle();
+  const [{ data: roleRow }, { data: tenantRow }] = await Promise.all([
+    adminClient
+      .from("user_roles")
+      .select("is_superadmin")
+      .eq("user_id", userRole.id)
+      .maybeSingle(),
+    adminClient
+      .from("tenants")
+      .select("business_name")
+      .eq("id", getCurrentTenantId())
+      .maybeSingle(),
+  ]);
   const isSuperadmin = !!roleRow?.is_superadmin;
+  const businessName = (tenantRow as any)?.business_name || "Rental management";
 
   const nav = visibleNav(userRole.role);
   const roleBadge =
@@ -145,7 +154,7 @@ export default async function AdminLayout({
       <aside className="w-64 bg-brand-navy text-white flex flex-col">
         <div className="p-6 border-b border-white/10">
           {roleBadge}
-          <h1 className="text-lg font-bold">It's Always Fun</h1>
+          <h1 className="text-lg font-bold">{businessName}</h1>
           <p className="text-xs text-white/60">Rental management</p>
           {isSuperadmin && (
             <Link
