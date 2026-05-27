@@ -69,7 +69,7 @@ export async function sendTestEmail(
 ) {
   await requireAdmin();
   if (!isEmailConfigured()) {
-    return { error: "Resend not configured — set RESEND_API_KEY + EMAIL_FROM in Vercel env" };
+    return { error: "Email delivery is not enabled for your account — contact RentalFlow support." };
   }
   if (!toEmail || !toEmail.includes("@")) {
     return { error: "Invalid recipient email" };

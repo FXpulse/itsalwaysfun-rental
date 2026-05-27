@@ -240,13 +240,14 @@ export function HelpClient() {
     },
     {
       id: "emails",
-      title: "Step 7 — Email setup (Resend)",
+      title: "Step 7 — Email setup",
       icon: Mail,
       content: (
         <div className="space-y-3 text-sm">
           <p>
-            Resend handles 10 automated emails (booking confirmation, reminders,
-            quotes, etc.). Already configured — domain <code>itsalwaysfun.com</code> verified.
+            Email delivery is included with your plan — RentalFlow handles the
+            sending. 10 automated emails go out automatically (booking
+            confirmation, reminders, quotes, etc.).
           </p>
           <p>To customize email templates:</p>
           <ol className="list-decimal pl-5 space-y-1 text-xs">
@@ -261,18 +262,20 @@ export function HelpClient() {
     },
     {
       id: "sms",
-      title: "Step 8 — SMS setup (Twilio)",
+      title: "Step 8 — SMS setup",
       icon: Smartphone,
       content: (
         <div className="space-y-3 text-sm">
-          <p>SMS auto-sends for booking confirmation + reminder (3 days before event).</p>
-          <p>If not working yet, paste these env vars in Vercel:</p>
-          <ul className="list-disc pl-5 space-y-1 text-xs font-mono bg-slate-50 p-2 rounded">
-            <li>TWILIO_ACCOUNT_SID</li>
-            <li>TWILIO_AUTH_TOKEN</li>
-            <li>TWILIO_FROM_NUMBER (E.164 format, e.g. +18336604284)</li>
-          </ul>
-          <p className="text-xs">Twilio cost: ~$0.0075 per SMS US + $1.15/month per number.</p>
+          <p>
+            SMS delivery is included with your plan — RentalFlow handles the
+            sending. SMS auto-sends for booking confirmation + reminder (3 days
+            before event).
+          </p>
+          <p>
+            If you don't see SMS going out, check the <code>Diagnostics</code>
+            page — if it says "SMS delivery: Not configured", contact RentalFlow
+            support and they'll enable it for your account.
+          </p>
         </div>
       ),
     },
@@ -968,7 +971,7 @@ export function HelpClient() {
           </p>
           <ol className="list-decimal pl-5 space-y-1 text-xs">
             <li><strong>Saved to DB</strong> (<code>contact_messages</code>) — source of truth, always works</li>
-            <li><strong>Emailed to admin</strong> via Resend → goes to <code>ADMIN_ALERT_EMAIL</code> env var (defaults to admin@itsalwaysfun.com). Reply-to is set to the customer's email so hitting Reply goes straight to them.</li>
+            <li><strong>Emailed to admin</strong> → goes to your configured admin alert email. Reply-to is set to the customer's email so hitting Reply goes straight to them.</li>
             <li><strong>Pushed to GHL</strong> via webhook → workflow 1 creates/updates the contact with tag <code>general_inquiry</code></li>
           </ol>
           <p className="font-semibold">Manage from <code>/admin/inbox</code>:</p>
@@ -983,8 +986,8 @@ export function HelpClient() {
             💡 The "Delivery issues" stat at the top counts unresolved messages
             where email or GHL didn't go through — those are the ones to
             handle first. When a delivery fails, you'll see a <strong>red banner
-            inside the message card</strong> with the exact Resend/GHL error
-            (no need to dig in Vercel logs).
+            inside the message card</strong> with the exact email/GHL error
+            (no need to dig in deployment logs).
           </p>
           <p className="text-xs text-slate-500">
             💡 New unresolved messages also show as a <strong>red alert panel
@@ -1026,10 +1029,10 @@ export function HelpClient() {
             <li>Click <strong>Reply</strong> → inline composer opens (no need to leave the app)</li>
             <li>Type the reply in plain text — blank lines become paragraphs</li>
             <li>Customer receives a clean HTML email from <code>bookings@itsalwaysfun.com</code> with your message, sign-off, and the original collapsed at the bottom</li>
-            <li><strong>Reply-To is set to your email</strong> so if they reply, it goes to your inbox (not Resend)</li>
+            <li><strong>Reply-To is set to your email</strong> so if they reply, it goes to your inbox</li>
             <li>Check <strong>"Mark resolved after sending"</strong> to close the message in one click</li>
             <li>Every reply is logged in the message's thread (sent_by + timestamp), so staff can see what was already said before replying again</li>
-            <li>If Resend fails to deliver, the reply still saves to the log with the error — you can copy the text and resend manually</li>
+            <li>If email delivery fails, the reply still saves to the log with the error — you can copy the text and resend manually</li>
           </ul>
         </div>
       ),
@@ -1128,7 +1131,7 @@ export function HelpClient() {
             <li>Only sends ONE reminder per quote (followup_sent_at marks it)</li>
             <li>Skips paid, declined, or expired quotes</li>
             <li>Up to 50 reminders per run (cap to avoid bursts)</li>
-            <li>Email tagged in Resend as <code>quote_followup</code> for analytics</li>
+            <li>Email tagged as <code>quote_followup</code> for analytics</li>
           </ul>
           <p className="text-xs text-slate-500">
             💡 To trigger manually for testing:{" "}
@@ -1176,41 +1179,22 @@ export function HelpClient() {
       ),
     },
     {
-      id: "sentry",
-      title: "Error monitoring (Sentry) — catch bugs before customers report them",
+      id: "error-monitoring",
+      title: "Error monitoring — RentalFlow catches bugs for you",
       icon: AlertTriangle,
       content: (
         <div className="space-y-3 text-sm">
           <p>
-            Sentry watches the app for crashes — both browser-side (customer
-            clicks something and gets an error) and server-side (booking
-            creation fails, email sends throw exceptions). Without it, you
-            only learn about bugs when customers email you.
+            RentalFlow watches your app 24/7 for crashes — both browser-side
+            (a customer clicks something and gets an error) and server-side
+            (booking creation fails, email sends throw exceptions). When
+            something breaks, our team gets notified automatically so we can
+            push a fix without you having to report it.
           </p>
-          <p className="font-semibold">Setup (5 min, one time):</p>
-          <ol className="list-decimal pl-5 space-y-1 text-xs">
-            <li>Sign up at <a href="https://sentry.io" target="_blank" rel="noopener noreferrer" className="text-brand-navy underline">sentry.io</a> (free tier: 5k errors/month, plenty for your traffic)</li>
-            <li>Create project → platform: <strong>Next.js</strong> → copy the DSN (looks like <code>https://...@o....ingest.sentry.io/...</code>)</li>
-            <li>Vercel → env vars → add:
-              <ul className="list-disc pl-5 mt-1">
-                <li><code>NEXT_PUBLIC_SENTRY_DSN</code> = the DSN</li>
-                <li><code>SENTRY_DSN</code> = same DSN (server-side)</li>
-                <li><code>SENTRY_ORG</code> = your Sentry org slug</li>
-                <li><code>SENTRY_PROJECT</code> = your project slug</li>
-              </ul>
-            </li>
-            <li>Redeploy in Vercel — Sentry activates automatically</li>
-          </ol>
-          <p className="font-semibold">What you'll see:</p>
-          <ul className="list-disc pl-5 text-xs space-y-1">
-            <li>Every uncaught error tagged with: user agent, URL, stack trace, breadcrumbs of recent actions</li>
-            <li>Email/Slack alerts for new error types</li>
-            <li>Performance traces (10% sample) to spot slow API routes</li>
-          </ul>
           <p className="text-xs text-slate-500">
-            💡 If you don't set the env vars, the app builds + runs normally —
-            it just silently skips Sentry. So you can deploy now and configure
-            Sentry whenever you're ready.
+            💡 You don't need to set anything up — this comes with your plan.
+            If you suspect something is broken, just contact support and we'll
+            check the logs.
           </p>
         </div>
       ),
@@ -1439,7 +1423,7 @@ export function HelpClient() {
           </p>
           <p className="font-semibold">What it checks (≈25 items, grouped):</p>
           <ul className="list-disc pl-5 text-xs space-y-1">
-            <li><strong>Environment</strong> — Stripe mode (live vs test) + key parity, Webhook secret, Resend, Admin alert email, App URL, Cron secret, GHL webhook, Twilio, Sentry DSN, Inbound email secret</li>
+            <li><strong>Environment</strong> — Stripe mode (live vs test) + key parity, Webhook secret, Email delivery, Admin alert email, App URL, Cron secret, GHL webhook, SMS delivery, Error monitoring, Inbound email secret</li>
             <li><strong>Database tables</strong> — existence + row counts for all critical tables (bookings, products, inventory, audit_log, accounting tables, 1099-NEC tables, etc.). Catches missing migrations.</li>
             <li><strong>Site settings</strong> — required keys present (driver rate, 1099 threshold, low-stock email, damage protection toggle, lead time, etc.)</li>
             <li><strong>Data state</strong> — at least 1 active product, 1 active fleet, 1 admin user; warns if 0 low-stock thresholds set or 0 overhead recorded</li>
@@ -1448,7 +1432,7 @@ export function HelpClient() {
           <p className="font-semibold">How to read the output:</p>
           <ul className="list-disc pl-5 text-xs space-y-1">
             <li><strong>🚨 Blockers</strong> (red) — fix before launching / testing. Bookings, payments, or core features will fail.</li>
-            <li><strong>⚠ Warnings</strong> (amber) — not blocking but worth fixing (e.g., Sentry not set up means crashes go unreported)</li>
+            <li><strong>⚠ Warnings</strong> (amber) — not blocking but worth fixing (e.g., SMS delivery not enabled for your account)</li>
             <li><strong>OK</strong> (green) — verified working</li>
             <li><strong>Info</strong> (grey) — informational counts, not a pass/fail check</li>
           </ul>

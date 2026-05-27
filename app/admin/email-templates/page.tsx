@@ -31,10 +31,10 @@ export default async function AdminEmailTemplatesPage() {
           <div className="flex items-start gap-3">
             <AlertCircle className="h-5 w-5 text-amber-600 mt-0.5" />
             <div>
-              <h2 className="font-semibold text-amber-900">Resend not configured</h2>
+              <h2 className="font-semibold text-amber-900">Email delivery not enabled</h2>
               <p className="text-sm text-amber-800">
-                Set <code>RESEND_API_KEY</code> + <code>EMAIL_FROM</code> in Vercel env to
-                enable sending. Templates are editable but won't send.
+                Templates are editable but won't send. Contact RentalFlow
+                support to enable email delivery for your account.
               </p>
             </div>
           </div>

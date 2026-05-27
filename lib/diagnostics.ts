@@ -66,11 +66,11 @@ export async function runAllChecks(): Promise<CheckResult[]> {
     results.push(ok(envG, "Stripe webhook secret", "Set"));
   }
 
-  // Resend
+  // Email delivery (provided by RentalFlow — managed for you)
   if (!process.env.RESEND_API_KEY) {
-    results.push(fail(envG, "Resend API key", "RESEND_API_KEY not set", "Transactional emails (booking confirmation, quote follow-up, low-stock alerts) won't send."));
+    results.push(fail(envG, "Email delivery", "Not configured", "Transactional emails (booking confirmation, quote follow-up, low-stock alerts) won't send. Contact RentalFlow support."));
   } else {
-    results.push(ok(envG, "Resend API key", "Set"));
+    results.push(ok(envG, "Email delivery", "Active"));
   }
 
   // Admin alert email
@@ -110,19 +110,19 @@ export async function runAllChecks(): Promise<CheckResult[]> {
     results.push(ok(envG, "GHL integration", "Webhook URLs set (no API key)"));
   }
 
-  // Twilio — code accepts either TWILIO_FROM or TWILIO_FROM_NUMBER
+  // SMS delivery (provided by RentalFlow — managed for you)
   const twilioFrom = process.env.TWILIO_FROM || process.env.TWILIO_FROM_NUMBER;
   if (!process.env.TWILIO_ACCOUNT_SID || !process.env.TWILIO_AUTH_TOKEN || !twilioFrom) {
-    results.push(warn(envG, "Twilio SMS", "One or more TWILIO_* env vars missing", "SMS notifications (booking confirmation, driver dispatch) won't send. App still works without it — emails go out as usual."));
+    results.push(warn(envG, "SMS delivery", "Not configured", "SMS notifications (booking confirmation, driver dispatch) won't send. App still works — emails go out as usual. Contact RentalFlow support to enable."));
   } else {
-    results.push(ok(envG, "Twilio SMS", "All 3 env vars set"));
+    results.push(ok(envG, "SMS delivery", "Active"));
   }
 
-  // Sentry
+  // Error monitoring (provided by RentalFlow — managed for you)
   if (!process.env.NEXT_PUBLIC_SENTRY_DSN) {
-    results.push(warn(envG, "Sentry error monitoring", "NEXT_PUBLIC_SENTRY_DSN not set", "Crashes won't be reported — you'll only learn about them when customers email you. Sign up free at sentry.io, then add NEXT_PUBLIC_SENTRY_DSN + SENTRY_DSN."));
+    results.push(warn(envG, "Error monitoring", "Not configured", "Crashes won't be auto-reported to RentalFlow. App still works. Contact support if you want this enabled."));
   } else {
-    results.push(ok(envG, "Sentry error monitoring", "DSN set"));
+    results.push(ok(envG, "Error monitoring", "Active"));
   }
 
   // Inbound email
