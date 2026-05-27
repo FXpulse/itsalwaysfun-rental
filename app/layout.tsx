@@ -47,6 +47,13 @@ export async function generateMetadata(): Promise<Metadata> {
     (branding.logo_url as string | undefined) ||
     (await getTenantSiteLogo());
 
+  // Fall back to an auto-generated initial-on-brand-color SVG favicon so
+  // tenants that haven't uploaded a logo yet still have a recognizable
+  // tab icon — instead of the browser's blank default or a stale cached
+  // RentalFlow asset.
+  const primaryColor = (branding.primary_color as string | undefined) || "#1a1a6e";
+  const iconUrl = logoUrl || generateInitialFaviconDataUri(name, primaryColor);
+
   return {
     title: name,
     description: `${name} — book online, manage rentals.`,
@@ -55,10 +62,31 @@ export async function generateMetadata(): Promise<Metadata> {
       statusBarStyle: "default",
       title: name,
     },
-    icons: logoUrl
-      ? { icon: [{ url: logoUrl }], shortcut: logoUrl, apple: logoUrl }
-      : undefined,
+    icons: { icon: [{ url: iconUrl }], shortcut: iconUrl, apple: iconUrl },
   };
+}
+
+function generateInitialFaviconDataUri(businessName: string, color: string): string {
+  const initial = (businessName.trim().charAt(0) || "R").toUpperCase();
+  // SVG favicon — browsers render this directly. Solid rounded square with
+  // the business initial in white. Single quotes inside attrs so we can
+  // double-quote the whole string safely after URL-encoding.
+  const svg =
+    `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'>` +
+    `<rect width='64' height='64' rx='12' fill='${color}'/>` +
+    `<text x='32' y='44' font-family='Arial,sans-serif' font-size='38' ` +
+    `font-weight='700' fill='white' text-anchor='middle'>${escapeXml(initial)}</text>` +
+    `</svg>`;
+  return `data:image/svg+xml,${encodeURIComponent(svg)}`;
+}
+
+function escapeXml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;");
 }
 
 async function getTenantSiteLogo(): Promise<string | undefined> {
