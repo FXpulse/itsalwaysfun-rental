@@ -56,21 +56,22 @@ const DEFAULTS: SiteSettings = {
   service_area: "Jacksonville, FL and surrounding areas within 30 miles",
   instagram_url: "https://instagram.com/itsalwaysfunparty",
   facebook_url: "https://facebook.com/itsalwaysfunparty",
-  logo_url:
-    "https://files.sysers.com/cp/upload/itsalwaysfun/editor/med/its_always_fun_logo.png",
-  hero_title: "Welcome to It's Always Fun",
+  logo_url: "",
+  // Generic defaults so new tenants don't see hardcoded IAF text.
+  // Each tenant should override these in /admin/site for their brand.
+  hero_title: "Bounce houses + party rentals",
   hero_subtitle:
-    "We don't just rent bounce houses — we create unforgettable memories filled with energy, laughter, and joy.",
+    "Online booking, delivered to your door. Setup + takedown included.",
   hero_tagline:
-    "Because when it comes to your special day, fun isn't optional, it's guaranteed!",
+    "Book now, party tomorrow.",
   hero_cta_label: "Check availability →",
-  section_categories_title: "Bounce Higher. Laugh Louder. Celebrate Bigger.",
-  section_featured_title: "Our Rentals",
-  trust_delivery: "Free Delivery — Within Jacksonville metro area",
-  trust_cleaned: "Cleaned & Sanitized — Every unit, every rental, every time",
-  trust_rating: "5-Star Rated — Hundreds of happy families",
+  section_categories_title: "Browse our rentals",
+  section_featured_title: "Featured rentals",
+  trust_delivery: "Free Delivery — Within local service area",
+  trust_cleaned: "Cleaned & Sanitized — Every unit, every rental",
+  trust_rating: "5-Star Rated — Trusted by local families",
   footer_description:
-    "We don't just rent bounce houses — we create unforgettable memories filled with energy, laughter, and joy. Serving Jacksonville and surrounding areas.",
+    "Bounce houses + party rentals delivered to your door. Setup, takedown, and clean-up included.",
   booking_terms_note: "Reschedule up to 7 days before with no fee.",
   // Appearance defaults (empty → tailwind classes take over)
   hero_bg_color: "",
