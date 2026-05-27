@@ -4,11 +4,13 @@
 // Falls back to hardcoded templates (lib/email/templates.ts) if the row is
 // missing or fails to load — that way emails never silently break if admin
 // hasn't seeded the DB.
+//
+// MULTI-TENANT: the wrapper banner + footer pull from the current tenant's
+// branding (business_name, phone, email, colors). Callers can also pass a
+// `brand` explicitly when there's no request context (webhooks, cron).
 
 import { createAdminClient } from "@/lib/supabase/admin";
-
-const SUPPORT_PHONE = "(904) 584-3047";
-const SUPPORT_EMAIL = "admin@itsalwaysfun.com";
+import { getTenantInfo, tenantToEmailBrand, type TenantInfo } from "@/lib/tenant/business";
 
 export interface RenderedEmail {
   subject: string;
@@ -30,7 +32,6 @@ export interface TemplateRow {
 
 /** Substitute {{varName}} and {{#if varName}}...{{/if}} blocks. */
 export function substitute(template: string, vars: Record<string, any>): string {
-  // 1. Handle conditionals first (non-nested only — simple loop until stable)
   let result = template;
   const condRe = /\{\{#if\s+(\w+)\}\}([\s\S]*?)\{\{\/if\}\}/g;
   let changed = true;
@@ -40,11 +41,9 @@ export function substitute(template: string, vars: Record<string, any>): string 
     result = result.replace(condRe, (_, name, content) => {
       changed = true;
       const v = vars[name];
-      // Truthy if not null/undefined/false/empty-string/0
       return v !== null && v !== undefined && v !== false && v !== "" && v !== 0 ? content : "";
     });
   }
-  // 2. Replace {{varName}}
   result = result.replace(/\{\{(\w+)\}\}/g, (_, name) => {
     const v = vars[name];
     if (v === null || v === undefined) return "";
@@ -62,8 +61,41 @@ function escapeHtml(s: string): string {
     .replace(/'/g, "&#39;");
 }
 
-/** Wraps inner body html in the shared branded layout. */
-export function wrapInBaseLayout(title: string, innerBody: string, preheader?: string): string {
+interface WrapperBrand {
+  name: string;
+  phone?: string;
+  email?: string;
+  primaryColor: string;
+  accentColor: string;
+}
+
+function brandForWrapper(t: TenantInfo): WrapperBrand {
+  const b = tenantToEmailBrand(t);
+  return {
+    name: b.name,
+    phone: b.phone,
+    email: b.email,
+    primaryColor: b.primaryColor || "#1a1a6e",
+    accentColor: b.accentColor || "#FFD700",
+  };
+}
+
+/** Wraps inner body html in the shared branded layout, tenant-aware. */
+export function wrapInBaseLayout(
+  title: string,
+  innerBody: string,
+  brand: WrapperBrand,
+  preheader?: string,
+): string {
+  const nameUpper = brand.name.toUpperCase();
+  const phoneLink = brand.phone
+    ? `<a href="tel:${brand.phone.replace(/\D/g, "")}" style="color:${brand.primaryColor};text-decoration:none;">${escapeHtml(brand.phone)}</a>`
+    : "";
+  const emailLink = brand.email
+    ? `<a href="mailto:${brand.email}" style="color:${brand.primaryColor};text-decoration:none;">${escapeHtml(brand.email)}</a>`
+    : "";
+  const contactLine = [phoneLink, emailLink].filter(Boolean).join(" · ");
+
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -78,8 +110,8 @@ ${preheader ? `<div style="display:none;font-size:1px;line-height:1px;max-height
     <td align="center">
       <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="600" style="max-width:600px;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.05);">
         <tr>
-          <td style="background:#1a1a6e;padding:24px 32px;text-align:center;">
-            <div style="display:inline-block;background:#FFD700;color:#1a1a6e;font-size:10px;letter-spacing:2px;font-weight:bold;padding:4px 10px;border-radius:4px;">IT'S ALWAYS FUN</div>
+          <td style="background:${brand.primaryColor};padding:24px 32px;text-align:center;">
+            <div style="display:inline-block;background:${brand.accentColor};color:${brand.primaryColor};font-size:10px;letter-spacing:2px;font-weight:bold;padding:4px 10px;border-radius:4px;">${escapeHtml(nameUpper)}</div>
             <h1 style="color:#ffffff;font-size:22px;margin:8px 0 0 0;font-weight:bold;">${escapeHtml(title)}</h1>
           </td>
         </tr>
@@ -88,12 +120,8 @@ ${preheader ? `<div style="display:none;font-size:1px;line-height:1px;max-height
         </tr>
         <tr>
           <td style="background:#f8fafc;padding:20px 32px;border-top:1px solid #e2e8f0;text-align:center;font-size:12px;color:#64748b;">
-            <p style="margin:0 0 4px 0;">It's Always Fun, LLC · Jacksonville, FL</p>
-            <p style="margin:0;">
-              <a href="tel:${SUPPORT_PHONE.replace(/\D/g, "")}" style="color:#1a1a6e;text-decoration:none;">${SUPPORT_PHONE}</a>
-              ·
-              <a href="mailto:${SUPPORT_EMAIL}" style="color:#1a1a6e;text-decoration:none;">${SUPPORT_EMAIL}</a>
-            </p>
+            <p style="margin:0 0 4px 0;">${escapeHtml(brand.name)}</p>
+            ${contactLine ? `<p style="margin:0;">${contactLine}</p>` : ""}
           </td>
         </tr>
       </table>
@@ -121,19 +149,33 @@ export async function loadTemplate(key: string): Promise<TemplateRow | null> {
   }
 }
 
-/** Load + substitute + wrap. Returns rendered email or null if template missing. */
+/** Load + substitute + wrap. Returns rendered email or null if template missing.
+ *  Pass tenantId when called outside request context (webhook, cron). */
 export async function renderTemplate(
   key: string,
   vars: Record<string, any>,
+  tenantId?: string,
 ): Promise<RenderedEmail | null> {
   const tmpl = await loadTemplate(key);
   if (!tmpl) return null;
 
-  const subject = substitute(tmpl.subject, vars);
-  const innerHtml = substitute(tmpl.body_html, vars);
-  const title = substitute(tmpl.email_title, vars);
-  const text = substitute(tmpl.body_text, vars);
-  const html = wrapInBaseLayout(title, innerHtml, subject);
+  // Resolve tenant brand and auto-inject brand-related variables so templates
+  // can use {{businessName}}, {{businessPhone}}, {{businessEmail}} without
+  // each caller having to pass them.
+  const tenant = await getTenantInfo(tenantId);
+  const brand = brandForWrapper(tenant);
+  const enriched: Record<string, any> = {
+    businessName: brand.name,
+    businessPhone: brand.phone || "",
+    businessEmail: brand.email || "",
+    ...vars,
+  };
+
+  const subject = substitute(tmpl.subject, enriched);
+  const innerHtml = substitute(tmpl.body_html, enriched);
+  const title = substitute(tmpl.email_title, enriched);
+  const text = substitute(tmpl.body_text, enriched);
+  const html = wrapInBaseLayout(title, innerHtml, brand, subject);
 
   return { subject, html, text };
 }

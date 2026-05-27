@@ -153,6 +153,15 @@ export async function signupTenant(formData: FormData): Promise<SignupResult> {
     })
     .select("id");
 
+  // 4b. Seed default email templates so the tenant's emails work + are
+  // editable in /admin/email-templates from minute one.
+  try {
+    await supabase.rpc("seed_default_email_templates", { p_tenant_id: tenant.id });
+  } catch (e) {
+    // Non-fatal: app will fall back to hardcoded templates if seeding fails
+    console.error("[seed_default_email_templates failed, non-fatal]", e);
+  }
+
   // 5. Audit
   await logAuditEvent({
     userEmail: parsed.data.owner_email,

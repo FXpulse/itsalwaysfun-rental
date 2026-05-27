@@ -5,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin } from "@/lib/auth/roles";
 import { sendEmail, isEmailConfigured } from "@/lib/email/send";
 import { renderTemplate, substitute, wrapInBaseLayout } from "@/lib/email/render-template";
+import { getTenantInfo, tenantToEmailBrand } from "@/lib/tenant/business";
 import { z } from "zod";
 
 const UpdateSchema = z.object({
@@ -52,11 +53,30 @@ export async function previewEmailTemplate(
     .single();
   if (!tmpl) return { error: "Template not found" };
 
-  const subject = substitute(tmpl.subject, vars);
-  const innerHtml = substitute(tmpl.body_html, vars);
-  const title = substitute(tmpl.email_title, vars);
-  const text = substitute(tmpl.body_text, vars);
-  const html = wrapInBaseLayout(title, innerHtml, subject);
+  const tenant = await getTenantInfo();
+  const brand = tenantToEmailBrand(tenant);
+  const enriched = {
+    businessName: brand.name,
+    businessPhone: brand.phone || "",
+    businessEmail: brand.email || "",
+    ...vars,
+  };
+  const subject = substitute(tmpl.subject, enriched);
+  const innerHtml = substitute(tmpl.body_html, enriched);
+  const title = substitute(tmpl.email_title, enriched);
+  const text = substitute(tmpl.body_text, enriched);
+  const html = wrapInBaseLayout(
+    title,
+    innerHtml,
+    {
+      name: brand.name,
+      phone: brand.phone,
+      email: brand.email,
+      primaryColor: brand.primaryColor || "#1a1a6e",
+      accentColor: brand.accentColor || "#FFD700",
+    },
+    subject,
+  );
 
   return { subject, html, text };
 }
