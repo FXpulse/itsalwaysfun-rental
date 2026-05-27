@@ -26,6 +26,8 @@ supabase/multi_tenant_foundation.sql      ← Chunk 1A
 supabase/multi_tenant_resolver.sql        ← Chunk 1B
 supabase/multi_tenant_rls.sql             ← Chunk 1D
 supabase/multi_tenant_billing.sql         ← Phase 4
+supabase/multi_tenant_unique_keys.sql     ← composite uniques (run before seed)
+supabase/seed_demo_testbouncers.sql       ← optional: populate demo tenant
 ```
 
 After all four: tenants table has IAF as first tenant, you (Ludmila) are
