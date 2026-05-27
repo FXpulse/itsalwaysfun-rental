@@ -93,15 +93,25 @@ export async function runAllChecks(): Promise<CheckResult[]> {
     results.push(ok(envG, "Cron secret", "Set"));
   }
 
-  // GHL
-  if (!process.env.GHL_WEBHOOK_URL) {
-    results.push(warn(envG, "GHL webhook URL", "GHL_WEBHOOK_URL not set", "Contact form submissions + booking events won't reach GoHighLevel."));
+  // GHL — primary integration is the API (GHL_API_KEY); webhook URLs are
+  // optional per-workflow. As long as API key or any webhook is set, it's OK.
+  const ghlAnySet =
+    !!process.env.GHL_API_KEY ||
+    !!process.env.GHL_WEBHOOK_URL ||
+    !!process.env.GHL_BOOKING_WEBHOOK_URL ||
+    !!process.env.GHL_QUOTE_WEBHOOK_URL ||
+    !!process.env.GHL_REFERRAL_WEBHOOK_URL;
+  if (!ghlAnySet) {
+    results.push(warn(envG, "GHL integration", "No GHL_API_KEY or webhook URLs set", "Contact form submissions + booking events won't reach GoHighLevel."));
+  } else if (process.env.GHL_API_KEY) {
+    results.push(ok(envG, "GHL integration", "API key set"));
   } else {
-    results.push(ok(envG, "GHL webhook URL", "Set"));
+    results.push(ok(envG, "GHL integration", "Webhook URLs set (no API key)"));
   }
 
-  // Twilio
-  if (!process.env.TWILIO_ACCOUNT_SID || !process.env.TWILIO_AUTH_TOKEN || !process.env.TWILIO_FROM) {
+  // Twilio — code accepts either TWILIO_FROM or TWILIO_FROM_NUMBER
+  const twilioFrom = process.env.TWILIO_FROM || process.env.TWILIO_FROM_NUMBER;
+  if (!process.env.TWILIO_ACCOUNT_SID || !process.env.TWILIO_AUTH_TOKEN || !twilioFrom) {
     results.push(warn(envG, "Twilio SMS", "One or more TWILIO_* env vars missing", "SMS notifications (booking confirmation, driver dispatch) won't send. App still works without it — emails go out as usual."));
   } else {
     results.push(ok(envG, "Twilio SMS", "All 3 env vars set"));
