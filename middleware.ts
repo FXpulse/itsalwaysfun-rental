@@ -1,13 +1,33 @@
-// Auth middleware — protects all /admin/* routes EXCEPT /admin/login.
-// Redirects unauthenticated users to /admin/login.
-// Refreshes Supabase session cookie on every request.
+// Middleware — runs on every request to:
+//   1. Resolve which tenant this request belongs to (by hostname) and
+//      inject x-tenant-* headers for server components / API routes
+//   2. Refresh the Supabase auth session cookie
+//   3. Gate /admin/* routes (redirect unauthenticated → /admin/login)
 
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { resolveTenantByHostname } from "@/lib/tenant/resolve";
 
 export async function middleware(request: NextRequest) {
-  let response = NextResponse.next({ request: { headers: request.headers } });
+  // ─── 1. RESOLVE TENANT ─────────────────────────────────────────────
+  // Get hostname from headers (host) — fallback to URL hostname for dev
+  const hostname =
+    request.headers.get("host") || request.nextUrl.hostname || "localhost";
 
+  const tenant = await resolveTenantByHostname(hostname);
+
+  // Build forwarded headers that server components / API routes can read
+  // via headers() — these flow through Next.js request context.
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set("x-tenant-id", tenant.id);
+  requestHeaders.set("x-tenant-slug", tenant.slug);
+  requestHeaders.set("x-tenant-via", tenant.resolved_via);
+
+  let response = NextResponse.next({
+    request: { headers: requestHeaders },
+  });
+
+  // ─── 2. REFRESH AUTH SESSION ───────────────────────────────────────
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -18,26 +38,31 @@ export async function middleware(request: NextRequest) {
         },
         set(name: string, value: string, options: CookieOptions) {
           request.cookies.set({ name, value, ...options });
-          response = NextResponse.next({ request: { headers: request.headers } });
+          response = NextResponse.next({
+            request: { headers: requestHeaders },
+          });
           response.cookies.set({ name, value, ...options });
         },
         remove(name: string, options: CookieOptions) {
           request.cookies.set({ name, value: "", ...options });
-          response = NextResponse.next({ request: { headers: request.headers } });
+          response = NextResponse.next({
+            request: { headers: requestHeaders },
+          });
           response.cookies.set({ name, value: "", ...options });
         },
       },
     },
   );
 
-  // Refresh session if needed
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
+  // ─── 3. GATE /admin/* ──────────────────────────────────────────────
   const path = request.nextUrl.pathname;
   const isAdminPath = path.startsWith("/admin");
   const isLoginPath = path === "/admin/login";
 
-  // Redirect unauthenticated → login
   if (isAdminPath && !isLoginPath && !user) {
     const url = request.nextUrl.clone();
     url.pathname = "/admin/login";
@@ -45,7 +70,6 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // Authenticated user on /admin/login → push to dashboard
   if (isLoginPath && user) {
     const url = request.nextUrl.clone();
     url.pathname = "/admin/dashboard";
@@ -56,8 +80,10 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
+  // Run on every request EXCEPT static assets / images / etc.
+  // Tenant resolution needs to happen everywhere — public pages, admin,
+  // portal, driver, API routes. Excluding only static file paths.
   matcher: [
-    // Run on /admin/* and the dynamic API auth-required routes
-    "/admin/:path*",
+    "/((?!_next/static|_next/image|favicon.ico|icons/|images/|sw.js|workbox-|fallback-|manifest.json).*)",
   ],
 };
