@@ -9,6 +9,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
+import Script from "next/script";
 import {
   Check,
   X as XIcon,
@@ -396,6 +397,15 @@ export default function MarketingPage() {
           Jacksonville, FL.
         </div>
       </footer>
+
+      {/* GHL Chat Widget — solo carga en la marketing page (apex domain) */}
+      <Script
+        id="ghl-chat-widget"
+        src="https://beta.leadconnectorhq.com/loader.js"
+        data-resources-url="https://beta.leadconnectorhq.com/chat-widget/loader.js"
+        data-widget-id="6a17732b1ce15bb9e95fe212"
+        strategy="afterInteractive"
+      />
     </div>
   );
 }
