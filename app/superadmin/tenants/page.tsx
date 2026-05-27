@@ -103,6 +103,12 @@ export default async function SuperadminTenantsPage() {
         </div>
         <div className="flex items-center gap-3">
           <Link
+            href="/superadmin/setup"
+            className="text-sm text-slate-600 hover:text-brand-navy inline-flex items-center gap-1"
+          >
+            ⚙ Platform setup
+          </Link>
+          <Link
             href="/superadmin/team"
             className="text-sm text-slate-600 hover:text-brand-navy inline-flex items-center gap-1"
           >

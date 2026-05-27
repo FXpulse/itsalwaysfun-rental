@@ -66,6 +66,16 @@ export async function runAllChecks(): Promise<CheckResult[]> {
     results.push(ok(envG, "Stripe webhook secret", "Set"));
   }
 
+  // RentalFlow subscription Price ID (Pro plan, $99/mo) — required for
+  // tenants to be able to start their paid subscription from /admin/settings/billing
+  // after the 30-day trial. Without this, the checkout button errors out.
+  if (!process.env.STRIPE_PRICE_PRO) {
+    results.push(fail(envG, "RentalFlow Pro Price ID", "STRIPE_PRICE_PRO not set", "Tenants will hit an error when trying to subscribe after their trial. Set this in Vercel env vars (see /superadmin/setup for instructions)."));
+  } else {
+    const id = process.env.STRIPE_PRICE_PRO;
+    results.push(ok(envG, "RentalFlow Pro Price ID", id.length > 30 ? id.slice(0, 30) + "..." : id));
+  }
+
   // Email delivery (provided by RentalFlow — managed for you)
   if (!process.env.RESEND_API_KEY) {
     results.push(fail(envG, "Email delivery", "Not configured", "Transactional emails (booking confirmation, quote follow-up, low-stock alerts) won't send. Contact RentalFlow support."));
