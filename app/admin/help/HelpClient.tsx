@@ -1370,6 +1370,63 @@ export function HelpClient() {
       ),
     },
     {
+      id: "backups",
+      title: "Backups — manual + weekly automatic",
+      icon: Calculator,
+      content: (
+        <div className="space-y-3 text-sm">
+          <p>
+            Two-layer DB backup beyond Supabase's built-in plan backups:
+          </p>
+          <p className="font-semibold">1. Manual on-demand (any time)</p>
+          <p className="text-xs">
+            <code>/admin/diagnostics</code> → scroll to the blue "Backups" card →
+            click <strong>"Download backup now"</strong>. Generates a JSON file
+            with every critical table (bookings, expenses, customers, products,
+            settings, etc.) + auth user metadata. Saves to your Downloads
+            folder as <code>iaf-backup-YYYY-MM-DD.json</code>.
+          </p>
+          <p className="text-xs">
+            Use it before any risky change ("about to mass-edit products → let
+            me backup first") or for ad-hoc archival.
+          </p>
+
+          <p className="font-semibold">2. Weekly automatic (cron)</p>
+          <p className="text-xs">
+            Every Sunday 3 AM UTC, the cron at <code>/api/cron/weekly-backup</code>:
+          </p>
+          <ul className="list-disc pl-5 text-xs space-y-1">
+            <li>Generates the same JSON dump</li>
+            <li>Uploads to the private <code>backups</code> Supabase Storage bucket</li>
+            <li>Prunes files older than 84 days (~12 weeks)</li>
+            <li>Emails you (ADMIN_ALERT_EMAIL) a 7-day signed download link</li>
+          </ul>
+          <p className="text-xs">
+            All scheduled backups are visible in the "Backups" card on
+            diagnostics (file list with sizes).
+          </p>
+
+          <p className="text-xs text-slate-500">
+            💡 To trigger the weekly cron manually for testing:{" "}
+            <code>curl -H "Authorization: Bearer $CRON_SECRET" https://itsalwaysfun.net/api/cron/weekly-backup</code>
+          </p>
+          <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded p-2">
+            ⚠ <strong>Setup required (one time):</strong> run{" "}
+            <code>supabase/backups_bucket.sql</code> to create the private
+            <code>backups</code> bucket. Without it the cron's upload step fails
+            (manual download still works without the bucket).
+          </p>
+          <p className="text-xs text-red-800 bg-red-50 border border-red-200 rounded p-2">
+            ⚠ <strong>Doesn't include uploaded files</strong> (waivers PDFs, COI files,
+            W9s, product photos, gift card backgrounds). Those live in Supabase
+            Storage and are managed by Supabase's own bucket lifecycle. On Free
+            plan there's no automatic bucket backup — consider upgrading to Pro
+            ($25/mo) for full Supabase-managed backups.
+          </p>
+        </div>
+      ),
+    },
+    {
       id: "diagnostics",
       title: "System diagnostics (health check)",
       icon: Settings,
