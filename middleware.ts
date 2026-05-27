@@ -28,8 +28,20 @@ export async function middleware(request: NextRequest) {
   //   - "/admin/*" → redirect to /superadmin/login (no tenant here)
   //   - "/portal/*" or "/driver/*" → redirect to "/" (tenant-only routes)
   //   - /signup, /superadmin/*, /marketing/* → pass through
+  //
+  // The "marketing" sentinel is also used when a *.getrentalflow.com
+  // subdomain doesn't match any tenant — we redirect the whole request
+  // to the apex marketing page (not just the path) so the user lands
+  // on getrentalflow.com instead of seeing a confusing IAF render.
   if (tenant.resolved_via === "marketing") {
     const path = request.nextUrl.pathname;
+
+    // If we're on a tenant subdomain that doesn't exist, send them to
+    // the apex marketing site entirely.
+    if (hostname.endsWith(".getrentalflow.com") && hostname !== "www.getrentalflow.com") {
+      return NextResponse.redirect("https://getrentalflow.com/");
+    }
+
     if (path === "/") {
       return NextResponse.rewrite(new URL("/marketing", request.url), {
         request: { headers: requestHeaders },

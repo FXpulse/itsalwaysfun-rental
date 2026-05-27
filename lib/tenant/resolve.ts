@@ -101,11 +101,17 @@ export async function resolveTenantByHostname(
         cache.set(host, { tenant: t, expires: Date.now() + CACHE_TTL_MS });
         return t;
       }
+      // Subdomain on SaaS base but slug doesn't match any tenant →
+      // treat as marketing (middleware will redirect to apex marketing
+      // page). Don't fall back to default IAF tenant — that would
+      // confusingly serve IAF's site on unknown subdomains.
+      cache.set(host, { tenant: MARKETING_SENTINEL, expires: Date.now() + CACHE_TTL_MS });
+      return MARKETING_SENTINEL;
     }
   }
 
   // 3. Fallback to default tenant (IAF) — covers localhost, vercel.app
-  //    preview URLs, and any unknown host
+  //    preview URLs, and any unknown non-SaaS host
   const { data: defaultTenant } = await supabase
     .from("tenants")
     .select("id, slug, business_name, custom_domain, branding")
