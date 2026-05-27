@@ -35,6 +35,7 @@ import {
   History,
   Calculator,
   Activity,
+  CreditCard,
 } from "lucide-react";
 
 type Role = "admin" | "staff";
@@ -73,6 +74,7 @@ const ALL_NAV: NavItem[] = [
   { href: "/admin/email-templates", label: "Email templates", icon: Mail, minRole: "admin" },
   { href: "/admin/faqs", label: "FAQs", icon: HelpCircle, minRole: "admin" },
   { href: "/admin/users", label: "Users", icon: Users, minRole: "admin" },
+  { href: "/admin/settings/payments", label: "Payments (Stripe)", icon: CreditCard, minRole: "admin" },
   { href: "/admin/settings", label: "Settings", icon: Settings, minRole: "admin" },
   { href: "/admin/audit-log", label: "Audit log", icon: History, minRole: "staff" },
   { href: "/admin/diagnostics", label: "Diagnostics", icon: Activity, minRole: "admin" },

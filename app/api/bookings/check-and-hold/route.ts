@@ -11,6 +11,7 @@ import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { getStripe, isStripeConfigured } from "@/lib/stripe/server";
+import { getPaymentIntentTenantParams } from "@/lib/stripe/connect";
 import { multiDayTotal, multiDayBreakdown, applyCoupon } from "@/lib/pricing";
 import { redeemPoints as doRedeemPoints } from "@/lib/loyalty";
 
@@ -455,7 +456,7 @@ export async function POST(request: Request) {
       booking_status: "pending_payment",
       hold_expires_at: holdExpiresAt,
     })
-    .select("id")
+    .select("id, tenant_id")
     .single();
 
   if (bookErr || !booking) {
@@ -533,6 +534,19 @@ export async function POST(request: Request) {
   } else if (isStripeConfigured()) {
     try {
       const stripe = getStripe();
+
+      // Multi-tenant: if this tenant has a Stripe Connect account, route
+      // payment directly to their bank (destination charge). Otherwise
+      // (legacy IAF), direct charge on platform Stripe.
+      const { data: tenantRow } = await supabase
+        .from("tenants")
+        .select("stripe_account_id")
+        .eq("id", booking.tenant_id)
+        .single();
+      const tenantConnectParams = getPaymentIntentTenantParams(
+        (tenantRow as any)?.stripe_account_id || null,
+      );
+
       const intent = await stripe.paymentIntents.create({
         amount: totalAmount,
         currency: "usd",
@@ -546,8 +560,10 @@ export async function POST(request: Request) {
           event_end_date: endDate,
           days: String(days.length),
           customer_email: parsed.data.customer.email,
+          tenant_id: booking.tenant_id,
         },
         receipt_email: parsed.data.customer.email,
+        ...tenantConnectParams,
       });
 
       clientSecret = intent.client_secret;
