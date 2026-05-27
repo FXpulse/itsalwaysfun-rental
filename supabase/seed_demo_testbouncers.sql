@@ -158,15 +158,16 @@ begin
     (t_id, 'Garden Hose 50ft (water slides)', 'water', 3, 0, 'good', true, 1)
   on conflict do nothing;
 
-  -- 8. Fleet (vehicles for delivery)
-  insert into public.vehicles (tenant_id, name, license_plate, vin, vehicle_type, is_active)
+  -- 8. Fleet — base schema only (license_plate/vin come from optional
+  -- fleet_vin_tag.sql migration; omitted for portability)
+  insert into public.vehicles (tenant_id, name, vehicle_type, capacity_notes, is_active)
   values
-    (t_id, 'White Cargo Van', 'DEMO-001', 'DEMO0000000000001', 'cargo_van', true)
+    (t_id, 'White Cargo Van', 'van', '2 large bouncers + accessories', true)
   on conflict do nothing;
 
-  insert into public.trailers (tenant_id, name, license_plate, vin, is_active)
+  insert into public.trailers (tenant_id, name, capacity_notes, is_active)
   values
-    (t_id, '8x12 Enclosed Trailer', 'DEMO-TR1', 'DEMO0000000000002', true)
+    (t_id, '8x12 Enclosed Trailer', 'fits 3 medium bouncers', true)
   on conflict do nothing;
 
   -- 9. Sample FAQs
