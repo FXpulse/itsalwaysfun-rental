@@ -104,11 +104,61 @@ export default async function AdminLayout({
     return <>{children}</>;
   }
 
-  // Authenticated but no role assigned? Kick to login with error.
-  // (Admin must seed user_roles row via /admin/users or SQL.)
-  const userRole = await getCurrentUserRole();
-  if (!userRole) {
-    // Sign out + redirect with error
+  // Fetch user role for CURRENT tenant + superadmin flag + tenant info
+  const { createAdminClient: createAdmin } = await import("@/lib/supabase/admin");
+  const { getCurrentTenantId } = await import("@/lib/tenant/server");
+  const adminClient = createAdmin({ unscoped: true });
+  const currentTenantId = getCurrentTenantId();
+  const [
+    { data: tenantRoleRow },
+    { data: superadminRow },
+    { data: tenantRow },
+  ] = await Promise.all([
+    adminClient
+      .from("user_roles")
+      .select("role, is_active")
+      .eq("user_id", user.id)
+      .eq("tenant_id", currentTenantId)
+      .maybeSingle(),
+    adminClient
+      .from("user_roles")
+      .select("is_superadmin")
+      .eq("user_id", user.id)
+      .eq("is_superadmin", true)
+      .maybeSingle(),
+    adminClient
+      .from("tenants")
+      .select("business_name")
+      .eq("id", currentTenantId)
+      .maybeSingle(),
+  ]);
+
+  const isSuperadmin = !!superadminRow?.is_superadmin;
+  const businessName = (tenantRow as any)?.business_name || "Rental management";
+
+  // Resolve effective role for this tenant
+  let userRole: { id: string; email: string | null; role: "admin" | "staff" | "driver"; is_active: boolean } | null = null;
+  let impersonating = false;
+
+  if (tenantRoleRow?.is_active) {
+    // User has their own role for this tenant — use it
+    userRole = {
+      id: user.id,
+      email: user.email ?? null,
+      role: tenantRoleRow.role as "admin" | "staff" | "driver",
+      is_active: true,
+    };
+  } else if (isSuperadmin) {
+    // Superadmin without a tenant role → impersonating this tenant
+    userRole = {
+      id: user.id,
+      email: user.email ?? null,
+      role: "admin",
+      is_active: true,
+    };
+    impersonating = true;
+  } else {
+    // Regular user with no role for this tenant → kick
     redirect("/admin/login?error=no_role");
   }
 
@@ -116,25 +166,6 @@ export default async function AdminLayout({
   if (userRole.role === "driver") {
     redirect("/driver");
   }
-
-  // Fetch superadmin flag + current tenant business_name in parallel
-  const { createAdminClient: createAdmin } = await import("@/lib/supabase/admin");
-  const { getCurrentTenantId } = await import("@/lib/tenant/server");
-  const adminClient = createAdmin({ unscoped: true });
-  const [{ data: roleRow }, { data: tenantRow }] = await Promise.all([
-    adminClient
-      .from("user_roles")
-      .select("is_superadmin")
-      .eq("user_id", userRole.id)
-      .maybeSingle(),
-    adminClient
-      .from("tenants")
-      .select("business_name")
-      .eq("id", getCurrentTenantId())
-      .maybeSingle(),
-  ]);
-  const isSuperadmin = !!roleRow?.is_superadmin;
-  const businessName = (tenantRow as any)?.business_name || "Rental management";
 
   const nav = visibleNav(userRole.role);
   const roleBadge =
@@ -190,7 +221,27 @@ export default async function AdminLayout({
         </form>
       </aside>
 
-      <main className="flex-1 p-8 overflow-y-auto">{children}</main>
+      <main className="flex-1 overflow-y-auto">
+        {impersonating && (
+          <div className="bg-amber-400 text-amber-900 px-4 py-2 text-sm flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <span className="text-base">👑</span>
+              <span>
+                <strong>Viewing as superadmin</strong> · You're logged in as
+                yourself but seeing <strong>{businessName}</strong>'s data
+                because you don't have a regular role here.
+              </span>
+            </div>
+            <Link
+              href="/superadmin/tenants"
+              className="bg-amber-900 text-amber-100 text-xs font-bold px-2 py-1 rounded hover:bg-amber-800 whitespace-nowrap"
+            >
+              ← Back to superadmin
+            </Link>
+          </div>
+        )}
+        <div className="p-8">{children}</div>
+      </main>
       <RealtimeNotifications />
     </div>
   );

@@ -145,6 +145,7 @@ export default async function TenantDetailPage({
         </div>
         <TenantActionsPanel
           tenantId={tenant.id}
+          tenantUrl={tenantUrl}
           isSuspended={!!tenant.suspended_at}
           suspendedReason={tenant.suspended_reason}
           stripeCustomerId={tenant.stripe_customer_id}

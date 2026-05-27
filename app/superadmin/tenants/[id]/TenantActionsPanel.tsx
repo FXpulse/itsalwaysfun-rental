@@ -3,17 +3,19 @@
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
-import { Pause, Play, ExternalLink } from "lucide-react";
+import { Pause, Play, ExternalLink, LogIn } from "lucide-react";
 import { suspendTenant, unsuspendTenant } from "./actions";
 
 export function TenantActionsPanel({
   tenantId,
+  tenantUrl,
   isSuspended,
   suspendedReason,
   stripeCustomerId,
   stripeAccountId,
 }: {
   tenantId: string;
+  tenantUrl: string;
   isSuspended: boolean;
   suspendedReason: string | null;
   stripeCustomerId: string | null;
@@ -57,6 +59,17 @@ export function TenantActionsPanel({
 
   return (
     <div className="flex flex-col gap-2 items-end">
+      {/* Login as tenant (impersonate) */}
+      <a
+        href={`${tenantUrl}/admin/dashboard`}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="inline-flex items-center gap-1 bg-brand-navy text-white text-sm px-3 py-2 rounded hover:bg-brand-navy/90"
+        title="Open this tenant's admin in a new tab. As superadmin you have access without needing a tenant role."
+      >
+        <LogIn className="h-3 w-3" /> Open as superadmin
+      </a>
+
       {/* Suspend/unsuspend */}
       {isSuspended ? (
         <button
