@@ -3,6 +3,7 @@
 // and safe to fail (returns a "fail" status, doesn't throw).
 
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getCurrentTenantId } from "@/lib/tenant/server";
 
 export type CheckStatus = "ok" | "warn" | "fail" | "info";
 
@@ -180,6 +181,14 @@ export async function runAllChecks(): Promise<CheckResult[]> {
 
   // ─── SITE SETTINGS ───────────────────────────────────────────────────
   const settingsG = "Site settings";
+
+  // Resolve the active tenant explicitly so we never depend on whether the
+  // proxy wrap fires (it can silently no-op outside request context, and
+  // then site_settings rows from OTHER tenants leak into the .maybeSingle()
+  // call as "multiple rows" which collapses to null → false "not found").
+  const tenantId = getCurrentTenantId();
+  results.push(info(settingsG, "active tenant_id", tenantId));
+
   const requiredSettings = [
     { key: "stripe_publishable_key", critical: false },
     { key: "default_driver_hourly_rate_cents", critical: false },
@@ -188,16 +197,28 @@ export async function runAllChecks(): Promise<CheckResult[]> {
     { key: "damage_protection_enabled", critical: false },
     { key: "min_booking_lead_hours", critical: false },
   ];
+
+  // Fetch all settings for THIS tenant in one go, then build a map. Avoids
+  // a per-key roundtrip and removes any ambiguity about which tenant we're
+  // scoped to (explicit tenant_id filter instead of relying on the wrap).
+  const { data: tenantSettings } = await supabase
+    .from("site_settings")
+    .select("key, value")
+    .eq("tenant_id", tenantId)
+    .in(
+      "key",
+      requiredSettings.map((s) => s.key),
+    );
+
+  const settingsMap = new Map<string, string>(
+    (tenantSettings || []).map((r: any) => [r.key as string, r.value as string]),
+  );
+
   for (const s of requiredSettings) {
-    const { data } = await supabase
-      .from("site_settings")
-      .select("value")
-      .eq("key", s.key)
-      .maybeSingle();
-    if (!data) {
+    const v = settingsMap.get(s.key);
+    if (v === undefined) {
       results.push(warn(settingsG, s.key, "Setting not found", "Will use code default if not set."));
     } else {
-      const v = data.value as string;
       const displayValue = v.length > 60 ? v.substring(0, 60) + "..." : v;
       results.push(info(settingsG, s.key, displayValue || "(empty)"));
     }
