@@ -63,11 +63,15 @@ export default function SignupPage() {
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-6">
-          <Link href="/" className="text-2xl font-bold text-brand-navy">
-            RentalFlow
+          <Link href="/" aria-label="RentalFlow home" className="inline-block">
+            <img
+              src="/01_rentalflow_lockup_light.svg"
+              alt="RentalFlow"
+              className="h-12 w-auto mx-auto"
+            />
           </Link>
-          <p className="text-sm text-slate-500 mt-1">
-            Start your 14-day free trial
+          <p className="text-sm text-slate-500 mt-2">
+            Start your 30-day free trial
           </p>
         </div>
 

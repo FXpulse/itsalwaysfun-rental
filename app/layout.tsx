@@ -5,19 +5,22 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentTenantId } from "@/lib/tenant/server";
 
 export const metadata: Metadata = {
-  title: "It's Always Fun, LLC — Rental Management",
+  title: "RentalFlow — Rental management for party + event rentals",
   description:
-    "Bounce house rental inventory & booking management system for It's Always Fun, LLC, Jacksonville, FL.",
+    "All-in-one rental management software for bounce house, party, and event rental companies. $99/mo flat, every feature included.",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "IAF Driver",
+    title: "RentalFlow",
   },
   icons: {
-    icon: "/icons/icon-192.png",
-    apple: "/icons/icon-180.png",
-    shortcut: "/icons/icon-192.png",
+    icon: [
+      { url: "/favicon_32.png", sizes: "32x32", type: "image/png" },
+      { url: "/05_rentalflow_appicon_navy.png", sizes: "192x192", type: "image/png" },
+    ],
+    apple: "/favicon_180_apple_touch.png",
+    shortcut: "/favicon_32.png",
   },
 };
 

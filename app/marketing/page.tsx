@@ -8,6 +8,7 @@
 // - Lean into founder story — they show no operator testimonials.
 
 import Link from "next/link";
+import Image from "next/image";
 import {
   Check,
   X as XIcon,
@@ -99,7 +100,16 @@ export default function MarketingPage() {
       {/* Header */}
       <header className="border-b border-slate-200">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
-          <div className="font-bold text-2xl text-brand-navy">RentalFlow</div>
+          <Link href="/" aria-label="RentalFlow home">
+            <Image
+              src="/01_rentalflow_lockup_light.svg"
+              alt="RentalFlow"
+              width={180}
+              height={40}
+              priority
+              className="h-10 w-auto"
+            />
+          </Link>
           <div className="flex items-center gap-4">
             <a
               href="#pricing"

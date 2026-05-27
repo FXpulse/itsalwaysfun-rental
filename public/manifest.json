@@ -1,8 +1,8 @@
 {
-  "name": "It's Always Fun — Admin",
-  "short_name": "IAF Driver",
-  "description": "Bounce house rental management for It's Always Fun, LLC. Drivers can view today's routes, mark deliveries, capture proof + signatures offline.",
-  "start_url": "/driver",
+  "name": "RentalFlow",
+  "short_name": "RentalFlow",
+  "description": "All-in-one rental management software for party + event rentals. Drivers can view today's routes, mark deliveries, capture proof + signatures offline.",
+  "start_url": "/admin/dashboard",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
@@ -12,20 +12,20 @@
   "categories": ["business", "productivity"],
   "icons": [
     {
-      "src": "/icons/icon-192.png",
-      "sizes": "192x192",
+      "src": "/05_rentalflow_appicon_navy.png",
+      "sizes": "1024x1024",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "/icons/icon-512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "/icons/icon-180.png",
+      "src": "/favicon_180_apple_touch.png",
       "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/favicon_32.png",
+      "sizes": "32x32",
       "type": "image/png",
       "purpose": "any"
     }

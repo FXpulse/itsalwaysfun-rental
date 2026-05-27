@@ -47,9 +47,14 @@ export function SuperadminLoginForm() {
       <div className="w-full max-w-md">
         <Link
           href="/"
-          className="block text-center font-bold text-2xl text-brand-navy mb-6"
+          aria-label="RentalFlow home"
+          className="block text-center mb-6"
         >
-          RentalFlow
+          <img
+            src="/01_rentalflow_lockup_light.svg"
+            alt="RentalFlow"
+            className="h-12 w-auto mx-auto"
+          />
         </Link>
 
         <div className="card">

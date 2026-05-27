@@ -87,11 +87,18 @@ export default async function SuperadminTenantsPage() {
     <div className="max-w-6xl mx-auto p-6">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-brand-navy flex items-center gap-2">
-            <Crown className="h-6 w-6 text-amber-600" /> RentalFlow Superadmin
-          </h1>
+          <div className="flex items-center gap-3 mb-1">
+            <img
+              src="/01_rentalflow_lockup_light.svg"
+              alt="RentalFlow"
+              className="h-8 w-auto"
+            />
+            <span className="inline-flex items-center gap-1 bg-amber-100 text-amber-900 text-[10px] font-bold tracking-widest px-2 py-0.5 rounded-full">
+              <Crown className="h-3 w-3" /> SUPERADMIN
+            </span>
+          </div>
           <p className="text-sm text-slate-500 mt-1">
-            Manage all tenants across the platform. Superadmin only.
+            Manage all tenants across the platform.
           </p>
         </div>
         <Link
