@@ -3,8 +3,9 @@
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
-import { Save, Eye, EyeOff } from "lucide-react";
+import { Save, Eye, EyeOff, RotateCcw } from "lucide-react";
 import { saveWaiver } from "./actions";
+import { DEFAULT_WAIVER_TITLE, DEFAULT_WAIVER_TEXT } from "@/lib/waiver-default";
 
 export function WaiverEditor({
   initialEnabled,
@@ -21,6 +22,20 @@ export function WaiverEditor({
   const [enabled, setEnabled] = useState(initialEnabled);
   const [title, setTitle] = useState(initialTitle);
   const [text, setText] = useState(initialText);
+
+  function restoreDefault() {
+    if (
+      text.trim() &&
+      !confirm(
+        "Replace the current waiver text with the default template? Your current text will be lost (you can re-edit before saving).",
+      )
+    ) {
+      return;
+    }
+    setTitle(DEFAULT_WAIVER_TITLE);
+    setText(DEFAULT_WAIVER_TEXT);
+    toast.success("Default text loaded — click Save to persist");
+  }
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -81,14 +96,24 @@ export function WaiverEditor({
           <label className="block text-sm font-semibold text-slate-700">
             Waiver text
           </label>
-          <button
-            type="button"
-            onClick={() => setPreview((v) => !v)}
-            className="text-xs text-brand-navy hover:underline inline-flex items-center gap-1"
-          >
-            {preview ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
-            {preview ? "Edit" : "Preview"}
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={restoreDefault}
+              className="text-xs text-amber-700 hover:text-amber-900 hover:underline inline-flex items-center gap-1"
+              title="Replace with the default waiver template"
+            >
+              <RotateCcw className="h-3 w-3" /> Restore default
+            </button>
+            <button
+              type="button"
+              onClick={() => setPreview((v) => !v)}
+              className="text-xs text-brand-navy hover:underline inline-flex items-center gap-1"
+            >
+              {preview ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+              {preview ? "Edit" : "Preview"}
+            </button>
+          </div>
         </div>
         {preview ? (
           <div className="border border-slate-300 rounded p-3 bg-slate-50 text-xs whitespace-pre-line font-sans max-h-96 overflow-y-auto">
