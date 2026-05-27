@@ -44,28 +44,27 @@ Confirm in Vercel Settings → Domains all 3 are green:
 - www.getrentalflow.com
 - *.getrentalflow.com
 
-### 3. Create Stripe Products + Prices (for tenant billing)
+### 3. Create ONE Stripe Product + Price (single-tier $99/mo)
 
-Stripe Dashboard → Products → **+ Add product** — repeat 3 times:
+Stripe Dashboard → Products → **+ Add product**:
 
 | Product name | Price | Billing | Description |
 |--------------|-------|---------|-------------|
-| RentalFlow Starter | $99.00 | Monthly recurring | Up to 50 bookings/mo |
-| RentalFlow Pro | $199.00 | Monthly recurring | Unlimited + custom domain |
-| RentalFlow Enterprise | $499.00 | Monthly recurring | Multi-location + API |
+| RentalFlow | $99.00 | Monthly recurring | All features. Replaces $300/mo competitors. |
 
-For each: open the product → click the Price row → **Copy the price ID**
+Open the product → click the Price row → **Copy the price ID**
 (format: `price_xxxxxxxxxxxx`).
 
-### 4. Add Stripe Price IDs as Vercel env vars
+### 4. Add Stripe Price ID as Vercel env var
 
 Vercel → Settings → Environment Variables → Add:
 
-- `STRIPE_PRICE_STARTER` = `price_xxx` (Starter price ID)
-- `STRIPE_PRICE_PRO` = `price_xxx` (Pro price ID)
-- `STRIPE_PRICE_ENTERPRISE` = `price_xxx` (Enterprise price ID)
+- `STRIPE_PRICE_PRO` = `price_xxx` (the one Price ID you just copied)
 
 Environments: Production + Preview + Development. **Redeploy.**
+
+(Code references `STRIPE_PRICE_STARTER` + `STRIPE_PRICE_ENTERPRISE` too for
+forward-compat — don't need to set them. Single-tier $99 only.)
 
 ### 5. Subscribe Stripe webhook to subscription events
 

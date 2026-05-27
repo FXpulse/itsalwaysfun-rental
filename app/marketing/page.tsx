@@ -15,55 +15,21 @@ import {
 
 export const dynamic = "force-dynamic";
 
-const TIERS = [
-  {
-    name: "Starter",
-    price: "$99",
-    period: "/mo",
-    cta: "Start free trial",
-    features: [
-      "Up to 50 bookings/month",
-      "Online booking page",
-      "Stripe payments",
-      "Email confirmations",
-      "Calendar + inventory",
-      "Basic reports",
-    ],
-    highlighted: false,
-  },
-  {
-    name: "Pro",
-    price: "$199",
-    period: "/mo",
-    cta: "Start free trial",
-    features: [
-      "Unlimited bookings",
-      "Custom domain",
-      "Quotes + gift cards + packages",
-      "SMS confirmations",
-      "Advanced reports + P&L",
-      "1099-NEC year-end automation",
-      "Liability waiver e-signature",
-      "COI request management",
-      "Loyalty program",
-    ],
-    highlighted: true,
-  },
-  {
-    name: "Enterprise",
-    price: "$499",
-    period: "/mo",
-    cta: "Contact sales",
-    features: [
-      "Everything in Pro",
-      "Multi-location",
-      "API access + Zapier",
-      "Priority support",
-      "Custom integrations",
-      "Dedicated onboarding",
-    ],
-    highlighted: false,
-  },
+const ALL_FEATURES = [
+  "Unlimited bookings",
+  "Online booking page + custom domain",
+  "Stripe payments → your bank (zero transaction fees)",
+  "Email + SMS confirmations",
+  "Calendar + inventory + dispatch (driver mobile)",
+  "Quotes + gift cards + packages + coupons",
+  "Advanced reports + P&L + cash flow",
+  "1099-NEC year-end automation",
+  "Liability waiver e-signature",
+  "COI request management",
+  "Loyalty program + referrals",
+  "Per-booking expense tracking",
+  "Damage protection + tracking",
+  "Audit log + diagnostics + automatic backups",
 ];
 
 const FEATURES = [
@@ -126,14 +92,14 @@ export default function MarketingPage() {
       {/* Hero */}
       <section className="max-w-6xl mx-auto px-4 sm:px-6 py-16 sm:py-24 text-center">
         <h1 className="text-4xl sm:text-6xl font-bold text-brand-navy leading-tight mb-6">
-          Rental software that doesn't cost $300/mo
+          Every feature you need.
           <br />
-          <span className="text-brand-yellow-dark">or 8% of every booking</span>
+          <span className="text-brand-yellow-dark">$99/mo flat. Period.</span>
         </h1>
         <p className="text-lg sm:text-xl text-slate-600 max-w-2xl mx-auto mb-8">
           Bounce house, party rentals, equipment rentals — built by a rental
-          owner. Stripe payments, mobile-first dispatch, real-time P&L, 50+
-          features. From $99/mo flat.
+          owner. No tiers, no transaction fees, no upsells. Replaces $300/mo
+          competitors.
         </p>
         <div className="flex flex-col sm:flex-row gap-3 justify-center">
           <Link
@@ -177,58 +143,54 @@ export default function MarketingPage() {
         </div>
       </section>
 
-      {/* Pricing */}
-      <section id="pricing" className="max-w-6xl mx-auto px-4 sm:px-6 py-16">
+      {/* Pricing — single tier, all features included */}
+      <section id="pricing" className="max-w-3xl mx-auto px-4 sm:px-6 py-16">
         <h2 className="text-3xl font-bold text-center text-brand-navy mb-2">
-          Simple, predictable pricing
+          One price. Every feature.
         </h2>
-        <p className="text-center text-slate-600 mb-12">
-          Flat monthly fee. No transaction fees. No setup fees. No surprises.
+        <p className="text-center text-slate-600 mb-8">
+          No tiered upsells. No "Contact sales for X feature." You get everything,
+          flat $99 per month. Cheaper than your phone bill.
         </p>
-        <div className="grid md:grid-cols-3 gap-6">
-          {TIERS.map((t) => (
-            <div
-              key={t.name}
-              className={`border rounded-lg p-6 ${
-                t.highlighted
-                  ? "border-brand-navy border-2 bg-brand-navy text-white shadow-xl"
-                  : "border-slate-200 bg-white"
-              }`}
-            >
-              <div className={`text-sm font-semibold uppercase tracking-wide mb-2 ${
-                t.highlighted ? "text-brand-yellow" : "text-slate-500"
-              }`}>
-                {t.name}
-              </div>
-              <div className="mb-4">
-                <span className="text-4xl font-bold">{t.price}</span>
-                <span className={`text-base ${t.highlighted ? "text-white/70" : "text-slate-500"}`}>
-                  {t.period}
-                </span>
-              </div>
-              <ul className="space-y-2 mb-6">
-                {t.features.map((f) => (
-                  <li key={f} className="flex items-start gap-2 text-sm">
-                    <Check className={`h-4 w-4 mt-0.5 flex-shrink-0 ${
-                      t.highlighted ? "text-brand-yellow" : "text-emerald-600"
-                    }`} />
-                    <span>{f}</span>
-                  </li>
-                ))}
-              </ul>
-              <Link
-                href="/signup"
-                className={`block text-center font-semibold py-3 rounded ${
-                  t.highlighted
-                    ? "bg-brand-yellow text-brand-navy hover:bg-yellow-300"
-                    : "bg-brand-navy text-white hover:bg-brand-navy/90"
-                }`}
-              >
-                {t.cta}
-              </Link>
+
+        <div className="border-2 border-brand-navy rounded-lg p-8 bg-gradient-to-br from-brand-navy to-slate-900 text-white shadow-2xl">
+          <div className="text-center mb-6">
+            <div className="inline-block bg-brand-yellow text-brand-navy text-xs font-bold uppercase tracking-widest px-3 py-1 rounded-full mb-3">
+              Everything included
             </div>
-          ))}
+            <div className="mb-2">
+              <span className="text-6xl font-bold">$99</span>
+              <span className="text-xl text-white/70">/mo</span>
+            </div>
+            <p className="text-sm text-white/80">
+              Replaces $300/mo competitors. 14-day free trial. No credit card.
+            </p>
+          </div>
+
+          <ul className="grid sm:grid-cols-2 gap-x-6 gap-y-2 mb-8 max-w-2xl mx-auto">
+            {ALL_FEATURES.map((f) => (
+              <li key={f} className="flex items-start gap-2 text-sm">
+                <Check className="h-4 w-4 mt-0.5 flex-shrink-0 text-brand-yellow" />
+                <span>{f}</span>
+              </li>
+            ))}
+          </ul>
+
+          <Link
+            href="/signup"
+            className="block text-center bg-brand-yellow text-brand-navy text-lg font-bold py-4 rounded hover:bg-yellow-300"
+          >
+            Start 14-day free trial
+          </Link>
+          <p className="text-center text-xs text-white/60 mt-3">
+            No credit card required · Cancel anytime · Built by a rental owner
+          </p>
         </div>
+
+        <p className="text-center text-xs text-slate-500 mt-6">
+          Multi-location or 1000+ bookings/month? Same price. Need API or custom
+          integration? <a href="mailto:hello@getrentalflow.com" className="text-brand-navy underline">Email us</a>.
+        </p>
       </section>
 
       {/* CTA */}

@@ -22,52 +22,50 @@ export interface TierInfo {
   features: string[];
 }
 
+// SINGLE-TIER pricing: $99/mo flat, every feature included.
+// Tier type union kept for forward-compat (if multi-tier ever returns).
 export const TIERS: Record<Tier, TierInfo> = {
-  starter: {
-    id: "starter",
-    name: "Starter",
-    price_cents: 9900,
-    price_id_env_var: "STRIPE_PRICE_STARTER",
-    features: [
-      "Up to 50 bookings/month",
-      "Online booking page",
-      "Stripe payments",
-      "Email confirmations",
-      "Calendar + inventory",
-      "Basic reports",
-    ],
-  },
   pro: {
     id: "pro",
     name: "Pro",
-    price_cents: 19900,
+    price_cents: 9900,
     price_id_env_var: "STRIPE_PRICE_PRO",
     features: [
       "Unlimited bookings",
-      "Custom domain",
-      "Quotes + gift cards + packages",
-      "SMS confirmations",
-      "Advanced reports + P&L",
+      "Online booking page + custom domain",
+      "Stripe payments → your bank (zero transaction fees)",
+      "Email + SMS confirmations",
+      "Calendar + inventory + dispatch (driver mobile)",
+      "Quotes + gift cards + packages + coupons",
+      "Advanced reports + P&L + cash flow",
       "1099-NEC year-end automation",
-      "Liability waiver + COI",
-      "Loyalty program",
+      "Liability waiver e-signature",
+      "COI request management",
+      "Loyalty program + referrals",
+      "Per-booking expense tracking",
+      "Damage protection + tracking",
+      "Audit log + diagnostics + automatic backups",
     ],
+  },
+  // Legacy stubs — keys must exist for the union type but no UI uses them.
+  starter: {
+    id: "starter",
+    name: "Starter (legacy)",
+    price_cents: 9900,
+    price_id_env_var: "STRIPE_PRICE_STARTER",
+    features: ["Legacy tier — use Pro"],
   },
   enterprise: {
     id: "enterprise",
-    name: "Enterprise",
+    name: "Enterprise (legacy)",
     price_cents: 49900,
     price_id_env_var: "STRIPE_PRICE_ENTERPRISE",
-    features: [
-      "Everything in Pro",
-      "Multi-location",
-      "API access + Zapier",
-      "Priority support",
-      "Custom integrations",
-      "Dedicated onboarding",
-    ],
+    features: ["Legacy tier — use Pro"],
   },
 };
+
+/** The only tier exposed in the public signup + billing UI. */
+export const ACTIVE_TIER: Tier = "pro";
 
 export function getPriceIdForTier(tier: Tier): string | null {
   const envName = TIERS[tier]?.price_id_env_var;

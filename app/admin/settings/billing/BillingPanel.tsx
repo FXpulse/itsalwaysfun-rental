@@ -118,48 +118,40 @@ export function BillingPanel({
     );
   }
 
-  // ─── No subscription — show tier picker ─────────────────────────────
+  // ─── No subscription — show the single $99 tier ─────────────────────
+  const proTier = tiers.find((t) => t.id === "pro")!;
   return (
-    <div className="grid md:grid-cols-3 gap-4">
-      {tiers.map((tier) => (
-        <div
-          key={tier.id}
-          className={`card ${tier.id === "pro" ? "border-brand-navy border-2 shadow-lg" : ""}`}
-        >
-          {tier.id === "pro" && (
-            <div className="text-[10px] uppercase tracking-wider text-brand-yellow-dark font-bold mb-1">
-              Most popular
-            </div>
-          )}
-          <h3 className="text-lg font-bold text-brand-navy">{tier.name}</h3>
-          <div className="my-2">
-            <span className="text-3xl font-bold">${tier.price_cents / 100}</span>
-            <span className="text-sm text-slate-500">/mo</span>
-          </div>
-          <ul className="space-y-1 mb-4 text-xs">
-            {tier.features.map((f) => (
-              <li key={f} className="flex items-start gap-1.5">
-                <Check className="h-3 w-3 text-emerald-600 mt-0.5 flex-shrink-0" />
-                <span>{f}</span>
-              </li>
-            ))}
-          </ul>
-          <button
-            onClick={() => handleStart(tier.id)}
-            disabled={pending}
-            className={`w-full py-2 px-3 rounded font-bold text-sm ${
-              tier.id === "pro"
-                ? "bg-brand-navy text-white hover:bg-brand-navy/90"
-                : "bg-slate-100 text-slate-800 hover:bg-slate-200"
-            }`}
-          >
-            {pending ? "Loading..." : `Start ${tier.name}`}
-          </button>
-          <p className="text-[10px] text-slate-400 mt-2 text-center">
-            14-day free trial
-          </p>
-        </div>
-      ))}
+    <div className="card border-2 border-brand-navy shadow-lg max-w-2xl">
+      <div className="inline-block bg-brand-yellow text-brand-navy text-[10px] uppercase tracking-widest font-bold px-2 py-0.5 rounded mb-2">
+        Everything included
+      </div>
+      <h3 className="text-xl font-bold text-brand-navy">RentalFlow</h3>
+      <div className="my-3">
+        <span className="text-5xl font-bold">${proTier.price_cents / 100}</span>
+        <span className="text-base text-slate-500">/mo</span>
+      </div>
+      <p className="text-sm text-slate-600 mb-4">
+        Replaces $300/mo competitors. No tiers, no transaction fees, no upsells.
+        14-day free trial.
+      </p>
+      <ul className="grid sm:grid-cols-2 gap-x-4 gap-y-1 mb-5 text-xs">
+        {proTier.features.map((f) => (
+          <li key={f} className="flex items-start gap-1.5">
+            <Check className="h-3 w-3 text-emerald-600 mt-0.5 flex-shrink-0" />
+            <span>{f}</span>
+          </li>
+        ))}
+      </ul>
+      <button
+        onClick={() => handleStart(proTier.id)}
+        disabled={pending}
+        className="btn-primary w-full text-lg py-3"
+      >
+        {pending ? "Loading..." : "Start 14-day free trial"}
+      </button>
+      <p className="text-xs text-slate-400 mt-2 text-center">
+        Cancel anytime. No credit card required until trial ends.
+      </p>
     </div>
   );
 }
