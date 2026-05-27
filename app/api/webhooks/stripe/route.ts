@@ -183,6 +183,55 @@ export async function POST(request: Request) {
     return NextResponse.json({ received: true, type: "refund" });
   }
 
+  // ── TENANT SUBSCRIPTION EVENTS (RentalFlow billing tenants) ─────
+  if (
+    event.type === "customer.subscription.created" ||
+    event.type === "customer.subscription.updated" ||
+    event.type === "customer.subscription.deleted"
+  ) {
+    const sub = event.data.object as Stripe.Subscription;
+    const customerId = typeof sub.customer === "string" ? sub.customer : sub.customer.id;
+
+    // Resolve tier from the first line item's price
+    const priceId = sub.items.data[0]?.price.id;
+    let tier: string | null = null;
+    if (priceId === process.env.STRIPE_PRICE_STARTER) tier = "starter";
+    else if (priceId === process.env.STRIPE_PRICE_PRO) tier = "pro";
+    else if (priceId === process.env.STRIPE_PRICE_ENTERPRISE) tier = "enterprise";
+
+    const updates: any = {
+      stripe_subscription_id: sub.id,
+      subscription_status: sub.status,
+      cancel_at_period_end: !!sub.cancel_at_period_end,
+      current_period_end: new Date(sub.current_period_end * 1000).toISOString(),
+    };
+    if (tier) updates.plan = tier;
+
+    await supabase
+      .from("tenants")
+      .update(updates)
+      .eq("stripe_customer_id", customerId);
+
+    return NextResponse.json({
+      received: true,
+      event_type: event.type,
+      subscription_status: sub.status,
+      tier,
+    });
+  }
+
+  if (event.type === "invoice.payment_failed") {
+    const inv = event.data.object as Stripe.Invoice;
+    const customerId = typeof inv.customer === "string" ? inv.customer : inv.customer?.id;
+    if (customerId) {
+      await supabase
+        .from("tenants")
+        .update({ subscription_status: "past_due" })
+        .eq("stripe_customer_id", customerId);
+    }
+    return NextResponse.json({ received: true, event_type: event.type });
+  }
+
   // Other events — ack but ignore
   return NextResponse.json({ received: true, event_type: event.type });
 }
