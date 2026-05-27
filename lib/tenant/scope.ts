@@ -24,15 +24,13 @@ const MULTI_TENANT_TABLES = new Set([
   // Customer-facing
   "customer_profiles",
   "gift_cards",
-  "gift_card_transactions",
   "gift_card_redemptions",
+  "gift_card_purchases",
   "quotes",
-  "quote_items",
   "payout_requests",
   "contact_messages",
   "contact_message_replies",
-  "reviews",
-  "loyalty_points_history",
+  "customer_reviews",
   "loyalty_transactions",
   // Catalog
   "products",
@@ -51,7 +49,7 @@ const MULTI_TENANT_TABLES = new Set([
   "overhead_categories",
   "booking_expense_categories",
   "driver_tax_profiles",
-  "audit_log",
+  "admin_audit_log",
   // Settings + content
   "site_settings",
   "email_templates",

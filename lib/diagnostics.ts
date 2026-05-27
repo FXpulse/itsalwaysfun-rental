@@ -139,7 +139,7 @@ export async function runAllChecks(): Promise<CheckResult[]> {
     { table: "inventory_items", critical: true },
     { table: "app_users", critical: true },
     { table: "site_settings", critical: true },
-    { table: "audit_log", critical: false },
+    { table: "admin_audit_log", critical: false },
     { table: "contact_messages", critical: false },
     { table: "quotes", critical: false },
     { table: "booking_expenses", critical: false },
@@ -282,7 +282,7 @@ export async function runAllChecks(): Promise<CheckResult[]> {
   // ─── RECENT CRON ACTIVITY ────────────────────────────────────────────
   const cronG = "Cron health";
   const { data: recentAudit } = await supabase
-    .from("audit_log")
+    .from("admin_audit_log")
     .select("action, created_at")
     .order("created_at", { ascending: false })
     .limit(100);

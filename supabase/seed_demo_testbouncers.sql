@@ -179,22 +179,24 @@ begin
     (t_id, 'How much space do I need?', 'Each product page lists the setup area required. Generally 3-5 feet of clearance around the unit, flat ground, no overhead power lines.', 4, true)
   on conflict do nothing;
 
-  -- 10. Sample reviews (customer testimonials shown on /reviews)
-  insert into public.reviews
-    (tenant_id, customer_name, customer_city, rating, body, is_featured, is_active)
-  values
-    (t_id, 'Sarah M.', 'Tampa, FL', 5,
-     'Booked the Princess Palace for my daughter''s 6th birthday. Showed up on time, set up perfectly, kids LOVED it. Will definitely book again next year.',
-     true, true),
+  -- 10. Sample reviews — actual table is customer_reviews
+  if to_regclass('public.customer_reviews') is not null then
+    insert into public.customer_reviews
+      (tenant_id, customer_name, customer_location, rating, review_text, is_featured, is_active, source)
+    values
+      (t_id, 'Sarah M.', 'Tampa, FL', 5,
+       'Booked the Princess Palace for my daughter''s 6th birthday. Showed up on time, set up perfectly, kids LOVED it. Will definitely book again next year.',
+       true, true, 'manual'),
 
-    (t_id, 'Mike R.', 'St. Petersburg, FL', 5,
-     'Got the Summer Cool-Down package for our company picnic. Water slide was a hit with both kids AND adults. Easy online booking, no hassle.',
-     true, true),
+      (t_id, 'Mike R.', 'St. Petersburg, FL', 5,
+       'Got the Summer Cool-Down package for our company picnic. Water slide was a hit with both kids AND adults. Easy online booking, no hassle.',
+       true, true, 'manual'),
 
-    (t_id, 'Jessica T.', 'Clearwater, FL', 5,
-     'The cotton candy machine was perfect for our school carnival. The team showed me how to use it and it ran all afternoon. Highly recommend!',
-     true, true)
-  on conflict do nothing;
+      (t_id, 'Jessica T.', 'Clearwater, FL', 5,
+       'The cotton candy machine was perfect for our school carnival. The team showed me how to use it and it ran all afternoon. Highly recommend!',
+       true, true, 'manual')
+    on conflict do nothing;
+  end if;
 
   raise notice '✓ demo seed complete for testbouncers';
 end $$;
