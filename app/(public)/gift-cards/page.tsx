@@ -3,15 +3,18 @@ import { Gift, Phone } from "lucide-react";
 import { isStripeConfigured } from "@/lib/stripe/server";
 import { isGiftCardSalesEnabled } from "@/lib/gift-cards";
 import { getSiteSettings } from "@/lib/site-settings";
+import { getTenantBusinessName } from "@/lib/tenant/business";
 import { GiftCardPurchase } from "./GiftCardPurchase";
 
 export const dynamic = "force-dynamic";
 
-export const metadata: Metadata = {
-  title: "Gift Cards — It's Always Fun",
-  description:
-    "Give the gift of fun. Buy a bounce house rental gift card — any amount, delivered instantly by email.",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const name = await getTenantBusinessName();
+  return {
+    title: `Gift Cards — ${name}`,
+    description: `Give the gift of fun. Buy a rental gift card from ${name} — any amount, delivered instantly by email.`,
+  };
+}
 
 export default async function GiftCardsPage() {
   const stripeReady = isStripeConfigured();

@@ -1,13 +1,16 @@
 import type { Metadata } from "next";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getTenantBusinessName } from "@/lib/tenant/business";
 
 export const dynamic = "force-dynamic";
 
-export const metadata: Metadata = {
-  title: "Rental Agreement & Liability Waiver — It's Always Fun",
-  description:
-    "The full text of the rental agreement and liability waiver customers sign at checkout.",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const name = await getTenantBusinessName();
+  return {
+    title: `Rental Agreement & Liability Waiver — ${name}`,
+    description: `Full text of the rental agreement and liability waiver customers sign at checkout for ${name}.`,
+  };
+}
 
 export default async function PublicWaiverPage() {
   const supabase = createAdminClient();

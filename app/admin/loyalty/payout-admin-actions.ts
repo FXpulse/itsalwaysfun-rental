@@ -7,6 +7,7 @@ import { sendTemplated } from "@/lib/email/send-template";
 import { isEmailConfigured } from "@/lib/email/send";
 import { getSignedUrl } from "@/lib/storage/upload";
 import { logAuditEvent } from "@/lib/audit";
+import { getTenantBusinessName } from "@/lib/tenant/business";
 
 /** Admin-only: returns a time-limited signed URL to view a W9 in the private bucket.
  *  Path is stored in payout_requests.w9_url / customer_profiles.w9_url. */
@@ -67,6 +68,7 @@ export async function approvePayoutRequest(requestId: string, adminNotes?: strin
     const code = codeRow as string;
     if (!code) return { error: "Failed to generate gift card code" };
 
+    const brand = await getTenantBusinessName();
     const { data: card, error: cardErr } = await supabase
       .from("gift_cards")
       .insert({
@@ -75,7 +77,7 @@ export async function approvePayoutRequest(requestId: string, adminNotes?: strin
         balance_cents: req.amount_cents,
         recipient_email: customerEmail,
         recipient_name: `${meta.first_name || ""} ${meta.last_name || ""}`.trim() || customerEmail,
-        purchaser_name: "It's Always Fun (commission payout)",
+        purchaser_name: `${brand} (commission payout)`,
         message: `Your commission payout as a credit toward your next rental. Code is single-use until exhausted.`,
         is_active: true,
       })
@@ -121,7 +123,7 @@ export async function approvePayoutRequest(requestId: string, adminNotes?: strin
         to: customerEmail,
         vars: {
           recipientName: meta.first_name || "there",
-          purchaserName: "It's Always Fun",
+          purchaserName: brand,
           amount: (req.amount_cents / 100).toFixed(2),
           code: card.code,
           message: `This is your commission payout as a rental credit. Apply it at checkout when you book your next rental.`,
@@ -135,7 +137,7 @@ export async function approvePayoutRequest(requestId: string, adminNotes?: strin
 <p>Code: <strong style="font-family:monospace;font-size:18px;background:#FFD700;padding:6px 12px;border-radius:4px;">${card.code}</strong></p>
 <p>Balance: <strong>$${(req.amount_cents / 100).toFixed(2)}</strong></p>
 <p>Book at <a href="${baseUrl}/order-by-date">${baseUrl}/order-by-date</a> — enter the code in the 🎁 field at checkout.</p>
-<p>— The It's Always Fun team</p>`,
+<p>— The ${brand} team</p>`,
           text: `Your commission credit: ${card.code} ($${(req.amount_cents / 100).toFixed(2)})\nUse it at ${baseUrl}/order-by-date`,
         }),
         tags: [{ name: "type", value: "commission_credit_issued" }],

@@ -1,14 +1,17 @@
 import type { Metadata } from "next";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getTenantBusinessName } from "@/lib/tenant/business";
 import { Star, ExternalLink } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
-export const metadata: Metadata = {
-  title: "Customer Reviews — It's Always Fun",
-  description:
-    "What families in Jacksonville say about It's Always Fun bounce house rentals.",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const name = await getTenantBusinessName();
+  return {
+    title: `Customer Reviews — ${name}`,
+    description: `What customers say about ${name}.`,
+  };
+}
 
 const SOURCE_LABEL: Record<string, string> = {
   google: "Google",

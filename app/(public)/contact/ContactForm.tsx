@@ -53,9 +53,8 @@ export function ContactForm() {
             <span className="text-lg flex-shrink-0">📬</span>
             <p className="text-xs text-amber-900">
               <strong>Heads up:</strong> our reply may land in your{" "}
-              <strong>spam / junk folder</strong> the first time. Add{" "}
-              <code className="bg-white px-1 rounded">bookings@itsalwaysfun.com</code>{" "}
-              to your contacts to make sure future replies arrive in your main inbox.
+              <strong>spam / junk folder</strong> the first time. Check
+              your spam folder if you don't see a response within 24h.
             </p>
           </div>
         </div>

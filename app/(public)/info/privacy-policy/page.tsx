@@ -18,7 +18,7 @@ export default async function PrivacyPolicyPage() {
       <section className="space-y-6 text-slate-700 leading-relaxed">
         <p>
           <strong>{settings.business_name}</strong> (&quot;we&quot;, &quot;us&quot;, &quot;our&quot;) operates
-          itsalwaysfun.net (the &quot;Site&quot;). This Privacy Policy informs you of our
+          this website (the &quot;Site&quot;). This Privacy Policy informs you of our
           policies regarding the collection, use, and disclosure of personal
           data when you use our Site and the choices you have associated with
           that data.
