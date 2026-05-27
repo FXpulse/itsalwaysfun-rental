@@ -22,6 +22,7 @@ export async function middleware(request: NextRequest) {
   requestHeaders.set("x-tenant-id", tenant.id);
   requestHeaders.set("x-tenant-slug", tenant.slug);
   requestHeaders.set("x-tenant-via", tenant.resolved_via);
+  requestHeaders.set("x-pathname", request.nextUrl.pathname);
 
   // ─── Marketing host (getrentalflow.com apex) routing ──────────────
   //   - "/" → rewrite to /marketing landing

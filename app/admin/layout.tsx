@@ -105,6 +105,12 @@ export default async function AdminLayout({
     return <>{children}</>;
   }
 
+  // Onboarding wizard renders full-screen without the admin shell.
+  // (Auth checks below still run when role lookup needs to redirect.)
+  const { headers: nextHeaders } = await import("next/headers");
+  const requestPath = nextHeaders().get("x-pathname") || "";
+  const isOnboardingPath = requestPath.startsWith("/admin/onboarding");
+
   // Fetch user role for CURRENT tenant + superadmin flag + tenant info
   const { createAdminClient: createAdmin } = await import("@/lib/supabase/admin");
   const { getCurrentTenantId } = await import("@/lib/tenant/server");
@@ -129,7 +135,7 @@ export default async function AdminLayout({
       .maybeSingle(),
     adminClient
       .from("tenants")
-      .select("business_name")
+      .select("business_name, onboarding_completed_at")
       .eq("id", currentTenantId)
       .maybeSingle(),
   ]);
@@ -166,6 +172,25 @@ export default async function AdminLayout({
   // Drivers go to their dedicated /driver landing — NOT the admin shell
   if (userRole.role === "driver") {
     redirect("/driver");
+  }
+
+  // Brand-new tenants land on the onboarding wizard until they finish it
+  // (or hit Skip). Don't redirect the wizard itself, the logout endpoint,
+  // or impersonating superadmins (they're navigating other people's tenants).
+  if (userRole.role === "admin" && !impersonating) {
+    const onboardingDone = !!(tenantRow as any)?.onboarding_completed_at;
+    const skipPaths = ["/admin/onboarding", "/admin/logout"];
+    const shouldRedirect =
+      !onboardingDone && !skipPaths.some((p) => requestPath.startsWith(p));
+    if (shouldRedirect) {
+      redirect("/admin/onboarding");
+    }
+  }
+
+  // On the onboarding wizard route, drop the sidebar/header — the wizard
+  // owns the whole viewport. Layout still ran auth + onboarding checks.
+  if (isOnboardingPath) {
+    return <>{children}</>;
   }
 
   const nav = visibleNav(userRole.role);
