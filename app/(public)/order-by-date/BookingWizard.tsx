@@ -440,7 +440,13 @@ export function BookingWizard({
           coupon_code: data.coupon_code,
           product_name: data.product_name,
         });
-        setStep("payment");
+        // If the coupon/gift card covers 100% (total < $0.50), Stripe is skipped
+        // and the booking is already marked paid. Go straight to confirmation.
+        if (data.fully_discounted || data.amount < 50) {
+          setStep("done");
+        } else {
+          setStep("payment");
+        }
       } catch (e: any) {
         toast.error(e.message || "Network error");
       }

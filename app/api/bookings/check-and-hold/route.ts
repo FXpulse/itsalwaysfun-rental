@@ -510,8 +510,27 @@ export async function POST(request: Request) {
   // 6. Stripe Payment Intent
   let clientSecret: string | null = null;
   let paymentIntentId: string | null = null;
+  let fullyDiscounted = false;
 
-  if (isStripeConfigured()) {
+  // If total is below Stripe's $0.50 minimum (e.g. 100%-off coupon or
+  // gift card covers everything), skip Stripe entirely and mark the
+  // booking as paid + confirmed. No card needed.
+  if (totalAmount < 50) {
+    fullyDiscounted = true;
+    await supabase
+      .from("bookings")
+      .update({
+        stripe_payment_status: "paid",
+        booking_status: "confirmed",
+        payment_method: appliedCouponCode
+          ? `coupon:${appliedCouponCode}`
+          : giftCardCodeApplied
+            ? `gift_card:${giftCardCodeApplied}`
+            : "promo",
+        customer_confirmed_at: new Date().toISOString(),
+      })
+      .eq("id", booking.id);
+  } else if (isStripeConfigured()) {
     try {
       const stripe = getStripe();
       const intent = await stripe.paymentIntents.create({
@@ -605,5 +624,6 @@ export async function POST(request: Request) {
     product_name: product.name,
     client_secret: clientSecret,
     payment_intent_id: paymentIntentId,
+    fully_discounted: fullyDiscounted,
   });
 }
