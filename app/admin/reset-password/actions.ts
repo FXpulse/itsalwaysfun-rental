@@ -10,12 +10,12 @@ export async function resetAdminPassword(formData: FormData): Promise<{
   const password = String(formData.get("password") || "");
   const secret = String(formData.get("secret") || "");
 
-  // Gate by CRON_SECRET (already configured in Vercel env vars)
-  if (!process.env.CRON_SECRET) {
-    return { ok: false, error: "CRON_SECRET env var not set on the server" };
-  }
-  if (secret !== process.env.CRON_SECRET) {
-    return { ok: false, error: "Invalid secret" };
+  // One-time hard-coded token — this endpoint exists ONLY while this token
+  // matches what the user pastes. After the user resets, the endpoint is
+  // deleted in a follow-up commit, making the token useless.
+  const ONE_TIME_TOKEN = "iaf-reset-2026-a7Kx9pL2mQ8nR4vT";
+  if (secret !== ONE_TIME_TOKEN) {
+    return { ok: false, error: "Invalid token" };
   }
 
   if (!email || !email.includes("@")) {

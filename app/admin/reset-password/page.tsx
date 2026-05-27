@@ -82,19 +82,19 @@ export default function ResetPasswordPage() {
 
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">
-                CRON_SECRET <span className="text-xs text-slate-400">(from Vercel env vars)</span>
+                Reset token
               </label>
               <input
                 name="secret"
-                type="password"
+                type="text"
                 required
-                placeholder="Paste your CRON_SECRET"
+                placeholder="iaf-reset-..."
                 className="input font-mono"
                 disabled={pending}
               />
               <p className="text-[10px] text-slate-400 mt-1">
-                Vercel Dashboard → Project → Settings → Environment Variables →
-                CRON_SECRET → Show value
+                One-time token provided by your dev. This page + token will be
+                removed right after you use it.
               </p>
             </div>
 
