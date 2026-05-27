@@ -55,7 +55,7 @@ export async function startSubscriptionCheckout(tier: Tier): Promise<{
       tier,
       successUrl: `${baseUrl}/admin/settings/billing?success=1`,
       cancelUrl: `${baseUrl}/admin/settings/billing?canceled=1`,
-      trialDays: 14,
+      trialDays: 30,
     });
 
     await logAuditEvent({

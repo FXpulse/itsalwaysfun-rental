@@ -132,7 +132,7 @@ export function BillingPanel({
       </div>
       <p className="text-sm text-slate-600 mb-4">
         Replaces $300/mo competitors. No tiers, no transaction fees, no upsells.
-        14-day free trial.
+        30-day free trial.
       </p>
       <ul className="grid sm:grid-cols-2 gap-x-4 gap-y-1 mb-5 text-xs">
         {proTier.features.map((f) => (
@@ -147,7 +147,7 @@ export function BillingPanel({
         disabled={pending}
         className="btn-primary w-full text-lg py-3"
       >
-        {pending ? "Loading..." : "Start 14-day free trial"}
+        {pending ? "Loading..." : "Start 30-day free trial"}
       </button>
       <p className="text-xs text-slate-400 mt-2 text-center">
         Cancel anytime. No credit card required until trial ends.

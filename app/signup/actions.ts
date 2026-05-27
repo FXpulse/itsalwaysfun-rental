@@ -109,7 +109,7 @@ export async function signupTenant(formData: FormData): Promise<SignupResult> {
       owner_email: parsed.data.owner_email,
       owner_phone: parsed.data.owner_phone,
       plan: "pro",  // single-tier $99/mo — everyone gets Pro
-      trial_ends_at: new Date(Date.now() + 14 * 86400000).toISOString(),  // 14-day trial
+      trial_ends_at: new Date(Date.now() + 30 * 86400000).toISOString(),  // 30-day trial
     })
     .select("id, slug")
     .single();
@@ -163,7 +163,7 @@ export async function signupTenant(formData: FormData): Promise<SignupResult> {
       slug: tenant.slug,
       business_name: parsed.data.business_name,
       plan: "pro",
-      trial_days: 14,
+      trial_days: 30,
     },
   });
 

@@ -33,6 +33,7 @@ const ALL_FEATURES = [
   "1099-NEC year-end automation",
   "Liability waiver e-signature",
   "COI request management",
+  "GHL (Go High Level) CRM integration",
   "Loyalty program + referrals",
   "Per-booking expense tracking",
   "Damage protection + tracking",
@@ -88,7 +89,7 @@ const COMPARISON = [
   { feature: "1099-NEC automation", us: true, them: false },
   { feature: "Liability waiver e-sig", us: true, them: false },
   { feature: "Transaction fees", us: "$0", them: "0-3% varies" },
-  { feature: "Free trial", us: "14 days, no card", them: "Demo gated" },
+  { feature: "Free trial", us: "30 days, no card", them: "Demo gated" },
   { feature: "Monthly cost", us: "$99 flat", them: "$80-$400" },
 ];
 
@@ -147,7 +148,7 @@ export default function MarketingPage() {
             href="/signup"
             className="bg-brand-navy text-white text-lg font-semibold px-8 py-4 rounded-md hover:bg-brand-navy/90 inline-flex items-center gap-2 justify-center"
           >
-            Start 14-day free trial <ArrowRight className="h-5 w-5" />
+            Start 30-day free trial <ArrowRight className="h-5 w-5" />
           </Link>
           <a
             href="https://testbouncers.getrentalflow.com"
@@ -296,7 +297,7 @@ export default function MarketingPage() {
             href="/signup"
             className="block text-center bg-brand-yellow text-brand-navy text-lg font-bold py-4 rounded hover:bg-yellow-300"
           >
-            Start 14-day free trial
+            Start 30-day free trial
           </Link>
           <p className="text-center text-xs text-white/60 mt-3">
             No credit card · No demo · Cancel anytime
