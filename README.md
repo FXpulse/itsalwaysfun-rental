@@ -1,5 +1,7 @@
 # It's Always Fun, LLC — Rental Management System
 
+[![CI](https://github.com/FXpulse/itsalwaysfun-rental/actions/workflows/ci.yml/badge.svg)](https://github.com/FXpulse/itsalwaysfun-rental/actions/workflows/ci.yml)
+
 Internal admin dashboard + public API for **It's Always Fun, LLC** (Jacksonville, FL) — bounce house rental company.
 
 This system replaces the existing expensive third-party provider, integrates with **GoHighLevel** (CRM/marketing), and uses **Stripe** for direct payments (100% upfront, no deposit).
