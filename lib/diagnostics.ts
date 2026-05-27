@@ -208,17 +208,20 @@ export async function runAllChecks(): Promise<CheckResult[]> {
     results.push(ok(dataG, "Active products", `${activeProducts}`));
   }
 
-  // Active fleet
-  const { count: activeFleet } = await supabase
-    .from("fleet")
-    .select("*", { count: "exact", head: true })
-    .eq("is_active", true);
-  if (activeFleet === null) {
-    results.push(warn(dataG, "Active fleet", "fleet table missing or inaccessible"));
-  } else if (activeFleet === 0) {
+  // Active fleet — vehicles + trailers (the app uses two separate tables)
+  const [{ count: vehicleCount }, { count: trailerCount }] = await Promise.all([
+    supabase.from("vehicles").select("*", { count: "exact", head: true }).eq("is_active", true),
+    supabase.from("trailers").select("*", { count: "exact", head: true }).eq("is_active", true),
+  ]);
+  const totalFleet = (vehicleCount || 0) + (trailerCount || 0);
+  if (vehicleCount === null && trailerCount === null) {
+    results.push(warn(dataG, "Active fleet", "vehicles + trailers tables both missing or inaccessible"));
+  } else if (totalFleet === 0) {
     results.push(warn(dataG, "Active fleet", "0 active vehicles/trailers", "Dispatch routes need a vehicle assignment."));
   } else {
-    results.push(ok(dataG, "Active fleet", `${activeFleet}`));
+    results.push(
+      ok(dataG, "Active fleet", `${vehicleCount || 0} vehicle(s) + ${trailerCount || 0} trailer(s)`),
+    );
   }
 
   // Drivers
