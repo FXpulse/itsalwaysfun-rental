@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useRef } from "react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
-import { Save } from "lucide-react";
-import { saveBranding } from "./actions";
+import { Save, Upload, Loader2 } from "lucide-react";
+import { saveBranding, uploadTenantLogo } from "./actions";
 
 export function BrandingEditor({
   initial,
@@ -24,6 +24,35 @@ export function BrandingEditor({
   const [primary_color, setPrimaryColor] = useState(initial.primary_color);
   const [accent_color, setAccentColor] = useState(initial.accent_color);
   const [font_family, setFontFamily] = useState(initial.font_family);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error("File too large (max 2MB)");
+      e.target.value = "";
+      return;
+    }
+    setUploading(true);
+    const fd = new FormData();
+    fd.append("logo_file", file);
+    uploadTenantLogo(fd)
+      .then((r) => {
+        if (r.error) {
+          toast.error(r.error);
+        } else if (r.url) {
+          setLogoUrl(r.url);
+          toast.success("Logo uploaded — click Save to keep");
+          router.refresh();
+        }
+      })
+      .finally(() => {
+        setUploading(false);
+        if (fileInputRef.current) fileInputRef.current.value = "";
+      });
+  }
 
   function handleSubmit(formData: FormData) {
     startTransition(async () => {
@@ -54,24 +83,52 @@ export function BrandingEditor({
 
       <div>
         <label className="block text-sm font-medium text-slate-700 mb-1">
-          Logo URL
+          Logo
         </label>
-        <input
-          name="logo_url"
-          type="url"
-          value={logo_url}
-          onChange={(e) => setLogoUrl(e.target.value)}
-          placeholder="https://your-cdn.com/logo.png"
-          className="input"
-        />
+
+        <div className="flex items-stretch gap-2 mb-2">
+          <input
+            name="logo_url"
+            type="url"
+            value={logo_url}
+            onChange={(e) => setLogoUrl(e.target.value)}
+            placeholder="Logo URL (or upload →)"
+            className="input flex-1"
+          />
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploading}
+            className="inline-flex items-center gap-1 bg-brand-navy text-white text-sm px-3 py-2 rounded hover:bg-brand-navy/90 disabled:opacity-50 whitespace-nowrap"
+          >
+            {uploading ? (
+              <>
+                <Loader2 className="h-3 w-3 animate-spin" /> Uploading...
+              </>
+            ) : (
+              <>
+                <Upload className="h-3 w-3" /> Upload
+              </>
+            )}
+          </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/png,image/jpeg,image/webp,image/svg+xml"
+            onChange={handleFileChange}
+            className="hidden"
+          />
+        </div>
+
         {logo_url && (
           <div className="mt-2 p-2 bg-slate-100 rounded inline-block">
             <img src={logo_url} alt="Logo preview" className="h-12" />
           </div>
         )}
         <p className="text-xs text-slate-500 mt-1">
-          Recommend transparent PNG, 200-400px wide, 60-100px tall.
-          Upload to your own CDN (Cloudinary, ImgBB) or use Supabase Storage.
+          Click <strong>Upload</strong> to send a PNG/JPG/WEBP/SVG (max 2MB)
+          directly to our storage. Or paste a URL from your own CDN. Recommended:
+          transparent PNG, 200-400px wide, 60-100px tall.
         </p>
       </div>
 

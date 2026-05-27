@@ -15,6 +15,85 @@ const BrandingInput = z.object({
   font_family: z.string().max(60).optional(),
 });
 
+const MAX_LOGO_BYTES = 2 * 1024 * 1024;  // 2MB
+const ALLOWED_LOGO_TYPES = new Set([
+  "image/png",
+  "image/jpeg",
+  "image/jpg",
+  "image/webp",
+  "image/svg+xml",
+]);
+
+/** Uploads a logo file to public Supabase Storage bucket 'tenant-branding'.
+ *  Auto-saves the public URL into tenant.branding.logo_url. */
+export async function uploadTenantLogo(formData: FormData): Promise<{
+  url?: string;
+  error?: string;
+}> {
+  const me = await requireAdmin();
+  const tenantId = getCurrentTenantId();
+  const file = formData.get("logo_file") as File | null;
+  if (!file || file.size === 0) return { error: "No file selected" };
+  if (file.size > MAX_LOGO_BYTES) {
+    return { error: `File too large (max 2MB)` };
+  }
+  if (!ALLOWED_LOGO_TYPES.has(file.type)) {
+    return { error: "Only PNG, JPG, WEBP, or SVG files allowed" };
+  }
+
+  const extMap: Record<string, string> = {
+    "image/png": "png",
+    "image/jpeg": "jpg",
+    "image/jpg": "jpg",
+    "image/webp": "webp",
+    "image/svg+xml": "svg",
+  };
+  const ext = extMap[file.type] || "png";
+  // Timestamp suffix for cache-busting on overwrites
+  const path = `tenants/${tenantId}/logo-${Date.now()}.${ext}`;
+
+  const supabase = createAdminClient({ unscoped: true });
+  const buffer = Buffer.from(await file.arrayBuffer());
+  const { error: uploadErr } = await supabase.storage
+    .from("tenant-branding")
+    .upload(path, buffer, {
+      contentType: file.type,
+      upsert: false,
+      cacheControl: "3600",
+    });
+  if (uploadErr) return { error: uploadErr.message };
+
+  const { data: publicData } = supabase.storage
+    .from("tenant-branding")
+    .getPublicUrl(path);
+  const publicUrl = publicData.publicUrl;
+
+  // Merge into tenant.branding (preserve other keys)
+  const { data: existing } = await supabase
+    .from("tenants")
+    .select("branding")
+    .eq("id", tenantId)
+    .single();
+  const newBranding = {
+    ...((existing?.branding as Record<string, any>) || {}),
+    logo_url: publicUrl,
+  };
+  await supabase.from("tenants").update({ branding: newBranding }).eq("id", tenantId);
+
+  await logAuditEvent({
+    userEmail: me.email || "unknown",
+    action: "tenant.logo_uploaded",
+    entityType: "tenant",
+    entityId: tenantId,
+    details: { path, public_url: publicUrl, size_bytes: file.size },
+  });
+
+  revalidatePath("/admin/settings/branding");
+  revalidatePath("/", "layout");
+
+  return { url: publicUrl };
+}
+
 export async function saveBranding(formData: FormData) {
   const me = await requireAdmin();
   const tenantId = getCurrentTenantId();
