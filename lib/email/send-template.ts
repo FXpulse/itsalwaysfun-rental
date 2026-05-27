@@ -8,8 +8,11 @@ export interface SendTemplatedParams {
   key: string;
   to: string | string[];
   vars: Record<string, any>;
-  /** Used if the DB template is missing or fails to load. */
-  fallback?: () => { subject: string; html: string; text: string };
+  /** Used if the DB template is missing or fails to load. May be async so
+   *  callers can fetch tenant brand info before rendering. */
+  fallback?: () =>
+    | { subject: string; html: string; text: string }
+    | Promise<{ subject: string; html: string; text: string }>;
   tags?: SendEmailParams["tags"];
   replyTo?: string;
   cc?: SendEmailParams["cc"];
@@ -28,7 +31,7 @@ export async function sendTemplated(
 
   if (!rendered) {
     if (params.fallback) {
-      rendered = params.fallback();
+      rendered = await params.fallback();
       usedFallback = true;
     } else {
       return {

@@ -6,6 +6,7 @@ import { requireAdmin } from "@/lib/auth/roles";
 import { isEmailConfigured } from "@/lib/email/send";
 import { sendTemplated } from "@/lib/email/send-template";
 import { renderQuoteEmail } from "@/lib/email/templates";
+import { getTenantInfo, tenantToEmailBrand } from "@/lib/tenant/business";
 import { z } from "zod";
 
 const LineItemSchema = z.object({
@@ -235,8 +236,9 @@ export async function sendQuote(id: string) {
         quoteUrl,
         expiresAtFormatted: expiresFormatted,
       },
-      fallback: () =>
-        renderQuoteEmail({
+      fallback: async () => {
+        const tenant = await getTenantInfo((q as any).tenant_id);
+        return renderQuoteEmail({
           firstName: q.customer_first_name,
           quoteNumber: q.quote_number,
           quoteUrl,
@@ -245,7 +247,9 @@ export async function sendQuote(id: string) {
           eventEndDate: q.event_end_date,
           message: q.customer_message,
           expiresAt: q.expires_at,
-        }),
+          brand: tenantToEmailBrand(tenant),
+        });
+      },
       tags: [
         { name: "type", value: "quote_sent" },
         { name: "quote_number", value: q.quote_number },

@@ -6,6 +6,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { isEmailConfigured } from "@/lib/email/send";
 import { sendTemplated } from "@/lib/email/send-template";
 import { renderReferralEmail, renderAdminPayoutAlert } from "@/lib/email/templates";
+import { getTenantInfo, tenantToEmailBrand } from "@/lib/tenant/business";
 
 export interface LoyaltySettings {
   points_per_dollar: number;
@@ -266,15 +267,18 @@ export async function awardForPaidBooking(bookingId: string): Promise<void> {
         portalUrl: `${baseUrl}/portal/referrals`,
         readyForPayout: readyForPayout ? "true" : "",
       },
-      fallback: () =>
-        renderReferralEmail({
+      fallback: async () => {
+        const tenant = await getTenantInfo();
+        return renderReferralEmail({
           firstName,
-          commissionEarned: commissionCents,
-          referredCustomerEmail: customer.email!,
-          totalPendingCommission: newPendingCents,
+          commissionCents,
+          bookingCustomerName: customer.email!,
+          pendingTotalCents: newPendingCents,
+          payoutThresholdCents: thresholdCents,
           portalUrl: `${baseUrl}/portal/referrals`,
-          readyForPayout,
-        }),
+          brand: tenantToEmailBrand(tenant),
+        });
+      },
       tags: [{ name: "type", value: "referral_commission" }],
     });
     if (!r.ok) console.error("[Resend referral send failed]", r.error);
@@ -297,14 +301,16 @@ export async function awardForPaidBooking(bookingId: string): Promise<void> {
           totalPendingDollars: (newPendingCents / 100).toFixed(2),
           adminPanelUrl,
         },
-        fallback: () =>
-          renderAdminPayoutAlert({
+        fallback: async () => {
+          const tenant = await getTenantInfo();
+          return renderAdminPayoutAlert({
             customerName,
             customerEmail: referrerUser.email!,
-            customerPhone: referrerMeta.phone || "",
-            totalPending: newPendingCents,
-            adminPanelUrl,
-          }),
+            pendingCommissionCents: newPendingCents,
+            adminUrl: adminPanelUrl,
+            brand: tenantToEmailBrand(tenant),
+          });
+        },
         tags: [{ name: "type", value: "admin_payout_alert" }],
       });
     }

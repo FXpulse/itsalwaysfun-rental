@@ -8,6 +8,7 @@ import { z } from "zod";
 import { isEmailConfigured } from "@/lib/email/send";
 import { sendTemplated } from "@/lib/email/send-template";
 import { renderAbandonedCartEmail } from "@/lib/email/templates";
+import { getTenantInfo, tenantToEmailBrand } from "@/lib/tenant/business";
 
 export const dynamic = "force-dynamic";
 
@@ -77,14 +78,17 @@ export async function POST(request: Request) {
         totalDollars: parsed.data.totalPrice.toFixed(2),
         resumeUrl,
       },
-      fallback: () =>
-        renderAbandonedCartEmail({
+      fallback: async () => {
+        const tenant = await getTenantInfo();
+        return renderAbandonedCartEmail({
           firstName: parsed.data.firstName,
           productName: parsed.data.product,
           eventDate: parsed.data.eventDate,
-          totalPrice: totalCents,
+          totalCents,
           resumeUrl,
-        }),
+          brand: tenantToEmailBrand(tenant),
+        });
+      },
       tags: [{ name: "type", value: "abandoned_cart" }],
     });
     results.resend = { ok: r.ok, id: r.id, error: r.error };

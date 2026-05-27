@@ -2,27 +2,79 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { Toaster } from "sonner";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getCurrentTenantId } from "@/lib/tenant/server";
+import { getCurrentTenant } from "@/lib/tenant/server";
 
-export const metadata: Metadata = {
-  title: "RentalFlow — Rental management for party + event rentals",
-  description:
-    "All-in-one rental management software for bounce house, party, and event rental companies. $99/mo flat, every feature included.",
-  manifest: "/manifest.json",
-  appleWebApp: {
-    capable: true,
-    statusBarStyle: "default",
-    title: "RentalFlow",
-  },
-  icons: {
-    icon: [
-      { url: "/favicon_32.png", sizes: "32x32", type: "image/png" },
-      { url: "/05_rentalflow_appicon_navy.png", sizes: "192x192", type: "image/png" },
-    ],
-    apple: "/favicon_180_apple_touch.png",
-    shortcut: "/favicon_32.png",
-  },
-};
+// Tenant-aware metadata: each tenant host (custom domain or *.getrentalflow.com)
+// sees THEIR business name as the tab title, and THEIR uploaded logo as the
+// favicon when available. Only the marketing/SaaS apex shows "RentalFlow".
+//
+// We branch on the middleware-set x-tenant-via header (NOT a DB query), so
+// a transient DB failure can never make a tenant host fall back to the
+// RentalFlow marketing branding by accident.
+export async function generateMetadata(): Promise<Metadata> {
+  const current = getCurrentTenant();
+  const isMarketing = current.isMarketing || current.resolved_via === "marketing";
+
+  if (isMarketing) {
+    return {
+      title: "RentalFlow — Rental management for party + event rentals",
+      description:
+        "All-in-one rental management software for bounce house, party, and event rental companies. $99/mo flat, every feature included.",
+      manifest: "/manifest.json",
+      appleWebApp: {
+        capable: true,
+        statusBarStyle: "default",
+        title: "RentalFlow",
+      },
+      icons: {
+        icon: [
+          { url: "/favicon_32.png", sizes: "32x32", type: "image/png" },
+          { url: "/05_rentalflow_appicon_navy.png", sizes: "192x192", type: "image/png" },
+        ],
+        apple: "/favicon_180_apple_touch.png",
+        shortcut: "/favicon_32.png",
+      },
+    };
+  }
+
+  // Tenant host (custom domain or subdomain) — resolve their brand. If the
+  // DB lookup fails we still want to AVOID emitting RentalFlow icons. Worst
+  // case: tab title is "Rental Management" and favicon is the browser default.
+  const tenant = await getTenantBranding();
+  const branding = (tenant?.branding as Record<string, any>) || {};
+  const name = tenant?.business_name || "Rental Management";
+  const logoUrl =
+    (branding.logo_url as string | undefined) ||
+    (await getTenantSiteLogo());
+
+  return {
+    title: name,
+    description: `${name} — book online, manage rentals.`,
+    appleWebApp: {
+      capable: true,
+      statusBarStyle: "default",
+      title: name,
+    },
+    icons: logoUrl
+      ? { icon: [{ url: logoUrl }], shortcut: logoUrl, apple: logoUrl }
+      : undefined,
+  };
+}
+
+async function getTenantSiteLogo(): Promise<string | undefined> {
+  try {
+    const supabase = createAdminClient();
+    const { data } = await supabase
+      .from("site_settings")
+      .select("value")
+      .eq("key", "logo_url")
+      .maybeSingle();
+    const v = (data?.value as string | undefined)?.trim();
+    return v && v.length > 0 ? v : undefined;
+  } catch {
+    return undefined;
+  }
+}
 
 export const viewport: Viewport = {
   themeColor: "#1a1a6e",
@@ -36,7 +88,7 @@ export const viewport: Viewport = {
 // outside request context (build time, scripts).
 async function getTenantBranding() {
   try {
-    const tenantId = getCurrentTenantId();
+    const tenantId = getCurrentTenant().id;
     if (tenantId === "__marketing__") return null;
     const supabase = createAdminClient({ unscoped: true });
     const { data } = await supabase
