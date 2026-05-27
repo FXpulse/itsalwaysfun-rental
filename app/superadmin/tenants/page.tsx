@@ -143,7 +143,12 @@ export default async function SuperadminTenantsPage() {
               return (
                 <tr key={t.id} className={t.suspended_at ? "bg-red-50" : ""}>
                   <td className="px-3 py-2">
-                    <div className="font-medium">{t.business_name}</div>
+                    <Link
+                      href={`/superadmin/tenants/${t.id}`}
+                      className="font-medium text-brand-navy hover:underline"
+                    >
+                      {t.business_name}
+                    </Link>
                     <div className="text-[11px] text-slate-500 font-mono">{t.slug}</div>
                   </td>
                   <td className="px-3 py-2 text-xs">
