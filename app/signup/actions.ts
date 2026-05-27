@@ -162,6 +162,21 @@ export async function signupTenant(formData: FormData): Promise<SignupResult> {
     console.error("[seed_default_email_templates failed, non-fatal]", e);
   }
 
+  // 4c. Seed default site_settings so /admin/site shows the full editor
+  // (hero, footer, trust badges, appearance, etc.) instead of just a few
+  // empty fields. Pre-seeds business_name from signup data.
+  try {
+    await supabase.rpc("seed_default_site_settings", { p_tenant_id: tenant.id });
+    // Pre-fill business_name with what the user typed at signup
+    await supabase
+      .from("site_settings")
+      .update({ value: parsed.data.business_name })
+      .eq("tenant_id", tenant.id)
+      .eq("key", "business_name");
+  } catch (e) {
+    console.error("[seed_default_site_settings failed, non-fatal]", e);
+  }
+
   // 5. Audit
   await logAuditEvent({
     userEmail: parsed.data.owner_email,
