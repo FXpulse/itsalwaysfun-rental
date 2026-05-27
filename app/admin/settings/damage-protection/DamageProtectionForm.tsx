@@ -39,23 +39,61 @@ export function DamageProtectionForm({
 
   return (
     <form onSubmit={onSubmit} className="card space-y-5">
-      <label className="flex items-start gap-3 cursor-pointer">
-        <input
-          type="checkbox"
-          className="mt-1 h-5 w-5 rounded text-brand-navy focus:ring-brand-navy"
-          checked={enabled}
-          onChange={(e) => setEnabled(e.target.checked)}
-          disabled={pending}
-        />
+      <div className="flex items-center justify-between gap-4 p-4 bg-slate-50 rounded-lg border border-slate-200">
         <div>
-          <div className="font-semibold text-brand-navy">
-            Show damage protection at checkout
+          <div className="font-semibold text-brand-navy text-base">
+            Damage protection at checkout
           </div>
-          <div className="text-sm text-slate-500">
-            When off, customers don't see the option and the fee is never added.
+          <div className="text-sm text-slate-500 mt-0.5">
+            {enabled
+              ? "ON — customers see the option to add it for an extra fee."
+              : "OFF — customers don't see the option and no fee is added."}
           </div>
         </div>
-      </label>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={enabled}
+          onClick={() => setEnabled((v) => !v)}
+          disabled={pending}
+          className={`relative inline-flex h-8 w-14 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-navy focus:ring-offset-2 disabled:opacity-50 ${
+            enabled ? "bg-emerald-500" : "bg-slate-300"
+          }`}
+        >
+          <span
+            className={`pointer-events-none inline-block h-7 w-7 transform rounded-full bg-white shadow ring-0 transition duration-200 ${
+              enabled ? "translate-x-6" : "translate-x-0"
+            }`}
+          />
+        </button>
+      </div>
+
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={() => setEnabled(true)}
+          disabled={pending || enabled}
+          className={`px-4 py-2 rounded text-sm font-semibold border transition ${
+            enabled
+              ? "bg-emerald-600 text-white border-emerald-600 cursor-default"
+              : "bg-white text-emerald-700 border-emerald-300 hover:bg-emerald-50"
+          }`}
+        >
+          ✓ Enable
+        </button>
+        <button
+          type="button"
+          onClick={() => setEnabled(false)}
+          disabled={pending || !enabled}
+          className={`px-4 py-2 rounded text-sm font-semibold border transition ${
+            !enabled
+              ? "bg-slate-600 text-white border-slate-600 cursor-default"
+              : "bg-white text-slate-700 border-slate-300 hover:bg-slate-50"
+          }`}
+        >
+          ✕ Disable
+        </button>
+      </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
