@@ -225,10 +225,10 @@ begin
 
   -- ── 8. GIFT CARDS (4 issued) ──────────────────────────────────
   insert into public.gift_cards (
-    tenant_id, code, initial_balance_cents, balance_cents,
+    tenant_id, code, original_amount_cents, balance_cents,
     purchaser_name, purchaser_email,
     recipient_name, recipient_email,
-    message, is_active, expires_at, created_at
+    message, is_active, expires_at, issued_at
   ) values
     (t_id, 'GC-DEMO-001', 10000, 10000, 'John Smith', 'john.demo@example.com',
      'Sarah Smith', 'sarah.smith.demo@example.com',
