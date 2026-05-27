@@ -101,12 +101,20 @@ export default async function SuperadminTenantsPage() {
             Manage all tenants across the platform.
           </p>
         </div>
-        <Link
-          href="/admin/dashboard"
-          className="text-sm text-slate-500 hover:text-brand-navy"
-        >
-          ← Back to my tenant
-        </Link>
+        <div className="flex items-center gap-3">
+          <Link
+            href="/superadmin/team"
+            className="text-sm text-slate-600 hover:text-brand-navy inline-flex items-center gap-1"
+          >
+            <Users className="h-4 w-4" /> Team
+          </Link>
+          <Link
+            href="/admin/dashboard"
+            className="text-sm text-slate-500 hover:text-brand-navy"
+          >
+            ← Back to my tenant
+          </Link>
+        </div>
       </div>
 
       {/* Top stats */}
