@@ -281,7 +281,9 @@ export async function runAllChecks(): Promise<CheckResult[]> {
   // Last booking-emails run (proxy: any audit_log entry with action LIKE 'cron.%')
   // Since we don't audit cron successes specifically, just report most recent activity.
   if (recentActions.length === 0) {
-    results.push(warn(cronG, "Audit log activity", "No entries in audit_log yet", "Either no admin actions taken yet, or audit_log table is empty / not being populated."));
+    // Empty audit log is normal on a fresh DB — gets populated when admin
+    // does refunds, payouts, role changes, etc. Not a warning.
+    results.push(info(cronG, "Audit log activity", "No entries yet (fills when you do refunds, payouts, etc.)"));
   } else {
     const last = recentActions[0];
     const hoursAgo = Math.round(
