@@ -52,7 +52,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const supabase = createAdminClient();
+  const supabase = createAdminClient({ unscoped: true });
 
   // ── PAYMENT SUCCEEDED ───────────────────────────────────────────
   if (event.type === "payment_intent.succeeded") {
@@ -192,7 +192,7 @@ export async function POST(request: Request) {
 // On success: flip extension to paid + bump bookings.event_end_date + add to
 // total_amount + audit-line in notes.
 async function fulfillBookingExtension(pi: Stripe.PaymentIntent) {
-  const supabase = createAdminClient();
+  const supabase = createAdminClient({ unscoped: true });
   const extensionId = pi.metadata?.extension_id;
   if (!extensionId) {
     return NextResponse.json(
@@ -253,7 +253,7 @@ async function fulfillBookingExtension(pi: Stripe.PaymentIntent) {
 // ── Gift card purchase fulfillment ───────────────────────────────
 // Idempotent: if status is already 'paid' (e.g. webhook retry) we no-op.
 async function fulfillGiftCardPurchase(pi: Stripe.PaymentIntent) {
-  const supabase = createAdminClient();
+  const supabase = createAdminClient({ unscoped: true });
   const purchaseId = pi.metadata?.gift_card_purchase_id;
   if (!purchaseId) {
     return NextResponse.json(

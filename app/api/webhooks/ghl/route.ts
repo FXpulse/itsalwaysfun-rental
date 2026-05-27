@@ -68,7 +68,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const supabase = createAdminClient();
+  const supabase = createAdminClient({ unscoped: true });
 
   // 3. Resolve product
   const { data: product, error: prodErr } = await supabase

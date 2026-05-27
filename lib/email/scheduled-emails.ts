@@ -44,7 +44,7 @@ const BASE_URL =
 
 /** True if already sent. */
 async function alreadySent(bookingId: string, emailType: EmailType): Promise<boolean> {
-  const supabase = createAdminClient();
+  const supabase = createAdminClient({ unscoped: true });
   const { data } = await supabase
     .from("booking_emails_sent")
     .select("id")
@@ -61,7 +61,7 @@ async function recordSend(
   resendId?: string,
   errorMessage?: string,
 ) {
-  const supabase = createAdminClient();
+  const supabase = createAdminClient({ unscoped: true });
   await supabase.from("booking_emails_sent").insert({
     booking_id: bookingId,
     email_type: emailType,
@@ -93,7 +93,7 @@ function buildVars(b: BookingRow, extras: Record<string, any> = {}): Record<stri
 
 /** Send the immediate booking confirmation email + SMS. Idempotent. */
 export async function sendBookingConfirmation(bookingId: string): Promise<void> {
-  const supabase = createAdminClient();
+  const supabase = createAdminClient({ unscoped: true });
   const { data: booking } = await supabase
     .from("bookings")
     .select("*")
@@ -148,7 +148,7 @@ export async function processScheduledBookingEmails(): Promise<{
     return summary;
   }
 
-  const supabase = createAdminClient();
+  const supabase = createAdminClient({ unscoped: true });
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 

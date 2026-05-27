@@ -103,7 +103,7 @@ export async function POST(request: Request) {
   }
 
   const { first, last } = splitName(data.from_name, data.from);
-  const supabase = createAdminClient();
+  const supabase = createAdminClient({ unscoped: true });
 
   const { data: row, error: insertErr } = await supabase
     .from("contact_messages")

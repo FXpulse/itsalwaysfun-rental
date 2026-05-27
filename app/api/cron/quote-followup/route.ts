@@ -28,7 +28,7 @@ export async function GET() {
     });
   }
 
-  const supabase = createAdminClient();
+  const supabase = createAdminClient({ unscoped: true });
   const cutoff = new Date();
   cutoff.setDate(cutoff.getDate() - FOLLOWUP_DAYS);
 

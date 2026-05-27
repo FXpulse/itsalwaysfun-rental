@@ -24,7 +24,7 @@ export async function GET() {
     return NextResponse.json({ ok: true, skipped: "email not configured" });
   }
 
-  const supabase = createAdminClient();
+  const supabase = createAdminClient({ unscoped: true });
 
   // All active items with a threshold set
   const { data: items, error } = await supabase

@@ -29,7 +29,7 @@ function info(group: string, name: string, message: string): CheckResult {
 
 export async function runAllChecks(): Promise<CheckResult[]> {
   const results: CheckResult[] = [];
-  const supabase = createAdminClient();
+  const supabase = createAdminClient({ unscoped: true });
 
   // ─── ENVIRONMENT VARIABLES ───────────────────────────────────────────
   const envG = "Environment";

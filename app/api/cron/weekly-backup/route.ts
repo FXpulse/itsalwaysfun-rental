@@ -21,7 +21,7 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const supabase = createAdminClient();
+  const supabase = createAdminClient({ unscoped: true });
   const now = new Date();
   const dateStr = now.toISOString().slice(0, 10);
   const filename = `backup-${dateStr}.json`;

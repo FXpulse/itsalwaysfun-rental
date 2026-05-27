@@ -68,7 +68,7 @@ export interface BackupResult {
 
 /** Pull all tables into one JSON object. Returns counts + any errors. */
 export async function exportFullBackup(): Promise<BackupResult> {
-  const supabase = createAdminClient();
+  const supabase = createAdminClient({ unscoped: true });
   const tables: Record<string, any[]> = {};
   const skipped: string[] = [];
   const errors: Record<string, string> = {};
