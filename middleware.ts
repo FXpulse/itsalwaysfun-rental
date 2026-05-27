@@ -23,6 +23,20 @@ export async function middleware(request: NextRequest) {
   requestHeaders.set("x-tenant-slug", tenant.slug);
   requestHeaders.set("x-tenant-via", tenant.resolved_via);
 
+  // ─── Marketing host → rewrite to /marketing routes ─────────────────
+  // getrentalflow.com (apex / www) serves the SaaS marketing pages, not
+  // a tenant's rental site. Rewrite root path to /marketing, leave
+  // /signup as-is (already a marketing route).
+  if (tenant.resolved_via === "marketing") {
+    const path = request.nextUrl.pathname;
+    if (path === "/") {
+      return NextResponse.rewrite(new URL("/marketing", request.url), {
+        request: { headers: requestHeaders },
+      });
+    }
+    // /signup, /marketing/*, _next/* etc. pass through
+  }
+
   let response = NextResponse.next({
     request: { headers: requestHeaders },
   });
