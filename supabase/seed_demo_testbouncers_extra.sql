@@ -175,7 +175,7 @@ begin
      md5(random()::text || clock_timestamp()::text), current_date + 9),
 
     (t_id, 'Q-2026-003', 'Linda', 'Walker', 'linda.demo@example.com',
-     '+1-813-555-0203', current_date - 10, 64900, 'accepted',
+     '+1-813-555-0203', current_date - 10, 64900, 'approved',
      now() - interval '15 days',
      md5(random()::text || clock_timestamp()::text), current_date - 1)
   on conflict do nothing;
