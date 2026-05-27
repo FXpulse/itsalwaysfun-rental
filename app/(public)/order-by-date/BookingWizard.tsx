@@ -461,6 +461,32 @@ export function BookingWizard({
 
   return (
     <div>
+      {/* When user came from a Book Now button, give them a way out to pick a
+          different product without manually clearing the cart from the header. */}
+      {hasPreSelectedProduct && selectedProduct && (
+        <div className="mb-4 bg-slate-50 border border-slate-200 rounded p-2 flex items-center justify-between text-xs">
+          <span className="text-slate-600">
+            Booking: <strong className="text-brand-navy">{selectedProduct.name}</strong>
+          </span>
+          <button
+            type="button"
+            onClick={() => {
+              if (
+                confirm(
+                  `Remove "${selectedProduct.name}" and pick a different rental?`,
+                )
+              ) {
+                clear();
+                window.location.reload();
+              }
+            }}
+            className="text-red-600 hover:text-red-800 underline"
+          >
+            Choose a different product
+          </button>
+        </div>
+      )}
+
       {/* Step indicator */}
       <div className="flex justify-between mb-8">
         {visibleSteps.map((s, idx) => {

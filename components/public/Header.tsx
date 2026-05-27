@@ -54,7 +54,7 @@ export function Header({
     ...(showPackages ? [NAV_PACKAGES] : []),
     ...(showGiftCards ? [NAV_GIFT_CARDS] : []),
   ];
-  const { hasItem } = useCart();
+  const { hasItem, item, clear } = useCart();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [infoOpen, setInfoOpen] = useState(false);
 
@@ -122,18 +122,36 @@ export function Header({
             <span>My Account</span>
           </Link>
 
-          <Link
-            href="/order-by-date"
-            className="relative inline-flex items-center text-brand-navy hover:text-brand-yellow-dark"
-            aria-label="Cart"
-          >
-            <ShoppingCart className="h-6 w-6" />
+          <div className="relative inline-flex items-center gap-1">
+            <Link
+              href="/order-by-date"
+              className="relative inline-flex items-center text-brand-navy hover:text-brand-yellow-dark"
+              aria-label={hasItem ? `Cart: ${item?.productName}` : "Cart"}
+              title={hasItem ? `Cart: ${item?.productName}` : "Cart (empty)"}
+            >
+              <ShoppingCart className="h-6 w-6" />
+              {hasItem && (
+                <span className="absolute -top-1 -right-1 bg-red-600 text-white text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center">
+                  1
+                </span>
+              )}
+            </Link>
             {hasItem && (
-              <span className="absolute -top-1 -right-1 bg-red-600 text-white text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center">
-                1
-              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  if (confirm(`Remove "${item?.productName}" from your cart?`)) {
+                    clear();
+                  }
+                }}
+                className="text-slate-400 hover:text-red-600 ml-0.5"
+                aria-label="Clear cart"
+                title="Clear cart"
+              >
+                <X className="h-4 w-4" />
+              </button>
             )}
-          </Link>
+          </div>
 
           <button
             onClick={() => setMobileOpen((v) => !v)}
