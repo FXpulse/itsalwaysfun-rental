@@ -43,6 +43,12 @@ export function AccountingExportButtons({
             >
               <Download className="h-3 w-3" /> P&amp;L summary
             </a>
+            <a
+              href={`${base}&type=tax`}
+              className="inline-flex items-center gap-1 bg-white border border-emerald-300 text-emerald-900 text-xs px-3 py-1.5 rounded hover:bg-emerald-100 font-medium"
+            >
+              <Download className="h-3 w-3" /> Tax collected
+            </a>
             <Link
               href="/admin/reports/1099-nec"
               className="inline-flex items-center gap-1 bg-emerald-700 border border-emerald-700 text-white text-xs px-3 py-1.5 rounded hover:bg-emerald-800 font-medium"

@@ -19,6 +19,7 @@ import {
   Target,
   AlertCircle,
   CheckCircle2,
+  Receipt,
 } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -27,6 +28,7 @@ interface BookingRow {
   id: string;
   event_date: string;
   total_amount: number;
+  tax_cents: number | null;
   discount_amount: number | null;
   coupon_code: string | null;
   product_id: string | null;
@@ -74,11 +76,19 @@ export default async function AdminReportsPage({
   const { data: bookingsRaw } = await supabase
     .from("bookings")
     .select(
-      "id, event_date, total_amount, discount_amount, coupon_code, product_id, product_name, customer_email, payment_method, stripe_payment_status, booking_status, created_at",
+      "id, event_date, total_amount, tax_cents, discount_amount, coupon_code, product_id, product_name, customer_email, payment_method, stripe_payment_status, booking_status, created_at",
     )
     .gte("event_date", from)
     .lte("event_date", to)
     .order("event_date", { ascending: false });
+
+  // Tax label from settings — what to call this on the report (Sales tax / IVA / VAT)
+  const { data: taxLabelRow } = await supabase
+    .from("site_settings")
+    .select("value")
+    .eq("key", "tax_label")
+    .maybeSingle();
+  const taxLabel = String(taxLabelRow?.value || "Sales tax");
 
   const bookings: BookingRow[] = (bookingsRaw as BookingRow[]) || [];
 
@@ -92,6 +102,22 @@ export default async function AdminReportsPage({
   const totalBookings = paid.length;
   const avgBookingValue = totalBookings > 0 ? Math.round(totalRevenue / totalBookings) : 0;
   const totalDiscount = paid.reduce((s, b) => s + (b.discount_amount || 0), 0);
+  const totalTaxCollected = paid.reduce((s, b) => s + (b.tax_cents || 0), 0);
+  const totalPreTaxRevenue = totalRevenue - totalTaxCollected;
+
+  // ─── Tax collected by month (for filing) ────────────────────────────────
+  const taxByMonth = new Map<string, { revenue: number; tax: number }>();
+  paid.forEach((b) => {
+    if ((b.tax_cents || 0) === 0) return;
+    const m = b.event_date.substring(0, 7); // YYYY-MM
+    const entry = taxByMonth.get(m) || { revenue: 0, tax: 0 };
+    entry.revenue += (b.total_amount || 0) - (b.tax_cents || 0);
+    entry.tax += b.tax_cents || 0;
+    taxByMonth.set(m, entry);
+  });
+  const taxMonths = Array.from(taxByMonth.entries())
+    .map(([m, v]) => ({ month: m, label: monthLabel(m), ...v }))
+    .sort((a, b) => a.month.localeCompare(b.month));
 
   // ─── Revenue by payment method ──────────────────────────────────────────
   const byMethod = new Map<string, { count: number; revenue: number }>();
@@ -253,6 +279,87 @@ export default async function AdminReportsPage({
       {/* P&L summary — Revenue minus direct costs minus allocated overhead */}
       <PnLCard from={from} to={to} />
 
+      {/* Tax to declare — collected tax in the date range, breakdown by month
+          so you can copy straight to your sales tax return. Independent of P&L
+          because tax isn't revenue, it's collected on behalf of the state. */}
+      {totalTaxCollected > 0 ? (
+        <Section title={`${taxLabel} collected (period to declare)`} icon={Receipt}>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
+            <div className="text-center sm:text-left">
+              <div className="text-[10px] uppercase tracking-wider text-slate-500">
+                Pre-tax revenue
+              </div>
+              <div className="text-xl font-mono font-bold text-slate-700">
+                {formatCurrency(totalPreTaxRevenue)}
+              </div>
+            </div>
+            <div className="text-center sm:text-left">
+              <div className="text-[10px] uppercase tracking-wider text-slate-500">
+                {taxLabel} collected
+              </div>
+              <div className="text-2xl font-mono font-bold text-emerald-700">
+                {formatCurrency(totalTaxCollected)}
+              </div>
+              <div className="text-xs text-slate-400 mt-0.5">amount to declare</div>
+            </div>
+            <div className="text-center sm:text-left">
+              <div className="text-[10px] uppercase tracking-wider text-slate-500">
+                Customer paid total
+              </div>
+              <div className="text-xl font-mono font-bold text-brand-navy">
+                {formatCurrency(totalRevenue)}
+              </div>
+            </div>
+          </div>
+          {taxMonths.length > 0 && (
+            <div className="mt-4">
+              <div className="text-xs text-slate-500 mb-2 font-semibold">
+                Monthly breakdown
+              </div>
+              <table className="w-full text-sm">
+                <thead className="text-xs uppercase tracking-wide text-slate-500">
+                  <tr>
+                    <th className="px-2 py-2 text-left">Month</th>
+                    <th className="px-2 py-2 text-right">Pre-tax revenue</th>
+                    <th className="px-2 py-2 text-right">{taxLabel}</th>
+                    <th className="px-2 py-2 text-right">Customer paid</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {taxMonths.map((m) => (
+                    <tr key={m.month}>
+                      <td className="px-2 py-2">{m.label}</td>
+                      <td className="px-2 py-2 text-right font-mono">
+                        {formatCurrency(m.revenue)}
+                      </td>
+                      <td className="px-2 py-2 text-right font-mono text-emerald-700 font-semibold">
+                        {formatCurrency(m.tax)}
+                      </td>
+                      <td className="px-2 py-2 text-right font-mono text-slate-600">
+                        {formatCurrency(m.revenue + m.tax)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+          <p className="text-xs text-slate-500 mt-4">
+            💡 Sales tax is collected from the customer on your behalf and forwarded
+            to your state — it's not your revenue. The "{taxLabel} collected" number
+            above is the amount to declare on your sales-tax return for the selected
+            period.
+          </p>
+        </Section>
+      ) : (
+        <Section title={`${taxLabel} collected`} icon={Receipt}>
+          <p className="text-sm text-slate-400">
+            No tax collected in this date range. Tax may be disabled at{" "}
+            <code>/admin/site</code> or no paid bookings fall in this window.
+          </p>
+        </Section>
+      )}
+
       {/* Download CSVs for QuickBooks / accountant */}
       <AccountingExportButtons from={from} to={to} />
 
@@ -268,7 +375,13 @@ export default async function AdminReportsPage({
           icon={DollarSign}
           label="Total revenue"
           value={formatCurrency(totalRevenue)}
-          subtitle={totalDiscount > 0 ? `${formatCurrency(totalDiscount)} in discounts` : undefined}
+          subtitle={
+            totalTaxCollected > 0
+              ? `${formatCurrency(totalPreTaxRevenue)} pre-tax + ${formatCurrency(totalTaxCollected)} ${taxLabel.toLowerCase()}`
+              : totalDiscount > 0
+                ? `${formatCurrency(totalDiscount)} in discounts`
+                : undefined
+          }
           tone="green"
         />
         <SummaryCard

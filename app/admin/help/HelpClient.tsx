@@ -189,6 +189,27 @@ export function HelpClient() {
               leave it at 0, the auto-rate fires at approval time.
             </li>
           </ul>
+          <p className="font-semibold">Where to find collected tax for filing:</p>
+          <ul className="list-disc pl-5 text-xs space-y-1">
+            <li>
+              <code>/admin/reports</code> shows a "<strong>Sales tax
+              collected (period to declare)</strong>" section directly
+              under the P&amp;L card. Shows total pre-tax revenue + tax
+              collected + customer-paid total + monthly breakdown.
+            </li>
+            <li>
+              The "Total revenue" summary card displays a subtitle like{" "}
+              <code>$X,XXX pre-tax + $YY.YY sales tax</code> when tax is
+              collected — so the headline figure is transparent.
+            </li>
+            <li>
+              <strong>Tax collected CSV export</strong> button in the
+              accounting section: per-booking detail rows with event
+              date, customer, product, pre-tax + tax + total. Last row
+              is a TOTAL summary. Drop straight into your sales-tax
+              return.
+            </li>
+          </ul>
           <p className="text-xs text-slate-500 bg-amber-50 border border-amber-200 rounded p-2">
             ⚠️ This is a flat-rate tax. If you operate in multiple
             jurisdictions with different rates by zip code, you'll need

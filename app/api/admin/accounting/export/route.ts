@@ -263,8 +263,80 @@ export async function GET(req: NextRequest) {
     return csvResponse(toCsv(headers, rows), `pnl_summary_${from}_to_${to}.csv`);
   }
 
+  if (type === "tax") {
+    // Sales tax / IVA / VAT collected per paid booking — for filing.
+    const { data: taxLabelRow } = await supabase
+      .from("site_settings")
+      .select("value")
+      .eq("key", "tax_label")
+      .maybeSingle();
+    const taxLabel = String(taxLabelRow?.value || "Sales tax");
+
+    const { data: bookings } = await supabase
+      .from("bookings")
+      .select(
+        "id, event_date, customer_email, customer_first_name, customer_last_name, customer_address, product_name, total_amount, tax_cents",
+      )
+      .gte("event_date", from)
+      .lte("event_date", to)
+      .eq("stripe_payment_status", "paid")
+      .neq("booking_status", "cancelled")
+      .order("event_date", { ascending: true });
+
+    const headers = [
+      "Event date",
+      "Booking ID",
+      "Customer",
+      "Email",
+      "Address",
+      "Product",
+      "Pre-tax revenue (USD)",
+      `${taxLabel} collected (USD)`,
+      "Customer paid total (USD)",
+    ];
+    const rows = ((bookings as any[]) || [])
+      .filter((b) => (b.tax_cents || 0) > 0)
+      .map((b) => {
+        const tax = Number(b.tax_cents) || 0;
+        const total = Number(b.total_amount) || 0;
+        const preTax = total - tax;
+        const customer = [b.customer_first_name, b.customer_last_name]
+          .filter(Boolean)
+          .join(" ");
+        return [
+          b.event_date,
+          b.id,
+          customer || "",
+          b.customer_email || "",
+          b.customer_address || "",
+          b.product_name || "",
+          (preTax / 100).toFixed(2),
+          (tax / 100).toFixed(2),
+          (total / 100).toFixed(2),
+        ];
+      });
+
+    // Append totals row at the bottom
+    const totalPreTax = rows.reduce((s, r) => s + parseFloat(r[6] as string), 0);
+    const totalTax = rows.reduce((s, r) => s + parseFloat(r[7] as string), 0);
+    const totalAll = rows.reduce((s, r) => s + parseFloat(r[8] as string), 0);
+    rows.push([
+      "TOTAL",
+      "",
+      "",
+      "",
+      "",
+      "",
+      totalPreTax.toFixed(2),
+      totalTax.toFixed(2),
+      totalAll.toFixed(2),
+    ]);
+
+    return csvResponse(toCsv(headers, rows), `tax_collected_${from}_to_${to}.csv`);
+  }
+
   return NextResponse.json(
-    { error: "type must be expenses, overhead, or pnl" },
+    { error: "type must be expenses, overhead, pnl, or tax" },
     { status: 400 },
   );
 }
