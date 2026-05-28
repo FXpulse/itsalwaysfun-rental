@@ -8,6 +8,7 @@
 
 import { NextResponse } from "next/server";
 import { headers } from "next/headers";
+import * as Sentry from "@sentry/nextjs";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendEmail, isEmailConfigured } from "@/lib/email/send";
 
@@ -20,9 +21,12 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  if (!isEmailConfigured()) {
-    return NextResponse.json({ ok: true, skipped: "email not configured" });
-  }
+  return await Sentry.withMonitor(
+    "low-stock-alert",
+    async () => {
+      if (!isEmailConfigured()) {
+        return NextResponse.json({ ok: true, skipped: "email not configured" });
+      }
 
   const supabase = createAdminClient({ unscoped: true });
 
@@ -177,12 +181,20 @@ ${sections.join("")}
 
   return NextResponse.json({
     ok: true,
-    ranAt: new Date().toISOString(),
-    checked: items?.length || 0,
-    newly_low: lowStockNow.length,
-    recovered: recovered.length,
-    recipient,
-  });
+        ranAt: new Date().toISOString(),
+        checked: items?.length || 0,
+        newly_low: lowStockNow.length,
+        recovered: recovered.length,
+        recipient,
+      });
+    },
+    {
+      schedule: { type: "crontab", value: "0 13 * * *" },
+      checkinMargin: 5,
+      maxRuntime: 5,
+      timezone: "UTC",
+    },
+  );
 }
 
 function escapeHtml(s: string): string {

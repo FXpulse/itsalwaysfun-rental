@@ -9,6 +9,7 @@
 
 import { NextResponse } from "next/server";
 import { headers } from "next/headers";
+import * as Sentry from "@sentry/nextjs";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isEmailConfigured } from "@/lib/email/send";
 import { sendTemplated } from "@/lib/email/send-template";
@@ -24,6 +25,10 @@ export async function GET() {
   if (!process.env.CRON_SECRET || auth !== expected) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  return await Sentry.withMonitor(
+    "quote-hold-reminder",
+    async () => {
 
   if (!isEmailConfigured()) {
     return NextResponse.json({
@@ -188,12 +193,20 @@ Already paid? Ignore this email — can take a few minutes to confirm.
     }
   }
 
-  return NextResponse.json({
-    ok: true,
-    ranAt: new Date().toISOString(),
-    found: quotes?.length || 0,
-    sent,
-    skipped,
-    errors: errors.slice(0, 10),
-  });
+      return NextResponse.json({
+        ok: true,
+        ranAt: new Date().toISOString(),
+        found: quotes?.length || 0,
+        sent,
+        skipped,
+        errors: errors.slice(0, 10),
+      });
+    },
+    {
+      schedule: { type: "crontab", value: "0 * * * *" },
+      checkinMargin: 5,
+      maxRuntime: 5,
+      timezone: "UTC",
+    },
+  );
 }

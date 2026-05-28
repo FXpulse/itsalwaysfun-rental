@@ -14,6 +14,7 @@ import { headers } from "next/headers";
 import * as Sentry from "@sentry/nextjs";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { exportFullBackup } from "@/lib/backup";
+import { uploadBackupToR2 } from "@/lib/backup-r2";
 import { sendEmail, isEmailConfigured } from "@/lib/email/send";
 
 export const dynamic = "force-dynamic";
@@ -27,6 +28,10 @@ export async function GET() {
   if (!process.env.CRON_SECRET || auth !== expected) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  return await Sentry.withMonitor(
+    "weekly-backup",
+    async () => {
 
   const supabase = createAdminClient({ unscoped: true });
   const now = new Date();
@@ -51,6 +56,12 @@ export async function GET() {
       { status: 500 },
     );
   }
+
+  // 2b. Also push to Cloudflare R2 (off-cloud backup destination).
+  // Idempotent: overwrites if the key already exists. If R2 env vars
+  // aren't set, returns { skipped: true } and we keep going with just
+  // the Supabase Storage copy.
+  const r2Result = await uploadBackupToR2(filename, Buffer.from(body));
 
   // 3. Prune old files
   const { data: list } = await supabase.storage.from("backups").list();
@@ -155,15 +166,24 @@ ${
     });
   }
 
-  return NextResponse.json({
-    ok: true,
-    ranAt: now.toISOString(),
-    filename,
-    size_kb: sizeKb,
-    tables: Object.keys(backup.tables).length,
-    rows: backup.total_rows,
-    pruned: toDelete.length,
-    email_sent: emailSent,
-    errors: backup.errors,
-  });
+      return NextResponse.json({
+        ok: true,
+        ranAt: now.toISOString(),
+        filename,
+        size_kb: sizeKb,
+        tables: Object.keys(backup.tables).length,
+        rows: backup.total_rows,
+        pruned: toDelete.length,
+        email_sent: emailSent,
+        r2: r2Result,
+        errors: backup.errors,
+      });
+    },
+    {
+      schedule: { type: "crontab", value: "0 3 * * 0" },
+      checkinMargin: 10,
+      maxRuntime: 60,
+      timezone: "UTC",
+    },
+  );
 }
