@@ -101,6 +101,7 @@ export function BookingWizard({
   waiverTitle = "Liability Waiver",
   waiverText = "",
   coiEnabled = false,
+  surfaceOptions = [],
 }: {
   products: Product[];
   categories: Category[];
@@ -117,6 +118,7 @@ export function BookingWizard({
   waiverTitle?: string;
   waiverText?: string;
   coiEnabled?: boolean;
+  surfaceOptions?: { value: string; label: string }[];
 }) {
   const { item: cartItem, clear } = useCart();
 
@@ -621,6 +623,7 @@ export function BookingWizard({
             onCoiAdditionalInsuredChange={setCoiAdditionalInsured}
             coiInstructions={coiInstructions}
             onCoiInstructionsChange={setCoiInstructions}
+            surfaceOptions={surfaceOptions}
             onBack={() => goToStep(hasPreSelectedProduct ? "date" : "product")}
             onSubmit={handleSubmit}
             pending={pending}
@@ -1075,6 +1078,7 @@ function CustomerInfoStep({
   onCoiAdditionalInsuredChange,
   coiInstructions,
   onCoiInstructionsChange,
+  surfaceOptions,
   onBack,
   onSubmit,
   pending,
@@ -1133,6 +1137,7 @@ function CustomerInfoStep({
   onCoiAdditionalInsuredChange: (s: string) => void;
   coiInstructions: string;
   onCoiInstructionsChange: (s: string) => void;
+  surfaceOptions: { value: string; label: string }[];
   onBack: () => void;
   onSubmit: () => void;
   pending: boolean;
@@ -1290,29 +1295,28 @@ function CustomerInfoStep({
             Where will the inflatable be set up? We bring different anchors/stakes
             depending on the surface.
           </p>
-          <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
-            {[
-              { value: "grass", label: "Grass" },
-              { value: "dirt", label: "Dirt" },
-              { value: "concrete", label: "Concrete" },
-              { value: "paver", label: "Paver" },
-              { value: "asphalt", label: "Asphalt" },
-              { value: "other", label: "Other" },
-            ].map((opt) => (
-              <button
-                key={opt.value}
-                type="button"
-                onClick={() => onChange({ ...customer, surfaceType: opt.value })}
-                className={`text-xs font-semibold py-2 px-2 rounded border transition ${
-                  customer.surfaceType === opt.value
-                    ? "bg-brand-navy text-white border-brand-navy"
-                    : "bg-white text-slate-700 border-slate-300 hover:border-brand-navy"
-                }`}
-              >
-                {opt.label}
-              </button>
-            ))}
-          </div>
+          {surfaceOptions.length === 0 ? (
+            <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded p-2">
+              No setup surface options configured. Contact us before booking.
+            </p>
+          ) : (
+            <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+              {surfaceOptions.map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => onChange({ ...customer, surfaceType: opt.value })}
+                  className={`text-xs font-semibold py-2 px-2 rounded border transition ${
+                    customer.surfaceType === opt.value
+                      ? "bg-brand-navy text-white border-brand-navy"
+                      : "bg-white text-slate-700 border-slate-300 hover:border-brand-navy"
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Power source — operationally important. Always ask the customer

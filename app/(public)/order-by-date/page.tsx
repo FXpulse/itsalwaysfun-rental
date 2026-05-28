@@ -81,6 +81,17 @@ export default async function OrderByDatePage() {
   const waiverText = settingsMap.get("waiver_text") || "";
   const coiEnabled = (settingsMap.get("coi_request_enabled") || "true").toLowerCase() !== "false";
 
+  // Per-tenant configurable setup surface options (admin manages at /admin/categories)
+  const { data: surfaceRows } = await supabase
+    .from("setup_surfaces")
+    .select("value, label, display_order")
+    .eq("is_active", true)
+    .order("display_order", { ascending: true });
+  const surfaceOptions = ((surfaceRows as any[]) || []).map((r) => ({
+    value: String(r.value),
+    label: String(r.label),
+  }));
+
   // Detect portal-authenticated customer + pull profile to prefill the wizard
   const authClient = createClient();
   const {
@@ -178,6 +189,7 @@ export default async function OrderByDatePage() {
         waiverTitle={waiverTitle}
         waiverText={waiverText}
         coiEnabled={coiEnabled}
+        surfaceOptions={surfaceOptions}
       />
     </div>
   );

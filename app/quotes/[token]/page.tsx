@@ -119,6 +119,17 @@ export default async function CustomerQuotePage({
     ? Number((powerSupplyRow as any).price_per_day) || 0
     : 0;
 
+  // Per-tenant configurable setup surface options (managed at /admin/categories).
+  const { data: surfaceRows } = await supabase
+    .from("setup_surfaces")
+    .select("value, label, display_order")
+    .eq("is_active", true)
+    .order("display_order", { ascending: true });
+  const surfaceOptions = ((surfaceRows as any[]) || []).map((r) => ({
+    value: String(r.value),
+    label: String(r.label),
+  }));
+
   return (
     <QuoteCustomerView
       quote={quote}
@@ -129,6 +140,7 @@ export default async function CustomerQuotePage({
       waiverText={waiverText}
       damageCoverageCents={damageCoverageCents}
       powerSupplyPerDayCents={powerSupplyPerDayCents}
+      surfaceOptions={surfaceOptions}
       availabilityError={availabilityError}
     />
   );

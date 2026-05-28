@@ -37,8 +37,13 @@ const BodySchema = z
     }),
     coupon_code: z.string().max(50).optional(),
     gift_card_code: z.string().max(50).optional(),
+    // surface_type values come from the tenant's setup_surfaces table —
+    // any lowercase slug is allowed; validated against active rows server-side.
     surface_type: z
-      .enum(["dirt", "grass", "concrete", "paver", "asphalt", "other"])
+      .string()
+      .regex(/^[a-z0-9][a-z0-9_-]*$/)
+      .min(2)
+      .max(40)
       .nullable()
       .optional(),
     needs_power_supply: z.boolean().optional(),

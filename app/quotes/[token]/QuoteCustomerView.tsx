@@ -51,16 +51,10 @@ interface Quote {
   waiver_required?: boolean;
 }
 
-type SurfaceType = "" | "dirt" | "grass" | "concrete" | "paver" | "asphalt" | "other";
-
-const SURFACE_OPTIONS: { value: SurfaceType; label: string }[] = [
-  { value: "grass", label: "Grass" },
-  { value: "dirt", label: "Dirt" },
-  { value: "concrete", label: "Concrete" },
-  { value: "paver", label: "Paver" },
-  { value: "asphalt", label: "Asphalt" },
-  { value: "other", label: "Other" },
-];
+interface SurfaceOption {
+  value: string;
+  label: string;
+}
 
 export function QuoteCustomerView({
   quote,
@@ -71,6 +65,7 @@ export function QuoteCustomerView({
   waiverText,
   damageCoverageCents,
   powerSupplyPerDayCents,
+  surfaceOptions,
   availabilityError,
 }: {
   quote: Quote;
@@ -81,6 +76,7 @@ export function QuoteCustomerView({
   waiverText: string;
   damageCoverageCents: number;
   powerSupplyPerDayCents: number;
+  surfaceOptions: SurfaceOption[];
   availabilityError?: string | null;
 }) {
   return (
@@ -126,6 +122,7 @@ export function QuoteCustomerView({
             waiverText={waiverText}
             damageCoverageCents={damageCoverageCents}
             powerSupplyPerDayCents={powerSupplyPerDayCents}
+            surfaceOptions={surfaceOptions}
           />
         )}
 
@@ -351,12 +348,14 @@ function ApproveDecline({
   waiverText,
   damageCoverageCents,
   powerSupplyPerDayCents,
+  surfaceOptions,
 }: {
   quote: Quote;
   waiverTitle: string;
   waiverText: string;
   damageCoverageCents: number;
   powerSupplyPerDayCents: number;
+  surfaceOptions: SurfaceOption[];
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -365,7 +364,7 @@ function ApproveDecline({
   const [reason, setReason] = useState("");
 
   // Customer setup choices — required before booking creation
-  const [surfaceType, setSurfaceType] = useState<SurfaceType>("");
+  const [surfaceType, setSurfaceType] = useState<string>("");
   const [needsPower, setNeedsPower] = useState<boolean | null>(null);
   const [protectionAccepted, setProtectionAccepted] = useState<boolean | null>(null);
   const [waiverName, setWaiverName] = useState("");
@@ -404,7 +403,7 @@ function ApproveDecline({
 
     startTransition(async () => {
       const r = await approveQuote(quote.token, {
-        surface_type: surfaceType as Exclude<SurfaceType, "">,
+        surface_type: surfaceType,
         needs_power_supply: needsPower,
         damage_protection_accepted: quote.damage_protection_offered ? protectionAccepted : null,
         waiver_signed_name: quote.waiver_required ? waiverName.trim() : null,
@@ -485,22 +484,28 @@ function ApproveDecline({
           <p className="text-xs text-slate-500 mb-2">
             Where will it be set up? We bring different anchors depending on the surface.
           </p>
-          <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
-            {SURFACE_OPTIONS.filter((o) => o.value !== "").map((opt) => (
-              <button
-                key={opt.value}
-                type="button"
-                onClick={() => setSurfaceType(opt.value)}
-                className={`text-xs font-semibold py-2 px-2 rounded border transition ${
-                  surfaceType === opt.value
-                    ? "bg-brand-navy text-white border-brand-navy"
-                    : "bg-white text-slate-700 border-slate-300 hover:border-brand-navy"
-                }`}
-              >
-                {opt.label}
-              </button>
-            ))}
-          </div>
+          {surfaceOptions.length === 0 ? (
+            <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded p-2">
+              No setup surface options configured. Contact us before booking.
+            </p>
+          ) : (
+            <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+              {surfaceOptions.map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => setSurfaceType(opt.value)}
+                  className={`text-xs font-semibold py-2 px-2 rounded border transition ${
+                    surfaceType === opt.value
+                      ? "bg-brand-navy text-white border-brand-navy"
+                      : "bg-white text-slate-700 border-slate-300 hover:border-brand-navy"
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Power */}

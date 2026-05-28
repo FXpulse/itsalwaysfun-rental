@@ -6,7 +6,13 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getStripe, isStripeConfigured } from "@/lib/stripe/server";
 
 const ApproveInputSchema = z.object({
-  surface_type: z.enum(["dirt", "grass", "concrete", "paver", "asphalt", "other"]),
+  // surface_type values come from the tenant's setup_surfaces table —
+  // validated against the live list (active rows) below, NOT a hardcoded enum.
+  surface_type: z
+    .string()
+    .min(2)
+    .max(40)
+    .regex(/^[a-z0-9][a-z0-9_-]*$/),
   needs_power_supply: z.boolean(),
   damage_protection_accepted: z.boolean().optional().nullable(),
   waiver_signed_name: z.string().trim().min(2).max(200).optional().nullable(),
@@ -190,6 +196,18 @@ export async function approveQuote(token: string, input: ApproveInput) {
   }
   if (quote.waiver_required && !parsed.data.waiver_signed_name) {
     return { error: "Sign the liability waiver by typing your full name before continuing." };
+  }
+
+  // Validate surface_type against the tenant's currently-active list
+  // (the form should already enforce this client-side, but never trust input).
+  const { data: surfaceMatch } = await supabase
+    .from("setup_surfaces")
+    .select("value")
+    .eq("value", parsed.data.surface_type)
+    .eq("is_active", true)
+    .maybeSingle();
+  if (!surfaceMatch) {
+    return { error: `Setup surface "${parsed.data.surface_type}" is not currently offered. Pick another option.` };
   }
 
   // Decide protection price contribution (price snapshot from the quote)

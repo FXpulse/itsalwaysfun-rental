@@ -137,6 +137,50 @@ export function HelpClient() {
       ),
     },
     {
+      id: "setup-surfaces",
+      title: "Configurable setup surface options",
+      icon: Tag,
+      content: (
+        <div className="space-y-3 text-sm">
+          <p>
+            The list of setup surfaces shown to customers (Grass, Dirt,
+            Concrete, etc.) is now editable per tenant. Manage them at the
+            bottom of <code>/admin/categories</code> in the new "Setup
+            surface options" section.
+          </p>
+          <ul className="list-disc pl-5 text-xs space-y-1">
+            <li>
+              <strong>Add</strong> any surface you need (Sand, Wood Deck,
+              Indoor, etc.) — just a label and a lowercase internal value.
+            </li>
+            <li>
+              <strong>Reorder</strong> with the display_order field — lower
+              numbers appear first.
+            </li>
+            <li>
+              <strong>Deactivate</strong> options you don't use. Past
+              bookings keep their recorded surface; inactive ones just hide
+              from the public booking + quote forms going forward.
+            </li>
+            <li>
+              <strong>Delete</strong> when no longer relevant. Past bookings
+              keep their recorded value verbatim.
+            </li>
+          </ul>
+          <p className="bg-amber-50 border border-amber-200 rounded p-2 text-xs">
+            <strong>Where it shows:</strong> the public booking wizard's
+            "Setup surface" step <em>and</em> the quote approval form. Any
+            change reflects there immediately (next page load — no deploy
+            needed). Active surfaces only.
+          </p>
+          <p className="text-xs text-slate-500">
+            Defaults seeded for every tenant: Grass, Dirt, Concrete, Paver,
+            Asphalt, Other.
+          </p>
+        </div>
+      ),
+    },
+    {
       id: "categories",
       title: "Step 3 — Organize with categories",
       icon: Tag,
