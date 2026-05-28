@@ -102,6 +102,7 @@ export function BookingWizard({
   waiverText = "",
   coiEnabled = false,
   surfaceOptions = [],
+  taxConfig = { enabled: false, ratePercent: 0, label: "Sales tax" },
 }: {
   products: Product[];
   categories: Category[];
@@ -119,6 +120,7 @@ export function BookingWizard({
   waiverText?: string;
   coiEnabled?: boolean;
   surfaceOptions?: { value: string; label: string }[];
+  taxConfig?: { enabled: boolean; ratePercent: number; label: string };
 }) {
   const { item: cartItem, clear } = useCart();
 
@@ -349,7 +351,23 @@ export function BookingWizard({
   const protectionCost =
     damageProtection?.enabled && wantsProtection ? damageProtection.priceCents : 0;
 
-  const totalAmount = productTotal + powerSupplyCost + addonsTotal + protectionCost;
+  const preTaxAmount = productTotal + powerSupplyCost + addonsTotal + protectionCost;
+  // Client-side tax estimate — server is the source of truth at check-and-hold
+  // time (it applies discount + gift card pro-rating). This is the "displayed
+  // total" so the customer doesn't get surprised by a higher Stripe charge.
+  // Skips tax for products marked tax_exempt (revenue counts but tax doesn't).
+  const taxableBase =
+    (selectedProduct && (selectedProduct as any).tax_exempt ? 0 : productTotal) +
+    powerSupplyCost +
+    customerAddons
+      .filter((a) => !(a as any).tax_exempt)
+      .reduce((s, a) => s + (addonQuantities[a.id] || 0) * a.price_per_day * numDays, 0) +
+    protectionCost;
+  const taxAmount =
+    taxConfig.enabled && taxConfig.ratePercent > 0
+      ? Math.round((taxableBase * taxConfig.ratePercent) / 100)
+      : 0;
+  const totalAmount = preTaxAmount + taxAmount;
 
   // For API: use end date if set, else single-day (event_date repeated)
   const effectiveEndDate = eventEndDate || eventDate;
@@ -624,6 +642,8 @@ export function BookingWizard({
             coiInstructions={coiInstructions}
             onCoiInstructionsChange={setCoiInstructions}
             surfaceOptions={surfaceOptions}
+            taxConfig={taxConfig}
+            taxAmount={taxAmount}
             onBack={() => goToStep(hasPreSelectedProduct ? "date" : "product")}
             onSubmit={handleSubmit}
             pending={pending}
@@ -1079,6 +1099,8 @@ function CustomerInfoStep({
   coiInstructions,
   onCoiInstructionsChange,
   surfaceOptions,
+  taxConfig,
+  taxAmount,
   onBack,
   onSubmit,
   pending,
@@ -1138,6 +1160,8 @@ function CustomerInfoStep({
   coiInstructions: string;
   onCoiInstructionsChange: (s: string) => void;
   surfaceOptions: { value: string; label: string }[];
+  taxConfig: { enabled: boolean; ratePercent: number; label: string };
+  taxAmount: number;
   onBack: () => void;
   onSubmit: () => void;
   pending: boolean;
@@ -1507,23 +1531,51 @@ function CustomerInfoStep({
           </div>
         )}
 
-        {/* Cost breakdown when power supply selected */}
-        {customer.powerSource === "no" && powerSupply && (
-          <div className="bg-amber-50 rounded p-3 border border-amber-200 text-sm">
-            <div className="flex justify-between text-slate-700">
-              <span>{product.name} × {numDays} day{numDays > 1 ? "s" : ""}</span>
-              <span className="font-mono">{formatCurrency(productTotal)}</span>
+        {/* Full cost breakdown — always visible so the customer sees
+            exactly what they'll be charged before pressing Pay. */}
+        <div className="bg-slate-50 rounded p-3 border border-slate-200 text-sm">
+          <div className="text-[10px] uppercase tracking-wider font-bold text-slate-500 mb-2">
+            Order summary
+          </div>
+          <div className="flex justify-between text-slate-700">
+            <span>
+              {product.name} × {numDays} day{numDays > 1 ? "s" : ""}
+            </span>
+            <span className="font-mono">{formatCurrency(productTotal)}</span>
+          </div>
+          {addonsTotal > 0 && (
+            <div className="flex justify-between text-slate-700 mt-1">
+              <span>+ Add-ons</span>
+              <span className="font-mono">+{formatCurrency(addonsTotal)}</span>
             </div>
+          )}
+          {customer.powerSource === "no" && powerSupplyCost > 0 && (
             <div className="flex justify-between text-amber-700 mt-1">
-              <span>+ Power Supply × {numDays} day{numDays > 1 ? "s" : ""}</span>
+              <span>
+                + Power supply × {numDays} day{numDays > 1 ? "s" : ""}
+              </span>
               <span className="font-mono">+{formatCurrency(powerSupplyCost)}</span>
             </div>
-            <div className="flex justify-between font-bold text-brand-navy border-t border-amber-300 pt-2 mt-2">
-              <span>Total</span>
-              <span className="font-mono">{formatCurrency(totalAmount)}</span>
+          )}
+          {protectionCost > 0 && (
+            <div className="flex justify-between text-emerald-700 mt-1">
+              <span>+ Damage protection</span>
+              <span className="font-mono">+{formatCurrency(protectionCost)}</span>
             </div>
+          )}
+          {taxAmount > 0 && (
+            <div className="flex justify-between text-slate-600 mt-1">
+              <span>
+                + {taxConfig.label} ({taxConfig.ratePercent}%)
+              </span>
+              <span className="font-mono">+{formatCurrency(taxAmount)}</span>
+            </div>
+          )}
+          <div className="flex justify-between font-bold text-brand-navy border-t border-slate-300 pt-2 mt-2 text-base">
+            <span>Total</span>
+            <span className="font-mono">{formatCurrency(totalAmount)}</span>
           </div>
-        )}
+        </div>
 
         <div>
           <label className="block text-sm font-medium text-slate-700 mb-1">Notes (optional)</label>

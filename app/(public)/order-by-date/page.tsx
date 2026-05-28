@@ -92,6 +92,20 @@ export default async function OrderByDatePage() {
     label: String(r.label),
   }));
 
+  // Tax config — shown in the wizard's checkout breakdown and applied to total
+  const { data: taxRows } = await supabase
+    .from("site_settings")
+    .select("key, value")
+    .in("key", ["tax_enabled", "tax_rate_percent", "tax_label"]);
+  const taxMap = new Map<string, string>(
+    ((taxRows as any[]) || []).map((r) => [String(r.key), String(r.value)]),
+  );
+  const taxConfig = {
+    enabled: (taxMap.get("tax_enabled") || "false").toLowerCase() === "true",
+    ratePercent: Number.parseFloat(taxMap.get("tax_rate_percent") || "0") || 0,
+    label: taxMap.get("tax_label") || "Sales tax",
+  };
+
   // Detect portal-authenticated customer + pull profile to prefill the wizard
   const authClient = createClient();
   const {
@@ -190,6 +204,7 @@ export default async function OrderByDatePage() {
         waiverText={waiverText}
         coiEnabled={coiEnabled}
         surfaceOptions={surfaceOptions}
+        taxConfig={taxConfig}
       />
     </div>
   );
