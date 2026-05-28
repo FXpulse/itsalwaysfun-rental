@@ -1251,20 +1251,37 @@ export function HelpClient() {
           </div>
 
           <p className="text-xs text-slate-600 bg-emerald-50 border border-emerald-200 rounded p-3">
-            <strong>Multi-product quotes — availability:</strong> at approval
-            time AND at re-check time, EVERY line item with a product_id is
-            checked against stock for the requested dates. If any single
-            product in the bundle isn't available, the approval is blocked
-            with an error naming which items conflict and on what dates.
+            <strong>Multi-product quotes — full availability check + hold:</strong>
+            <br />
+            All secondary line items (and the power supply if requested) are
+            written to <code>bookings.addons</code> when the quote is approved.
+            The availability check counts occupied inventory from BOTH each
+            booking's <code>product_id</code> AND items inside each booking's{" "}
+            <code>addons</code> array. So a 24h hold from a quote now blocks
+            every product in the bundle — not just the primary item. This also
+            means addons booked through the public flow (chairs, tables,
+            generators) get counted correctly against stock.
+          </p>
+
+          <p className="text-xs text-slate-600 bg-amber-50 border border-amber-200 rounded p-3">
+            <strong>Auto-priced power supply + damage protection:</strong>
+            When the customer says they need a generator during approval, the
+            system looks up the <code>power-supply</code> add-on product
+            (must have <code>slug="power-supply"</code> and{" "}
+            <code>is_addon=true</code>) and adds price-per-day × number of
+            rental days to the total. Damage protection does the same with the
+            quote's snapshot price. The setup form shows a live breakdown
+            ("Original quote $X + Damage protection $Y + Power supply $Z =
+            Total $T") and the final "Approve & pay" button displays the
+            full amount they're about to charge.
             <br />
             <br />
-            <strong>Inventory hold limit:</strong> the 24h hold itself still
-            only blocks the FIRST line item's product (architectural limit of
-            the bookings table — each booking row has one product_id). Items
-            beyond the first are checked but not held. In practice this is
-            usually fine because secondary items in bundles tend to be high-
-            stock add-ons (tables, chairs, generators) where conflicts are
-            rare. If your inventory profile is different, contact us.
+            <strong>Per-tenant requirement:</strong> for power supply pricing
+            to fire, each tenant needs a product in their catalog with{" "}
+            <code>slug="power-supply"</code> + <code>is_addon=true</code> +{" "}
+            <code>is_active=true</code>. If missing, the booking still records
+            "customer needs generator" in the dispatch notes but no auto-charge
+            is added — you handle pricing manually.
           </p>
 
           <p className="text-xs text-slate-600 bg-blue-50 border border-blue-200 rounded p-3">

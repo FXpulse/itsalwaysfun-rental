@@ -33,8 +33,14 @@ function datesInRange(start: string, end: string): string[] {
 
 /** Check availability for every line item that has a product_id. Returns
  *  null if all are available, or a human-friendly error string naming
- *  the conflicting products + dates if any are sold out. excludeBookingId
- *  lets the re-check at payment time ignore the customer's own held booking. */
+ *  the conflicting products + dates if any are sold out.
+ *
+ *  Counts occupied inventory from BOTH the primary product_id AND any
+ *  items inside other bookings' addons JSONB array — so multi-product
+ *  quotes (and addons from the public booking flow) are properly held.
+ *
+ *  excludeBookingId lets the re-check at payment time ignore the
+ *  customer's own held booking. */
 async function checkLineItemsAvailability(
   supabase: any,
   items: any[],
@@ -42,62 +48,97 @@ async function checkLineItemsAvailability(
   endDate: string,
   excludeBookingId?: string,
 ): Promise<string | null> {
-  const productIds = items.map((it: any) => it.product_id).filter(Boolean);
+  const productIds = items
+    .map((it: any) => it.product_id)
+    .filter(Boolean) as string[];
   if (productIds.length === 0) return null;
 
-  // Pull all the relevant products' stock in one query
+  // Aggregate target quantity per product (e.g. 2× chairs = need 2 units)
+  const requestedByProduct: Record<string, number> = {};
+  for (const it of items) {
+    if (!it.product_id) continue;
+    requestedByProduct[it.product_id] =
+      (requestedByProduct[it.product_id] || 0) + (Number(it.quantity) || 1);
+  }
+  const targetProductIds = Object.keys(requestedByProduct);
+
+  // Pull stock for the target products
   const { data: productRows } = await supabase
     .from("products")
     .select("id, name, stock")
-    .in("id", productIds);
+    .in("id", targetProductIds);
 
   const productsById = new Map<string, { name: string; stock: number }>();
   for (const p of (productRows as any[]) || []) {
     productsById.set(p.id, { name: p.name, stock: Number(p.stock) || 0 });
   }
 
+  // Pull ALL active bookings that overlap the date window, regardless of
+  // their primary product — we need to scan their addons too.
+  let query = supabase
+    .from("bookings")
+    .select(
+      "id, event_date, event_end_date, booking_status, hold_expires_at, product_id, addons",
+    )
+    .lte("event_date", endDate)
+    .or(
+      `event_end_date.gte.${startDate},and(event_end_date.is.null,event_date.gte.${startDate})`,
+    )
+    .in("booking_status", ["pending_payment", "confirmed", "delivered"]);
+  if (excludeBookingId) {
+    query = query.neq("id", excludeBookingId);
+  }
+  const { data: existingBookings } = await query;
+
   const nowISO = new Date().toISOString();
+
+  // occupied[productId][day] = total units occupied that day
+  const occupied: Record<string, Record<string, number>> = {};
+  for (const b of (existingBookings as any[]) || []) {
+    // Skip expired holds — those slots are free
+    if (
+      b.booking_status === "pending_payment" &&
+      b.hold_expires_at &&
+      b.hold_expires_at < nowISO
+    ) {
+      continue;
+    }
+
+    // Build list of {productId, quantity} occupied by this booking
+    const itemsHeld: Array<{ pid: string; qty: number }> = [];
+    if (b.product_id) itemsHeld.push({ pid: b.product_id, qty: 1 });
+    for (const a of (b.addons as any[]) || []) {
+      if (!a?.product_id) continue;
+      itemsHeld.push({ pid: a.product_id, qty: Number(a.quantity) || 1 });
+    }
+
+    const daysOverlap: string[] = [];
+    const bStart = b.event_date;
+    const bEnd = b.event_end_date || b.event_date;
+    for (const day of datesInRange(bStart, bEnd)) {
+      if (day >= startDate && day <= endDate) daysOverlap.push(day);
+    }
+
+    for (const { pid, qty } of itemsHeld) {
+      // Only track products we care about (the ones we're checking)
+      if (!productsById.has(pid)) continue;
+      occupied[pid] = occupied[pid] || {};
+      for (const day of daysOverlap) {
+        occupied[pid][day] = (occupied[pid][day] || 0) + qty;
+      }
+    }
+  }
+
+  // Compare with target requested quantities
   const errors: string[] = [];
-
-  for (const pid of productIds) {
+  for (const pid of targetProductIds) {
     const p = productsById.get(pid);
-    if (!p || p.stock <= 0) continue; // unlimited stock or unknown — skip
+    if (!p || p.stock <= 0) continue; // unlimited / unknown — skip
+    const requested = requestedByProduct[pid] || 1;
 
-    let query = supabase
-      .from("bookings")
-      .select("id, event_date, event_end_date, booking_status, hold_expires_at")
-      .eq("product_id", pid)
-      .lte("event_date", endDate)
-      .or(
-        `event_end_date.gte.${startDate},and(event_end_date.is.null,event_date.gte.${startDate})`,
-      )
-      .in("booking_status", ["pending_payment", "confirmed", "delivered"]);
-    if (excludeBookingId) {
-      query = query.neq("id", excludeBookingId);
-    }
-
-    const { data: existingBookings } = await query;
-
-    const occupiedByDay: Record<string, number> = {};
-    for (const b of (existingBookings as any[]) || []) {
-      if (
-        b.booking_status === "pending_payment" &&
-        b.hold_expires_at &&
-        b.hold_expires_at < nowISO
-      ) {
-        continue;
-      }
-      const bStart = b.event_date;
-      const bEnd = b.event_end_date || b.event_date;
-      for (const day of datesInRange(bStart, bEnd)) {
-        if (day >= startDate && day <= endDate) {
-          occupiedByDay[day] = (occupiedByDay[day] || 0) + 1;
-        }
-      }
-    }
-
-    const conflictDays = Object.entries(occupiedByDay)
-      .filter(([_, count]) => count >= p.stock)
+    const dayCounts = occupied[pid] || {};
+    const conflictDays = Object.entries(dayCounts)
+      .filter(([_, count]) => count + requested > p.stock)
       .map(([day]) => day);
     if (conflictDays.length > 0) {
       errors.push(`${p.name} on ${conflictDays.join(", ")}`);
@@ -154,7 +195,6 @@ export async function approveQuote(token: string, input: ApproveInput) {
   // Decide protection price contribution (price snapshot from the quote)
   const protectionAccepted = !!parsed.data.damage_protection_accepted;
   const protectionCents = protectionAccepted ? Number(quote.damage_protection_cents || 0) : 0;
-  const finalTotalCents = Number(quote.total_cents) + protectionCents;
 
   // Create booking — use first line item's product as primary booking product,
   // and build a combined product_name from all line items.
@@ -167,15 +207,68 @@ export async function approveQuote(token: string, input: ApproveInput) {
       ? primaryItem.name
       : `${primaryItem.name} + ${items.length - 1} more item${items.length > 2 ? "s" : ""}`;
 
-  // ─── Availability check for ALL line items with a product_id.
-  //     Race-condition guard: rejects approval if ANY product in the
-  //     quote no longer has stock for the requested dates. The 24h hold
-  //     created after approval still only blocks the primary product
-  //     (architectural limit), but the check at approval time catches
-  //     simultaneous approvals across the full bundle. ─────────────────
+  // Number of rental days for per-day pricing (power supply, etc.)
   const startDate: string = quote.event_date;
   const endDate: string = quote.event_end_date || quote.event_date;
-  const conflicts = await checkLineItemsAvailability(supabase, items, startDate, endDate);
+  const numDays = Math.max(1, datesInRange(startDate, endDate).length);
+
+  // ─── Power supply lookup (only if customer says they need one) ────
+  let powerSupplyCents = 0;
+  let powerSupplyAddon: any = null;
+  if (parsed.data.needs_power_supply) {
+    const { data: powerProduct } = await supabase
+      .from("products")
+      .select("id, name, slug, price_per_day")
+      .eq("slug", "power-supply")
+      .eq("is_addon", true)
+      .eq("is_active", true)
+      .maybeSingle();
+    if (powerProduct) {
+      const perDay = Number(powerProduct.price_per_day) || 0;
+      powerSupplyCents = perDay * numDays;
+      powerSupplyAddon = {
+        product_id: powerProduct.id,
+        slug: powerProduct.slug,
+        name: powerProduct.name,
+        quantity: 1,
+        unit_price_cents: perDay,
+        line_total_cents: powerSupplyCents,
+      };
+    }
+    // If the tenant has no power-supply product configured, we still set
+    // needs_power_supply=true so dispatch knows to bring one, but we
+    // can't auto-add a charge (admin will handle it).
+  }
+
+  // Final total customer pays = quote line items + protection + power supply
+  const finalTotalCents = Number(quote.total_cents) + protectionCents + powerSupplyCents;
+
+  // ─── Build addons array: secondary line items + power supply ──────
+  //     Stored on the booking row in the existing addons JSONB column,
+  //     so the availability check (updated below) counts them as held
+  //     inventory for the duration of the booking hold. ──────────────
+  const bookingAddons: any[] = [];
+  for (let i = 1; i < items.length; i++) {
+    const it = items[i];
+    if (!it.product_id) continue;  // custom lines without a product can't be held
+    bookingAddons.push({
+      product_id: it.product_id,
+      slug: it.slug || null,
+      name: it.name,
+      quantity: Number(it.quantity) || 1,
+      unit_price_cents: Number(it.unit_price_cents) || 0,
+      line_total_cents: (Number(it.unit_price_cents) || 0) * (Number(it.quantity) || 1),
+    });
+  }
+  if (powerSupplyAddon) bookingAddons.push(powerSupplyAddon);
+
+  // ─── Availability check for ALL line items with a product_id +
+  //     power supply if requested. ────────────────────────────────────
+  const allItemsForCheck = [...items];
+  if (powerSupplyAddon) {
+    allItemsForCheck.push(powerSupplyAddon);
+  }
+  const conflicts = await checkLineItemsAvailability(supabase, allItemsForCheck, startDate, endDate);
   if (conflicts) return { error: conflicts };
 
   const noteParts: string[] = [`From quote ${quote.quote_number}`];
@@ -184,6 +277,11 @@ export async function approveQuote(token: string, input: ApproveInput) {
   }
   if (protectionAccepted) {
     noteParts.push(`Damage protection: opted in (+$${(protectionCents / 100).toFixed(2)})`);
+  }
+  if (powerSupplyCents > 0) {
+    noteParts.push(`Power supply: customer needs generator (+$${(powerSupplyCents / 100).toFixed(2)})`);
+  } else if (parsed.data.needs_power_supply) {
+    noteParts.push(`Power supply: customer needs generator (no product configured — handle manually)`);
   }
 
   // 24h hold — gives customer time to pay; after expiry slot is free
@@ -209,6 +307,7 @@ export async function approveQuote(token: string, input: ApproveInput) {
       needs_power_supply: parsed.data.needs_power_supply,
       damage_protection_purchased: protectionAccepted,
       damage_protection_cents: protectionCents,
+      addons: bookingAddons.length > 0 ? bookingAddons : null,
       stripe_payment_status: "pending",
       booking_status: "pending_payment",
       hold_expires_at: holdExpiresAt,

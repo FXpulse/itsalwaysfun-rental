@@ -106,6 +106,19 @@ export default async function CustomerQuotePage({
     10,
   );
 
+  // Power supply add-on — when the customer says they need a generator,
+  // we add this product's per-day price × num days to the quote total.
+  const { data: powerSupplyRow } = await supabase
+    .from("products")
+    .select("id, name, slug, price_per_day")
+    .eq("slug", "power-supply")
+    .eq("is_addon", true)
+    .eq("is_active", true)
+    .maybeSingle();
+  const powerSupplyPerDayCents = powerSupplyRow
+    ? Number((powerSupplyRow as any).price_per_day) || 0
+    : 0;
+
   return (
     <QuoteCustomerView
       quote={quote}
@@ -115,6 +128,7 @@ export default async function CustomerQuotePage({
       waiverTitle={waiverTitle}
       waiverText={waiverText}
       damageCoverageCents={damageCoverageCents}
+      powerSupplyPerDayCents={powerSupplyPerDayCents}
       availabilityError={availabilityError}
     />
   );

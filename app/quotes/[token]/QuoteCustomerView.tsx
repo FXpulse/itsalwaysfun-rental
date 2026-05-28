@@ -70,6 +70,7 @@ export function QuoteCustomerView({
   waiverTitle,
   waiverText,
   damageCoverageCents,
+  powerSupplyPerDayCents,
   availabilityError,
 }: {
   quote: Quote;
@@ -79,6 +80,7 @@ export function QuoteCustomerView({
   waiverTitle: string;
   waiverText: string;
   damageCoverageCents: number;
+  powerSupplyPerDayCents: number;
   availabilityError?: string | null;
 }) {
   return (
@@ -123,6 +125,7 @@ export function QuoteCustomerView({
             waiverTitle={waiverTitle}
             waiverText={waiverText}
             damageCoverageCents={damageCoverageCents}
+            powerSupplyPerDayCents={powerSupplyPerDayCents}
           />
         )}
 
@@ -335,16 +338,25 @@ function QuoteDetails({ quote }: { quote: Quote }) {
   );
 }
 
+function numDaysInRange(start: string, end: string | null): number {
+  const s = new Date((start || "") + "T00:00:00");
+  const e = new Date(((end || start) || "") + "T00:00:00");
+  if (isNaN(s.getTime()) || isNaN(e.getTime()) || e < s) return 1;
+  return Math.max(1, Math.round((e.getTime() - s.getTime()) / 86_400_000) + 1);
+}
+
 function ApproveDecline({
   quote,
   waiverTitle,
   waiverText,
   damageCoverageCents,
+  powerSupplyPerDayCents,
 }: {
   quote: Quote;
   waiverTitle: string;
   waiverText: string;
   damageCoverageCents: number;
+  powerSupplyPerDayCents: number;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -358,6 +370,13 @@ function ApproveDecline({
   const [protectionAccepted, setProtectionAccepted] = useState<boolean | null>(null);
   const [waiverName, setWaiverName] = useState("");
   const [waiverAgreed, setWaiverAgreed] = useState(false);
+
+  // Live total breakdown — recalculates as the customer toggles options
+  const numDays = numDaysInRange(quote.event_date, quote.event_end_date);
+  const protectionPriceCents = quote.damage_protection_cents || 0;
+  const protectionAddCents = protectionAccepted === true ? protectionPriceCents : 0;
+  const powerSupplyTotalCents = needsPower === true ? powerSupplyPerDayCents * numDays : 0;
+  const finalTotalCents = quote.total_cents + protectionAddCents + powerSupplyTotalCents;
 
   function handleSubmitSetup() {
     if (!surfaceType) {
@@ -514,6 +533,12 @@ function ApproveDecline({
               }`}
             >
               No — bring power supply
+              {powerSupplyPerDayCents > 0 && (
+                <div className="text-[10px] font-normal opacity-80 mt-0.5">
+                  +{formatCurrency(powerSupplyPerDayCents)} × {numDays} day{numDays > 1 ? "s" : ""}{" "}
+                  = {formatCurrency(powerSupplyPerDayCents * numDays)}
+                </div>
+              )}
             </button>
           </div>
         </div>
@@ -589,6 +614,37 @@ function ApproveDecline({
           </div>
         )}
 
+        {/* Live total breakdown — recomputes as the customer toggles options */}
+        <div className="border-t border-slate-100 pt-4 bg-slate-50 -mx-4 px-4 pb-4 sm:rounded-b-lg">
+          <div className="text-xs uppercase tracking-wide font-bold text-slate-500 mb-2">
+            Total you'll pay
+          </div>
+          <div className="space-y-1 text-sm">
+            <div className="flex justify-between text-slate-600">
+              <span>Original quote</span>
+              <span className="font-mono">{formatCurrency(quote.total_cents)}</span>
+            </div>
+            {protectionAddCents > 0 && (
+              <div className="flex justify-between text-emerald-700">
+                <span>+ Damage protection</span>
+                <span className="font-mono">{formatCurrency(protectionAddCents)}</span>
+              </div>
+            )}
+            {powerSupplyTotalCents > 0 && (
+              <div className="flex justify-between text-amber-700">
+                <span>
+                  + Power supply ({numDays} day{numDays > 1 ? "s" : ""})
+                </span>
+                <span className="font-mono">{formatCurrency(powerSupplyTotalCents)}</span>
+              </div>
+            )}
+            <div className="flex justify-between pt-2 mt-2 border-t border-slate-200 text-base font-bold text-brand-navy">
+              <span>Total</span>
+              <span className="font-mono text-lg">{formatCurrency(finalTotalCents)}</span>
+            </div>
+          </div>
+        </div>
+
         <div className="flex gap-2 pt-2 border-t border-slate-100">
           <button
             onClick={() => setShowSetup(false)}
@@ -603,7 +659,9 @@ function ApproveDecline({
             className="flex-1 bg-brand-navy text-white font-bold py-3 px-6 rounded-md hover:bg-brand-navy-dark transition disabled:opacity-50 inline-flex items-center justify-center gap-2"
           >
             <CheckCircle2 className="h-5 w-5" />
-            {pending ? "Approving..." : "Approve & continue to payment"}
+            {pending
+              ? "Approving..."
+              : `Approve & pay ${formatCurrency(finalTotalCents)}`}
           </button>
         </div>
       </div>
