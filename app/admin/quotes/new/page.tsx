@@ -4,6 +4,7 @@ import { getCurrentUserRole } from "@/lib/auth/roles";
 import { getSiteSettings } from "@/lib/site-settings";
 import { getTenantInfo, getTenantPublicUrl } from "@/lib/tenant/business";
 import { buildDefaultQuoteMessage } from "../message-template";
+import { loadQuoteCustomers } from "../load-customers";
 import { QuoteEditor } from "../QuoteEditor";
 
 export const dynamic = "force-dynamic";
@@ -14,17 +15,13 @@ export default async function NewQuotePage() {
 
   const supabase = createAdminClient();
 
-  const [productsResult, customersResult, settings, tenant, protectionAndWaiverRows] = await Promise.all([
+  const [productsResult, customers, settings, tenant, protectionAndWaiverRows] = await Promise.all([
     supabase
       .from("products")
       .select("id, name, slug, price_per_day")
       .eq("is_active", true)
       .order("name", { ascending: true }),
-    supabase
-      .from("customers")
-      .select("id, first_name, last_name, email, phone, address")
-      .order("last_name", { ascending: true })
-      .limit(2000),
+    loadQuoteCustomers(),
     getSiteSettings(),
     getTenantInfo(),
     supabase
@@ -61,7 +58,7 @@ export default async function NewQuotePage() {
   return (
     <QuoteEditor
       products={productsResult.data || []}
-      customers={customersResult.data || []}
+      customers={customers}
       defaultMessage={defaultMessage}
       settings={editorSettings}
     />

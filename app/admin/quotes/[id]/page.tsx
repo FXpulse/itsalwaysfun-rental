@@ -9,6 +9,7 @@ import { QuoteActions } from "./QuoteActions";
 import { getSiteSettings } from "@/lib/site-settings";
 import { getTenantInfo, getTenantPublicUrl } from "@/lib/tenant/business";
 import { buildDefaultQuoteMessage } from "../message-template";
+import { loadQuoteCustomers } from "../load-customers";
 
 export const dynamic = "force-dynamic";
 
@@ -40,17 +41,13 @@ export default async function AdminQuoteDetailPage({
 
   // Drafts: render editable form
   if (quote.status === "draft") {
-    const [productsResult, customersResult, settings, tenant, protectionAndWaiverRows] = await Promise.all([
+    const [productsResult, customers, settings, tenant, protectionAndWaiverRows] = await Promise.all([
       supabase
         .from("products")
         .select("id, name, slug, price_per_day")
         .eq("is_active", true)
         .order("name", { ascending: true }),
-      supabase
-        .from("customers")
-        .select("id, first_name, last_name, email, phone, address")
-        .order("last_name", { ascending: true })
-        .limit(2000),
+      loadQuoteCustomers(),
       getSiteSettings(),
       getTenantInfo(),
       supabase
@@ -129,7 +126,7 @@ export default async function AdminQuoteDetailPage({
         <QuoteEditor
           initial={initial}
           products={productsResult.data || []}
-          customers={customersResult.data || []}
+          customers={customers}
           defaultMessage={defaultMessage}
           settings={editorSettings}
         />
