@@ -13,6 +13,7 @@ export interface QuoteProduct {
   name: string;
   slug: string;
   price_per_day: number;
+  tax_exempt?: boolean;
 }
 
 export interface QuoteCustomer {
@@ -30,6 +31,7 @@ export interface LineItem {
   description?: string | null;
   quantity: number;
   unit_price_cents: number;
+  tax_exempt?: boolean;
 }
 
 export type SurfaceType = "" | "dirt" | "grass" | "concrete" | "paver" | "asphalt" | "other";
@@ -147,6 +149,15 @@ export function QuoteEditor({
     () => data.line_items.reduce((s, it) => s + it.unit_price_cents * it.quantity, 0),
     [data.line_items],
   );
+  // Taxable subtotal excludes line items marked tax_exempt — used by the
+  // auto-rate calculation. The total still includes their revenue.
+  const taxableSubtotal = useMemo(
+    () =>
+      data.line_items
+        .filter((it) => !it.tax_exempt)
+        .reduce((s, it) => s + it.unit_price_cents * it.quantity, 0),
+    [data.line_items],
+  );
   const total = Math.max(0, subtotal - data.discount_cents + data.tax_cents);
 
   function patch(p: Partial<QuoteFormData>) {
@@ -162,13 +173,17 @@ export function QuoteEditor({
   const taxAutoActive = !!settings?.tax_enabled && taxRate > 0 && !data.tax_exempt && !taxManuallyEdited;
   useEffect(() => {
     if (!taxAutoActive) return;
-    const taxableBase = Math.max(0, subtotal - data.discount_cents);
+    // Discounts apply pro-rata to the taxable portion — if the discount is
+    // larger than the taxable subtotal, we floor at 0 (no negative tax).
+    const taxableShare =
+      subtotal > 0 ? (taxableSubtotal / subtotal) * data.discount_cents : 0;
+    const taxableBase = Math.max(0, taxableSubtotal - taxableShare);
     const autoTax = Math.round((taxableBase * taxRate) / 100);
     if (autoTax !== data.tax_cents) {
       setData((d) => ({ ...d, tax_cents: autoTax }));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [subtotal, data.discount_cents, taxRate, taxAutoActive]);
+  }, [subtotal, taxableSubtotal, data.discount_cents, taxRate, taxAutoActive]);
 
   function addLineFromProduct(productId: string) {
     if (!productId) return;
@@ -183,6 +198,7 @@ export function QuoteEditor({
           name: p.name,
           quantity: 1,
           unit_price_cents: p.price_per_day,
+          tax_exempt: !!p.tax_exempt,
         },
       ],
     }));
@@ -535,6 +551,20 @@ export function QuoteEditor({
                       value={it.name}
                       onChange={(e) => updateLine(i, { name: e.target.value })}
                     />
+                    <label className="flex items-center gap-1 text-[11px] text-slate-500 mt-1 cursor-pointer w-fit">
+                      <input
+                        type="checkbox"
+                        className="h-3 w-3"
+                        checked={!!it.tax_exempt}
+                        onChange={(e) => updateLine(i, { tax_exempt: e.target.checked })}
+                      />
+                      Tax exempt
+                      {it.tax_exempt && (
+                        <span className="ml-1 bg-emerald-100 text-emerald-800 rounded px-1.5 py-0.5 text-[10px] font-semibold">
+                          NO TAX
+                        </span>
+                      )}
+                    </label>
                   </td>
                   <td className="px-2 py-2">
                     <input

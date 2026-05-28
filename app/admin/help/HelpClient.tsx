@@ -103,6 +103,16 @@ export function HelpClient() {
               💡 <strong>Pro tip:</strong> Use bulk upload for the initial 14-product seed,
               then edit individuals as needed.
             </p>
+            <p className="font-semibold mt-2 text-xs">CSV columns:</p>
+            <ul className="list-disc pl-5 space-y-0.5 text-[11px] text-slate-700">
+              <li><code>name</code>, <code>slug</code> (optional — auto from name), <code>category</code>, <code>description</code></li>
+              <li><code>price_per_day_dollars</code>, <code>cost_dollars</code>, <code>stock</code>, <code>image_url</code></li>
+              <li><code>is_active</code> (true/false), <code>is_addon</code> (true/false), <strong><code>tax_exempt</code></strong> (true/false — new!)</li>
+              <li><code>weekend_price_per_day_dollars</code>, <code>setup_area</code>, <code>actual_size</code>, <code>outlets_required</code>, <code>age_group</code></li>
+            </ul>
+            <p className="text-[11px] text-emerald-700">
+              ✓ Set <code>tax_exempt=true</code> on rows where the product shouldn't be taxed (gift cards, fees, non-taxable services). Revenue still counts toward booking totals; just no tax on that row.
+            </p>
           </div>
         </div>
       ),
@@ -208,6 +218,26 @@ export function HelpClient() {
               date, customer, product, pre-tax + tax + total. Last row
               is a TOTAL summary. Drop straight into your sales-tax
               return.
+            </li>
+          </ul>
+          <p className="font-semibold">Two ways to exempt from tax:</p>
+          <ul className="list-disc pl-5 text-xs space-y-1">
+            <li>
+              <strong>Per-product</strong> — edit the product, tick "Tax
+              exempt" (or set <code>tax_exempt=true</code> in the bulk
+              CSV). The product's revenue counts toward the booking total
+              but is excluded from the taxable base. Use this for gift
+              cards, fees, or any non-taxable line. Shows up with a green{" "}
+              <strong>TAX EXEMPT</strong> badge in the customer's quote
+              view and the admin line items table.
+            </li>
+            <li>
+              <strong>Per-customer (per-quote)</strong> — tick the{" "}
+              <strong>Tax exempt customer</strong> checkbox next to the
+              Tax field in the quote editor. Skips tax on the WHOLE quote.
+              Use this for nonprofits, schools, gov, resellers with an
+              exemption certificate. Document the certificate # in
+              internal notes.
             </li>
           </ul>
           <p className="text-xs text-slate-500 bg-amber-50 border border-amber-200 rounded p-2">

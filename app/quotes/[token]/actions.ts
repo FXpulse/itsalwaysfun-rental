@@ -279,8 +279,13 @@ export async function approveQuote(token: string, input: ApproveInput) {
     const taxEnabled = (taxMap.get("tax_enabled") || "false").toLowerCase() === "true";
     const ratePercent = Number.parseFloat(taxMap.get("tax_rate_percent") || "0") || 0;
     if (taxEnabled && ratePercent > 0) {
+      // Taxable line items: those not flagged tax_exempt at quote save time
+      const taxableLineItemsTotal = (items || []).reduce((s: number, it: any) => {
+        if (it?.tax_exempt) return s;
+        return s + (Number(it.unit_price_cents) || 0) * (Number(it.quantity) || 1);
+      }, 0);
       const taxableBaseCents =
-        Number(quote.total_cents) + protectionCents + powerSupplyCents;
+        taxableLineItemsTotal + protectionCents + powerSupplyCents;
       taxCents = Math.round((taxableBaseCents * ratePercent) / 100);
     }
   }

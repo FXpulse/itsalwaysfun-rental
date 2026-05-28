@@ -181,7 +181,7 @@ export async function POST(request: Request) {
   // 1. Resolve product
   let productQuery = supabase
     .from("products")
-    .select("id, name, slug, price_per_day, stock, is_active");
+    .select("id, name, slug, price_per_day, stock, is_active, tax_exempt");
 
   if (parsed.data.product_id) {
     productQuery = productQuery.eq("id", parsed.data.product_id);
@@ -300,12 +300,13 @@ export async function POST(request: Request) {
     quantity: number;
     unit_price_cents: number;
     line_total_cents: number;
+    tax_exempt: boolean;
   }> = [];
   if (parsed.data.addons && parsed.data.addons.length > 0) {
     const addonIds = parsed.data.addons.map((a) => a.product_id);
     const { data: addonProducts } = await supabase
       .from("products")
-      .select("id, slug, name, price_per_day")
+      .select("id, slug, name, price_per_day, tax_exempt")
       .in("id", addonIds)
       .eq("is_active", true)
       .eq("is_addon", true);
@@ -321,6 +322,7 @@ export async function POST(request: Request) {
         quantity: a.quantity,
         unit_price_cents: p.price_per_day,
         line_total_cents: lineTotal,
+        tax_exempt: !!p.tax_exempt,
       });
       addonsTotal += lineTotal;
     }
@@ -428,6 +430,8 @@ export async function POST(request: Request) {
   // 4d. Apply sales tax (per-tenant config from site_settings).
   // Tax is calculated on the TAXABLE base (after discounts + gift cards +
   // point redemption), so the customer doesn't pay tax on freebies.
+  // Products/addons marked tax_exempt contribute to total but NOT to the
+  // taxable base — their share of any discount is also excluded pro-rata.
   let taxCents = 0;
   {
     const { data: taxRows } = await supabase
@@ -440,7 +444,25 @@ export async function POST(request: Request) {
     const taxEnabled = (taxMap.get("tax_enabled") || "false").toLowerCase() === "true";
     const ratePercent = Number.parseFloat(taxMap.get("tax_rate_percent") || "0") || 0;
     if (taxEnabled && ratePercent > 0 && totalAmount > 0) {
-      taxCents = Math.round((totalAmount * ratePercent) / 100);
+      // Compute taxable share of the gross subtotal (before discounts).
+      // Primary product: skip if tax_exempt.
+      const primaryTaxable = product.tax_exempt ? 0 : productSubtotal;
+      // Addons: filter exempt ones from the gross addon total
+      const addonsTaxable = (addonLineItems || []).reduce((s: number, a: any) => {
+        return a?.tax_exempt ? s : s + (Number(a.line_total_cents) || 0);
+      }, 0);
+      // Power supply and damage protection: taxable by default
+      const grossSubtotalBeforeDiscount =
+        productSubtotal + powerSupplyCents + addonsTotal + protectionCents;
+      const taxableGross =
+        primaryTaxable + addonsTaxable + powerSupplyCents + protectionCents;
+      // Pro-rate any discount/redemption to taxable share, then add tax on the rest
+      const taxableShare =
+        grossSubtotalBeforeDiscount > 0
+          ? (taxableGross / grossSubtotalBeforeDiscount) * (grossSubtotalBeforeDiscount - totalAmount)
+          : 0;
+      const taxableBase = Math.max(0, taxableGross - taxableShare);
+      taxCents = Math.round((taxableBase * ratePercent) / 100);
       totalAmount = totalAmount + taxCents;
     }
   }

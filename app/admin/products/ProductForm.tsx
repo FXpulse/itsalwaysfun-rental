@@ -287,6 +287,20 @@ export function ProductForm({ product, action, submitLabel = "Save", categories 
             <strong>Add-on</strong> (hidden from public catalog — only added to bookings via wizard, e.g. Power Supply)
           </label>
         </div>
+
+        <div className="flex items-center gap-3">
+          <input
+            name="tax_exempt"
+            type="checkbox"
+            id="tax_exempt"
+            defaultChecked={(product as any)?.tax_exempt ?? false}
+            className="w-4 h-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-600"
+            disabled={pending}
+          />
+          <label htmlFor="tax_exempt" className="text-sm text-slate-700">
+            <strong>Tax exempt</strong> (revenue counts toward total but no tax is charged on this product — e.g. gift cards, fees, non-taxable services)
+          </label>
+        </div>
       </div>
 
       <div className="flex gap-3 pt-4 border-t border-slate-200">

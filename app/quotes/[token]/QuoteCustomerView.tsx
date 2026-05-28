@@ -303,7 +303,14 @@ function QuoteDetails({ quote }: { quote: Quote }) {
           <tbody className="divide-y divide-slate-100">
             {items.map((it: any, i: number) => (
               <tr key={i}>
-                <td className="py-2">{it.name}</td>
+                <td className="py-2">
+                  {it.name}
+                  {it.tax_exempt && (
+                    <span className="ml-2 inline-block bg-emerald-100 text-emerald-800 rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide">
+                      Tax exempt
+                    </span>
+                  )}
+                </td>
                 <td className="py-2 text-center font-mono">{it.quantity}</td>
                 <td className="py-2 text-right font-mono">
                   {formatCurrency(it.unit_price_cents)}
@@ -414,13 +421,24 @@ function ApproveDecline({
   const protectionAddCents = protectionAccepted === true ? protectionPriceCents : 0;
   const powerSupplyTotalCents = needsPower === true ? powerSupplyPerDayCents * numDays : 0;
   const preTaxTotalCents = quote.total_cents + protectionAddCents + powerSupplyTotalCents;
+  // Build the TAXABLE base — excludes line items individually marked tax_exempt.
+  // Protection + power supply are taxable by default; if your jurisdiction
+  // exempts those, set quote.tax_exempt on the whole quote instead.
+  const taxableLineItemsTotal = ((quote.line_items as any[]) || [])
+    .filter((it) => !it?.tax_exempt)
+    .reduce(
+      (s: number, it: any) =>
+        s + (Number(it.unit_price_cents) || 0) * (Number(it.quantity) || 1),
+      0,
+    );
+  const taxableBaseCents = taxableLineItemsTotal + protectionAddCents + powerSupplyTotalCents;
   // Tax resolution: tax_exempt wins, then manual override, then auto-calc.
   const taxCents = quote.tax_exempt
     ? 0
     : (quote.tax_cents || 0) > 0
       ? quote.tax_cents
       : taxEnabled && taxRatePercent > 0
-        ? Math.round((preTaxTotalCents * taxRatePercent) / 100)
+        ? Math.round((taxableBaseCents * taxRatePercent) / 100)
         : 0;
   const finalTotalCents = preTaxTotalCents + taxCents;
 

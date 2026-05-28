@@ -66,6 +66,7 @@ export async function bulkUploadProducts(csvText: string): Promise<BulkResult> {
         image_url: r.image_url || null,
         is_active: toBool(r.is_active, true),
         is_addon: toBool(r.is_addon, false),
+        tax_exempt: toBool(r.tax_exempt, false),
         weekend_price_per_day: r.weekend_price_per_day_dollars
           ? Math.round(toFloat(r.weekend_price_per_day_dollars) * 100)
           : null,
