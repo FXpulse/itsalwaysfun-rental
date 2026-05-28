@@ -122,7 +122,7 @@ export async function setCoiRequestEnabled(enabled: boolean) {
     .from("site_settings")
     .upsert(
       { key: "coi_request_enabled", value: enabled ? "true" : "false" },
-      { onConflict: "key" },
+      { onConflict: "tenant_id,key" },
     );
   if (error) return { error: error.message };
   revalidatePath("/admin/coi");

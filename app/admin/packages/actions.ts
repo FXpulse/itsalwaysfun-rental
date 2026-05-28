@@ -103,7 +103,7 @@ export async function setPackagesSectionEnabled(enabled: boolean) {
     .from("site_settings")
     .upsert(
       { key: "packages_section_enabled", value: enabled ? "true" : "false" },
-      { onConflict: "key" },
+      { onConflict: "tenant_id,key" },
     );
   if (error) return { error: error.message };
   revalidatePath("/admin/packages");

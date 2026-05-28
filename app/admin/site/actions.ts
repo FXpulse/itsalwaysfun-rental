@@ -35,7 +35,7 @@ export async function updateSiteSettings(formData: FormData) {
       .from("site_settings")
       .upsert(
         { key: u.key, value: u.value, updated_by: user.email },
-        { onConflict: "key" },
+        { onConflict: "tenant_id,key" },
       );
     if (error) {
       return { error: `Failed to update ${u.key}: ${error.message}` };
@@ -117,7 +117,7 @@ export async function uploadCustomFont(formData: FormData) {
     .from("site_settings")
     .upsert(
       { key: "site_font_self_hosted_url", value: upload.url, updated_by: user.email },
-      { onConflict: "key" },
+      { onConflict: "tenant_id,key" },
     );
   if (error) {
     return { error: `Uploaded but failed to save URL: ${error.message}` };
@@ -136,7 +136,7 @@ export async function clearCustomFont() {
     .from("site_settings")
     .upsert(
       { key: "site_font_self_hosted_url", value: "", updated_by: user.email },
-      { onConflict: "key" },
+      { onConflict: "tenant_id,key" },
     );
   if (error) return { error: error.message };
   revalidatePath("/admin/site");

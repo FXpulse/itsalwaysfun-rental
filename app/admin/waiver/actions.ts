@@ -24,7 +24,7 @@ export async function saveWaiver(formData: FormData) {
   for (const u of updates) {
     const { error } = await supabase
       .from("site_settings")
-      .upsert(u, { onConflict: "key" });
+      .upsert(u, { onConflict: "tenant_id,key" });
     if (error) return { error: `Failed to save ${u.key}: ${error.message}` };
   }
 
