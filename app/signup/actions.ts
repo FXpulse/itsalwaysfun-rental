@@ -1,8 +1,10 @@
 "use server";
 
+import { headers } from "next/headers";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { z } from "zod";
 import { logAuditEvent } from "@/lib/audit";
+import { rateLimit } from "@/lib/rate-limit";
 
 const SignupInput = z.object({
   business_name: z.string().min(2).max(200),
@@ -56,6 +58,17 @@ export interface SignupResult {
 }
 
 export async function signupTenant(formData: FormData): Promise<SignupResult> {
+  // Rate limit: 3 tenant signups per IP per hour. Prevents spam tenants
+  // from burning Supabase auth users + DB rows.
+  const ip = headers().get("x-forwarded-for")?.split(",")[0].trim() || "unknown";
+  const rl = await rateLimit(`signup:${ip}`, { max: 3, windowSeconds: 3600 });
+  if (!rl.allowed) {
+    return {
+      ok: false,
+      error: "Too many signup attempts from this network. Wait a while and try again, or contact us.",
+    };
+  }
+
   const rawSlug =
     String(formData.get("desired_slug") || "").trim().toLowerCase() ||
     slugify(String(formData.get("business_name") || ""));

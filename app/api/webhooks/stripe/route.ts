@@ -73,8 +73,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ received: true, note: "no booking_id in metadata" });
     }
 
-    // Update booking → confirmed + paid
-    const { data: booking, error } = await supabase
+    // Idempotency guard: only transition a booking from pending → confirmed.
+    // Stripe retries delivery up to 3 days; without this guard a late retry
+    // could overwrite a manually cancelled booking back to confirmed.
+    // Defense in depth: also verify tenant_id matches metadata if provided.
+    const updateQuery = supabase
       .from("bookings")
       .update({
         booking_status: "confirmed",
@@ -82,8 +85,24 @@ export async function POST(request: Request) {
         hold_expires_at: null,
       })
       .eq("id", bookingId)
-      .select("*")
-      .single();
+      .eq("stripe_payment_status", "pending");
+
+    if (pi.metadata?.tenant_id) {
+      updateQuery.eq("tenant_id", pi.metadata.tenant_id);
+    }
+
+    const { data: booking, error } = await updateQuery.select("*").maybeSingle();
+
+    // No row updated could mean: already processed (idempotent, OK),
+    // tenant mismatch (attack/bug — return 200 so Stripe doesn't retry
+    // forever, but log loudly), or row was deleted.
+    if (!booking && !error) {
+      console.warn("[Stripe webhook] no-op update for booking", bookingId, {
+        reason: "already paid, cancelled, or tenant mismatch",
+        eventId: event.id,
+      });
+      return NextResponse.json({ received: true, note: "no-op (already processed or cancelled)" });
+    }
 
     if (error) {
       return NextResponse.json(

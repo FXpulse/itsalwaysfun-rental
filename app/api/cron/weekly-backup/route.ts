@@ -2,9 +2,16 @@
 // Runs every Sunday at 3 AM UTC. Generates a full DB JSON dump, uploads to
 // the private `backups` storage bucket, prunes files older than ~84 days
 // (~12 weeks), and emails the admin a 7-day signed download URL.
+//
+// ⚠️ Single point of failure: backups live in the same Supabase project as
+// the DB. If the project is lost, backups go with it. Mitigation: the
+// admin saves the JSON file locally too (button at /admin/diagnostics).
+// To harden, add an off-cloud target (S3, R2, Backblaze) via env vars and
+// a second upload step here.
 
 import { NextResponse } from "next/server";
 import { headers } from "next/headers";
+import * as Sentry from "@sentry/nextjs";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { exportFullBackup } from "@/lib/backup";
 import { sendEmail, isEmailConfigured } from "@/lib/email/send";
@@ -117,6 +124,35 @@ ${
     } catch (e) {
       // ignore — backup already uploaded
     }
+  }
+
+  // Report backup result to Sentry — even successful runs go in as a
+  // breadcrumb so we can spot a gap (no event for N weeks = cron broken).
+  // Failures (any backup.errors entries OR no email sent) ping as warnings.
+  const hasErrors = Object.keys(backup.errors).length > 0;
+  if (hasErrors || !emailSent) {
+    Sentry.captureMessage(
+      `Weekly backup ${dateStr} completed with issues`,
+      {
+        level: hasErrors ? "warning" : "info",
+        tags: { cron: "weekly-backup" },
+        extra: {
+          dateStr,
+          filename,
+          sizeKb,
+          tables: Object.keys(backup.tables).length,
+          rows: backup.total_rows,
+          emailSent,
+          errors: backup.errors,
+        },
+      },
+    );
+  } else {
+    Sentry.addBreadcrumb({
+      category: "cron",
+      level: "info",
+      message: `weekly-backup ${dateStr} OK (${backup.total_rows} rows, ${sizeKb} KB)`,
+    });
   }
 
   return NextResponse.json({

@@ -9,7 +9,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { DEFAULT_TENANT_ID } from "./resolve";
 
-// Tables that have a tenant_id column (must match Chunk 1A migration)
+// Tables that have a tenant_id column.
+// MUST match the lists in supabase/multi_tenant_rls.sql +
+// supabase/multi_tenant_rls_fix.sql. Any change here requires updating
+// those SQL files so RLS and the proxy stay in sync (defense in depth).
 const MULTI_TENANT_TABLES = new Set([
   // Booking flow
   "bookings",

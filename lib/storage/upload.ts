@@ -33,12 +33,14 @@ export async function uploadImage(opts: UploadOptions): Promise<
     return { error: `File too large (max ${mb} MB)` };
   }
 
+  // SVG removed — it can carry inline <script>, executing in any session
+  // that opens the image directly from a public bucket. Use PNG or WebP.
+  // octet-stream removed — too permissive; the file could be anything.
   const allowedMimes = [
     "image/jpeg",
     "image/jpg",
     "image/png",
     "image/webp",
-    "image/svg+xml",
     "application/pdf",  // For W9 forms etc.
     // Web font formats (for custom site fonts like Louis George Cafe)
     "font/woff2",
@@ -49,9 +51,13 @@ export async function uploadImage(opts: UploadOptions): Promise<
     "application/font-woff",
     "application/x-font-ttf",
     "application/x-font-otf",
-    "application/octet-stream",  // some browsers report woff2 as this
   ];
-  if (!allowedMimes.includes(file.type)) {
+  // Fallback for fonts when browser reports them as octet-stream — accept
+  // only if the filename extension matches a known font.
+  const fontExtFallback =
+    file.type === "application/octet-stream" &&
+    /\.(woff2|woff|ttf|otf)$/i.test(file.name);
+  if (!allowedMimes.includes(file.type) && !fontExtFallback) {
     return { error: `Unsupported file type: ${file.type}` };
   }
 

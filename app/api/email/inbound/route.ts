@@ -25,6 +25,10 @@ import { sendEmail, isEmailConfigured } from "@/lib/email/send";
 export const dynamic = "force-dynamic";
 
 const BodySchema = z.object({
+  // Tenant identifier — required so the email lands in the right inbox.
+  // Either UUID (preferred) or the tenant's slug.
+  tenant_id: z.string().uuid().optional(),
+  tenant_slug: z.string().regex(/^[a-z0-9][a-z0-9-]*$/).optional(),
   from: z.string().email(),
   from_name: z.string().max(200).optional().nullable(),
   to: z.string().max(200).optional().nullable(),
@@ -32,7 +36,12 @@ const BodySchema = z.object({
   text: z.string().max(100000).optional().nullable(),
   html: z.string().max(500000).optional().nullable(),
   received_at: z.string().optional().nullable(),
-});
+}).refine(
+  (d) => !!(d.tenant_id || d.tenant_slug),
+  {
+    message: "tenant_id or tenant_slug is required so the email lands in the right tenant's inbox",
+  },
+);
 
 /** Strip HTML tags as a basic fallback when there's no plain text. */
 function htmlToText(html: string): string {
@@ -105,9 +114,27 @@ export async function POST(request: Request) {
   const { first, last } = splitName(data.from_name, data.from);
   const supabase = createAdminClient({ unscoped: true });
 
+  // Resolve tenant — UUID wins when both provided.
+  let tenantId: string | null = data.tenant_id || null;
+  if (!tenantId && data.tenant_slug) {
+    const { data: tenant } = await supabase
+      .from("tenants")
+      .select("id")
+      .eq("slug", data.tenant_slug)
+      .maybeSingle();
+    tenantId = (tenant as any)?.id || null;
+  }
+  if (!tenantId) {
+    return NextResponse.json(
+      { error: "Unknown tenant — verify tenant_id or tenant_slug in payload" },
+      { status: 404 },
+    );
+  }
+
   const { data: row, error: insertErr } = await supabase
     .from("contact_messages")
     .insert({
+      tenant_id: tenantId,
       first_name: first,
       last_name: last,
       email: data.from.trim().toLowerCase(),

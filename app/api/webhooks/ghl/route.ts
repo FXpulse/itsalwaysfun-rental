@@ -22,6 +22,11 @@ import { getStripe, isStripeConfigured } from "@/lib/stripe/server";
 export const dynamic = "force-dynamic";
 
 const PayloadSchema = z.object({
+  // Required: identifies which tenant this booking belongs to. Either
+  // the tenant_id UUID (preferred) or the tenant_slug (for legacy GHL
+  // forms that only have the slug). At least one must be provided.
+  tenant_id: z.string().uuid().optional(),
+  tenant_slug: z.string().regex(/^[a-z0-9][a-z0-9-]*$/).optional(),
   contact: z.object({
     id: z.string().optional(),
     firstName: z.string().min(1),
@@ -37,7 +42,12 @@ const PayloadSchema = z.object({
     product_slug: z.string().regex(/^[a-z0-9-]+$/),
   }),
   opportunity_id: z.string().optional().nullable(),
-});
+}).refine(
+  (d) => !!(d.tenant_id || d.tenant_slug),
+  {
+    message: "tenant_id (UUID) or tenant_slug is required so the booking lands in the right tenant",
+  },
+);
 
 export async function POST(request: Request) {
   // 1. Validate shared secret
@@ -70,18 +80,37 @@ export async function POST(request: Request) {
 
   const supabase = createAdminClient({ unscoped: true });
 
-  // 3. Resolve product
+  // 3. Resolve tenant — required for multi-tenant isolation. UUID wins
+  // when both are provided.
+  let tenantId: string | null = parsed.data.tenant_id || null;
+  if (!tenantId && parsed.data.tenant_slug) {
+    const { data: tenant } = await supabase
+      .from("tenants")
+      .select("id")
+      .eq("slug", parsed.data.tenant_slug)
+      .maybeSingle();
+    tenantId = (tenant as any)?.id || null;
+  }
+  if (!tenantId) {
+    return NextResponse.json(
+      { error: "Unknown tenant — verify tenant_id or tenant_slug in payload" },
+      { status: 404 },
+    );
+  }
+
+  // 4. Resolve product within the tenant
   const { data: product, error: prodErr } = await supabase
     .from("products")
-    .select("id, name, slug, price_per_day, stock, is_active")
+    .select("id, name, slug, price_per_day, stock, is_active, tenant_id")
+    .eq("tenant_id", tenantId)
     .eq("slug", parsed.data.custom_fields.product_slug)
-    .single();
+    .maybeSingle();
 
   if (prodErr || !product || !product.is_active) {
     return NextResponse.json({ error: "Product not found or inactive" }, { status: 404 });
   }
 
-  // 4. Availability check (date)
+  // 5. Availability check (date)
   const date = parsed.data.custom_fields.event_date;
   const { data: blocked } = await supabase
     .from("blocked_dates")
@@ -97,6 +126,7 @@ export async function POST(request: Request) {
   const { data: existingBookings } = await supabase
     .from("bookings")
     .select("id, booking_status, hold_expires_at")
+    .eq("tenant_id", tenantId)
     .eq("product_id", product.id)
     .eq("event_date", date)
     .in("booking_status", ["pending_payment", "confirmed", "delivered"]);
@@ -111,11 +141,12 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Already booked" }, { status: 409 });
   }
 
-  // 5. Create booking
+  // 6. Create booking — EXPLICIT tenant_id (never trust DB default)
   const holdExpiresAt = new Date(Date.now() + 15 * 60_000).toISOString();
   const { data: booking, error: bookErr } = await supabase
     .from("bookings")
     .insert({
+      tenant_id: tenantId,
       ghl_contact_id: parsed.data.contact.id || null,
       ghl_opportunity_id: parsed.data.opportunity_id || null,
       customer_first_name: parsed.data.contact.firstName,

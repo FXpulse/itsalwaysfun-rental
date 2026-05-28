@@ -14,6 +14,7 @@ import { getStripe, isStripeConfigured } from "@/lib/stripe/server";
 import { getPaymentIntentTenantParams } from "@/lib/stripe/connect";
 import { multiDayTotal, multiDayBreakdown, applyCoupon } from "@/lib/pricing";
 import { redeemPoints as doRedeemPoints } from "@/lib/loyalty";
+import { rateLimit, clientIp } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 
@@ -96,6 +97,17 @@ function datesInRange(start: string, end: string): string[] {
 }
 
 export async function POST(request: Request) {
+  // Rate limit: 10 booking attempts per IP per minute. Prevents inventory
+  // hold spam + Stripe intent churn.
+  const ip = clientIp(request);
+  const rl = await rateLimit(`book:${ip}`, { max: 10, windowSeconds: 60 });
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { error: "Too many booking attempts. Please slow down and try again in a minute." },
+      { status: 429, headers: { "Retry-After": String(Math.ceil((rl.resetAt - Date.now()) / 1000)) } },
+    );
+  }
+
   let body: unknown;
   try {
     body = await request.json();

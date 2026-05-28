@@ -349,6 +349,9 @@ export async function approveQuote(token: string, input: ApproveInput) {
   const { data: booking, error: bookingErr } = await supabase
     .from("bookings")
     .insert({
+      // EXPLICIT tenant_id from the quote — never trust the middleware-resolved
+      // tenant for a public quote URL (link can be shared cross-domain).
+      tenant_id: quote.tenant_id,
       customer_first_name: quote.customer_first_name,
       customer_last_name: quote.customer_last_name,
       customer_email: quote.customer_email,
@@ -384,6 +387,7 @@ export async function approveQuote(token: string, input: ApproveInput) {
   if (quote.waiver_required && parsed.data.waiver_signed_name) {
     try {
       await supabase.from("waivers").insert({
+        tenant_id: quote.tenant_id,
         booking_id: booking.id,
         signed_name: parsed.data.waiver_signed_name,
         signed_at: new Date().toISOString(),

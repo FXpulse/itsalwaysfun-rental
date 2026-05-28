@@ -30,7 +30,13 @@ export interface TemplateRow {
   is_active: boolean;
 }
 
-/** Substitute {{varName}} and {{#if varName}}...{{/if}} blocks. */
+/** Substitute {{varName}} and {{#if varName}}...{{/if}} blocks.
+ *
+ *  Variables are HTML-escaped by default to prevent stored XSS from
+ *  customer-controlled inputs (names, addresses, messages, etc.). Use
+ *  {{{varName}}} (triple braces) to inject already-trusted HTML — the
+ *  callsite must vouch for the safety of the value (e.g. server-built
+ *  rich text we control). */
 export function substitute(template: string, vars: Record<string, any>): string {
   let result = template;
   const condRe = /\{\{#if\s+(\w+)\}\}([\s\S]*?)\{\{\/if\}\}/g;
@@ -44,10 +50,17 @@ export function substitute(template: string, vars: Record<string, any>): string 
       return v !== null && v !== undefined && v !== false && v !== "" && v !== 0 ? content : "";
     });
   }
-  result = result.replace(/\{\{(\w+)\}\}/g, (_, name) => {
+  // {{{var}}} — raw injection (trusted HTML). Match BEFORE the escaped form.
+  result = result.replace(/\{\{\{(\w+)\}\}\}/g, (_, name) => {
     const v = vars[name];
     if (v === null || v === undefined) return "";
     return String(v);
+  });
+  // {{var}} — HTML-escaped (safe default for everything else).
+  result = result.replace(/\{\{(\w+)\}\}/g, (_, name) => {
+    const v = vars[name];
+    if (v === null || v === undefined) return "";
+    return escapeHtml(String(v));
   });
   return result;
 }

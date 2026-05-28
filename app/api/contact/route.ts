@@ -11,6 +11,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendEmail, isEmailConfigured } from "@/lib/email/send";
+import { rateLimit, clientIp } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 
@@ -33,6 +34,17 @@ function escapeHtml(s: string): string {
 }
 
 export async function POST(request: Request) {
+  // Rate limit: 5 submissions per IP per 5-minute window. Fails open
+  // when KV isn't configured (local dev).
+  const ip = clientIp(request);
+  const rl = await rateLimit(`contact:${ip}`, { max: 5, windowSeconds: 300 });
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { error: "Too many submissions. Please wait a few minutes and try again." },
+      { status: 429, headers: { "Retry-After": String(Math.ceil((rl.resetAt - Date.now()) / 1000)) } },
+    );
+  }
+
   let body: unknown;
   try {
     body = await request.json();
