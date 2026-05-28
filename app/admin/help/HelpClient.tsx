@@ -1126,6 +1126,120 @@ export function HelpClient() {
       ),
     },
     {
+      id: "quote-approval-flow",
+      title: "Quotes — approval flow + 24h hold + payment reminder",
+      icon: Ticket,
+      content: (
+        <div className="space-y-3 text-sm">
+          <p>
+            Full picture of what happens between a quote being sent and
+            payment confirming.
+          </p>
+
+          <div className="bg-slate-50 border border-slate-200 rounded p-3">
+            <p className="font-semibold mb-2">1. Admin creates the quote</p>
+            <ul className="list-disc pl-5 space-y-1 text-xs">
+              <li>
+                <strong>Existing customer dropdown</strong> at the top of the
+                Customer section — auto-fills name, email, phone, address from
+                past bookings.
+              </li>
+              <li>
+                <strong>Customer message</strong> pre-fills from your site
+                settings (business name, service area, social handle, public
+                URL). Edit freely or "↺ Reset to default template".
+              </li>
+              <li>
+                <strong>Customer choices on approval</strong> section — you
+                only decide what to OFFER:
+                <ul className="list-disc pl-5 mt-1">
+                  <li>
+                    ☐ Offer damage protection on this quote (+ price snapshot).
+                    The customer chooses yes/no.
+                  </li>
+                  <li>
+                    ☐ Require liability waiver signature before payment
+                    (defaults ON).
+                  </li>
+                </ul>
+              </li>
+              <li>
+                Surface type + power source are NOT here — the customer fills
+                those when they approve.
+              </li>
+            </ul>
+          </div>
+
+          <div className="bg-slate-50 border border-slate-200 rounded p-3">
+            <p className="font-semibold mb-2">2. Customer receives quote → clicks "Approve quote"</p>
+            <p className="text-xs mb-1">A setup form appears with (in order):</p>
+            <ul className="list-disc pl-5 space-y-1 text-xs">
+              <li>Setup surface (grass/dirt/concrete/paver/asphalt/other) — required</li>
+              <li>Power source (has outlet / bring generator) — required</li>
+              <li>Damage protection accept/decline (only if you offered it)</li>
+              <li>Liability waiver text + checkbox + typed-name signature (only if you required it)</li>
+            </ul>
+            <p className="text-xs mt-2 text-slate-600">
+              On "Approve & continue to payment": system runs an availability
+              check on the primary product. If still available, creates a
+              booking with a <strong>24-hour hold</strong> and proceeds to
+              Stripe Elements. If someone reserved the same date in the
+              meantime, returns "Sorry, no longer available" — first to
+              approve wins.
+            </p>
+          </div>
+
+          <div className="bg-slate-50 border border-slate-200 rounded p-3">
+            <p className="font-semibold mb-2">3. Hold + payment window</p>
+            <ul className="list-disc pl-5 space-y-1 text-xs">
+              <li>
+                The booking blocks inventory for 24 hours after approval. Other
+                customers can't book the same product/date during that window.
+              </li>
+              <li>
+                If payment completes (Stripe webhook) → booking becomes
+                <code>confirmed</code> and the hold becomes permanent. Quote
+                status → <code>converted</code>.
+              </li>
+              <li>
+                If 24h pass without payment → the hold expires automatically.
+                The inventory becomes available to other customers again. The
+                booking row stays but is no longer counted as occupying the slot.
+              </li>
+            </ul>
+          </div>
+
+          <div className="bg-amber-50 border border-amber-200 rounded p-3">
+            <p className="font-semibold mb-2">4. Hourly reminder cron (auto)</p>
+            <p className="text-xs mb-1">
+              <code>/api/cron/quote-hold-reminder</code> runs every hour and
+              finds approved quotes whose 24h hold is about to expire (within
+              the next 6 hours), payment hasn't completed, and no reminder was
+              sent yet.
+            </p>
+            <p className="text-xs mb-1">
+              Sends the customer a "Your reservation expires in Xh — complete
+              payment to lock it in" email with quote total + expiry timestamp
+              + payment link.
+            </p>
+            <p className="text-xs">
+              Idempotent via <code>quotes.hold_reminder_sent_at</code>. Email
+              tagged <code>quote_hold_reminder</code> for analytics.
+            </p>
+          </div>
+
+          <p className="text-xs text-slate-600 bg-blue-50 border border-blue-200 rounded p-3">
+            <strong>Multi-product quotes — known limitation:</strong> the
+            availability check + inventory hold only applies to the FIRST line
+            item's product. Other items in the quote aren't tracked for
+            conflicts (mirrors the rest of the booking flow). If you commonly
+            quote multi-product bundles, contact us about adding multi-product
+            inventory tracking.
+          </p>
+        </div>
+      ),
+    },
+    {
       id: "audit-log",
       title: "Audit log — who did what, when",
       icon: History,
