@@ -57,14 +57,22 @@ export default async function CustomerQuotePage({
     }
   }
 
-  // For approved quotes, fetch booking to get client_secret
+  // For approved quotes, fetch booking to get client_secret + final amount.
+  // The Stripe PaymentIntent (and the booking.total_amount) reflect the FULL
+  // amount the customer agreed to pay (quote + damage protection + power
+  // supply) — we surface that here so the payment UI shows the right number.
   let clientSecret: string | null = null;
+  let finalAmountCents: number = quote.total_cents;
   if (quote.status === "approved" && quote.converted_booking_id) {
     const { data: booking } = await supabase
       .from("bookings")
-      .select("stripe_payment_intent_id, stripe_payment_status")
+      .select("stripe_payment_intent_id, stripe_payment_status, total_amount")
       .eq("id", quote.converted_booking_id)
       .single();
+
+    if (booking?.total_amount) {
+      finalAmountCents = Number(booking.total_amount);
+    }
 
     // If booking already paid, mark quote as converted
     if (booking?.stripe_payment_status === "paid") {
@@ -77,6 +85,8 @@ export default async function CustomerQuotePage({
         const stripe = getStripe();
         const intent = await stripe.paymentIntents.retrieve(booking.stripe_payment_intent_id);
         clientSecret = intent.client_secret;
+        // Trust Stripe's amount as the source of truth (it's what will be charged)
+        if (intent.amount) finalAmountCents = intent.amount;
       } catch (e) {
         console.error("Failed to retrieve PaymentIntent", e);
       }
@@ -142,6 +152,7 @@ export default async function CustomerQuotePage({
       powerSupplyPerDayCents={powerSupplyPerDayCents}
       surfaceOptions={surfaceOptions}
       availabilityError={availabilityError}
+      finalAmountCents={finalAmountCents}
     />
   );
 }

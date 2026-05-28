@@ -67,6 +67,7 @@ export function QuoteCustomerView({
   powerSupplyPerDayCents,
   surfaceOptions,
   availabilityError,
+  finalAmountCents,
 }: {
   quote: Quote;
   clientSecret: string | null;
@@ -78,6 +79,10 @@ export function QuoteCustomerView({
   powerSupplyPerDayCents: number;
   surfaceOptions: SurfaceOption[];
   availabilityError?: string | null;
+  /** Final amount the customer agreed to pay (quote + protection + power
+   *  supply). Sourced from the Stripe PaymentIntent so it always matches
+   *  what Stripe will actually charge. */
+  finalAmountCents: number;
 }) {
   return (
     <div className="min-h-screen bg-slate-50">
@@ -132,6 +137,7 @@ export function QuoteCustomerView({
             clientSecret={clientSecret}
             stripeConfigured={stripeConfigured}
             stripePublishableKey={stripePublishableKey}
+            finalAmountCents={finalAmountCents}
           />
         )}
 
@@ -704,11 +710,13 @@ function PaymentSection({
   clientSecret,
   stripeConfigured,
   stripePublishableKey,
+  finalAmountCents,
 }: {
   quote: Quote;
   clientSecret: string | null;
   stripeConfigured: boolean;
   stripePublishableKey: string;
+  finalAmountCents: number;
 }) {
   if (!stripeConfigured || !clientSecret) {
     return (
@@ -733,12 +741,34 @@ function PaymentSection({
 
   const stripePromise = loadStripe(stripePublishableKey);
 
+  // Breakdown — only show extras if the final differs from the original quote
+  const extras = finalAmountCents - quote.total_cents;
+
   return (
     <div className="card border-brand-yellow border-2">
       <h2 className="text-lg font-bold text-brand-navy mb-1">Complete payment</h2>
       <p className="text-sm text-slate-500 mb-4 flex items-center gap-1">
         <Lock className="h-3.5 w-3.5" /> Secure payment via Stripe · 100% upfront
       </p>
+
+      {/* Final amount breakdown — confirms what Stripe will charge */}
+      <div className="bg-slate-50 border border-slate-200 rounded p-3 mb-4 text-sm">
+        <div className="flex justify-between text-slate-600">
+          <span>Original quote</span>
+          <span className="font-mono">{formatCurrency(quote.total_cents)}</span>
+        </div>
+        {extras > 0 && (
+          <div className="flex justify-between text-slate-600">
+            <span>+ Damage protection / power supply</span>
+            <span className="font-mono">{formatCurrency(extras)}</span>
+          </div>
+        )}
+        <div className="flex justify-between pt-2 mt-2 border-t border-slate-200 text-base font-bold text-brand-navy">
+          <span>Total to pay now</span>
+          <span className="font-mono text-lg">{formatCurrency(finalAmountCents)}</span>
+        </div>
+      </div>
+
       <Elements
         stripe={stripePromise}
         options={{
@@ -756,7 +786,7 @@ function PaymentSection({
           },
         }}
       >
-        <PaymentForm token={quote.token} amount={quote.total_cents} />
+        <PaymentForm token={quote.token} amount={finalAmountCents} />
       </Elements>
     </div>
   );
