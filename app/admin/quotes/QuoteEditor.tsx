@@ -3,7 +3,7 @@
 import { useState, useTransition, useMemo } from "react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
-import { Plus, Trash2, ArrowLeft } from "lucide-react";
+import { Plus, Trash2, ArrowLeft, User as UserIcon } from "lucide-react";
 import Link from "next/link";
 import { createQuote, updateQuote } from "./actions";
 import { formatCurrency } from "@/lib/utils";
@@ -15,6 +15,15 @@ export interface QuoteProduct {
   price_per_day: number;
 }
 
+export interface QuoteCustomer {
+  id: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+  phone: string | null;
+  address: string | null;
+}
+
 export interface LineItem {
   product_id?: string | null;
   name: string;
@@ -22,6 +31,8 @@ export interface LineItem {
   quantity: number;
   unit_price_cents: number;
 }
+
+export type SurfaceType = "" | "dirt" | "grass" | "concrete" | "paver" | "asphalt" | "other";
 
 export interface QuoteFormData {
   id?: string;
@@ -42,14 +53,29 @@ export interface QuoteFormData {
   customer_message: string;
   internal_notes: string;
   expires_days: number;
+  surface_type: SurfaceType;
+  needs_power_supply: boolean | null;
 }
+
+const SURFACE_OPTIONS: { value: SurfaceType; label: string }[] = [
+  { value: "grass", label: "Grass" },
+  { value: "dirt", label: "Dirt" },
+  { value: "concrete", label: "Concrete" },
+  { value: "paver", label: "Paver" },
+  { value: "asphalt", label: "Asphalt" },
+  { value: "other", label: "Other" },
+];
 
 export function QuoteEditor({
   initial,
   products,
+  customers = [],
+  defaultMessage = "",
 }: {
   initial?: QuoteFormData;
   products: QuoteProduct[];
+  customers?: QuoteCustomer[];
+  defaultMessage?: string;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -70,11 +96,31 @@ export function QuoteEditor({
       discount_cents: 0,
       discount_note: "",
       tax_cents: 0,
-      customer_message: "",
+      customer_message: defaultMessage,
       internal_notes: "",
       expires_days: 14,
+      surface_type: "",
+      needs_power_supply: null,
     },
   );
+
+  const [selectedCustomerId, setSelectedCustomerId] = useState<string>("");
+
+  function pickCustomer(id: string) {
+    setSelectedCustomerId(id);
+    if (!id) return;
+    const c = customers.find((x) => x.id === id);
+    if (!c) return;
+    setData((d) => ({
+      ...d,
+      customer_first_name: c.first_name || d.customer_first_name,
+      customer_last_name: c.last_name || d.customer_last_name,
+      customer_email: c.email || d.customer_email,
+      customer_phone: c.phone || d.customer_phone,
+      customer_address: c.address || d.customer_address,
+    }));
+    toast.success(`Loaded ${c.first_name} ${c.last_name}'s info`);
+  }
 
   const subtotal = useMemo(
     () => data.line_items.reduce((s, it) => s + it.unit_price_cents * it.quantity, 0),
@@ -146,6 +192,8 @@ export function QuoteEditor({
         discount_note: data.discount_note || null,
         customer_message: data.customer_message || null,
         internal_notes: data.internal_notes || null,
+        surface_type: data.surface_type || null,
+        needs_power_supply: data.needs_power_supply,
       };
       const r = data.id
         ? await updateQuote(data.id, payload as any)
@@ -184,6 +232,39 @@ export function QuoteEditor({
 
       {/* Customer */}
       <Section title="Customer">
+        {customers.length > 0 && (
+          <div className="mb-4 pb-4 border-b border-slate-100">
+            <label className="block text-xs font-medium text-slate-500 uppercase tracking-wide mb-1 flex items-center gap-1">
+              <UserIcon className="h-3 w-3" /> Pick an existing customer (optional)
+            </label>
+            <div className="flex gap-2">
+              <select
+                className="input flex-1"
+                value={selectedCustomerId}
+                onChange={(e) => pickCustomer(e.target.value)}
+              >
+                <option value="">— Recurring customer? Pick from {customers.length} on file —</option>
+                {customers.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.last_name}, {c.first_name} — {c.email}
+                  </option>
+                ))}
+              </select>
+              {selectedCustomerId && (
+                <button
+                  type="button"
+                  onClick={() => setSelectedCustomerId("")}
+                  className="text-xs text-slate-500 hover:text-slate-700 underline"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+            <p className="text-xs text-slate-400 mt-1">
+              Or skip and fill in manually below for a new customer.
+            </p>
+          </div>
+        )}
         <div className="grid grid-cols-2 gap-3">
           <Field label="First name" required>
             <input
@@ -274,6 +355,70 @@ export function QuoteEditor({
               onChange={(e) => patch({ end_time: e.target.value })}
             />
           </Field>
+        </div>
+      </Section>
+
+      {/* Setup details — surface + power. Required before sending so dispatch
+          knows what anchors/generator to bring once approved. */}
+      <Section title="Setup details (required before sending)">
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">
+              Setup surface <span className="text-red-500">*</span>
+            </label>
+            <p className="text-xs text-slate-500 mb-2">
+              Where will the inflatable be set up? Determines which anchors/stakes the crew brings.
+            </p>
+            <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+              {SURFACE_OPTIONS.map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => patch({ surface_type: opt.value })}
+                  className={`text-xs font-semibold py-2 px-2 rounded border transition ${
+                    data.surface_type === opt.value
+                      ? "bg-brand-navy text-white border-brand-navy"
+                      : "bg-white text-slate-700 border-slate-300 hover:border-brand-navy"
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">
+              Power source available? <span className="text-red-500">*</span>
+            </label>
+            <p className="text-xs text-slate-500 mb-2">
+              Inflatables need an outlet within ~75ft. If not available, dispatch brings a portable generator.
+            </p>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => patch({ needs_power_supply: false })}
+                className={`text-sm font-semibold py-3 px-2 rounded border transition ${
+                  data.needs_power_supply === false
+                    ? "bg-brand-navy text-white border-brand-navy"
+                    : "bg-white text-slate-700 border-slate-300 hover:border-brand-navy"
+                }`}
+              >
+                ✓ Customer has outlet
+              </button>
+              <button
+                type="button"
+                onClick={() => patch({ needs_power_supply: true })}
+                className={`text-sm font-semibold py-3 px-2 rounded border transition ${
+                  data.needs_power_supply === true
+                    ? "bg-amber-600 text-white border-amber-600"
+                    : "bg-white text-slate-700 border-slate-300 hover:border-amber-600"
+                }`}
+              >
+                Bring generator
+              </button>
+            </div>
+          </div>
         </div>
       </Section>
 
@@ -427,15 +572,32 @@ export function QuoteEditor({
 
       {/* Notes */}
       <Section title="Messages">
-        <Field label="Message to customer (shown on the quote)">
+        <div>
+          <div className="flex items-center justify-between mb-1">
+            <label className="block text-sm font-medium text-slate-700">
+              Message to customer (shown on the quote)
+            </label>
+            {defaultMessage && data.customer_message !== defaultMessage && (
+              <button
+                type="button"
+                onClick={() => patch({ customer_message: defaultMessage })}
+                className="text-xs text-brand-navy hover:underline"
+              >
+                ↺ Reset to default template
+              </button>
+            )}
+          </div>
           <textarea
-            rows={3}
-            className="input"
+            rows={10}
+            className="input font-mono text-xs"
             placeholder="Hi [name], here's the quote for your event. Let me know if you need anything adjusted!"
             value={data.customer_message}
             onChange={(e) => patch({ customer_message: e.target.value })}
           />
-        </Field>
+          <p className="text-xs text-slate-400 mt-1">
+            Pre-filled from your site settings (business name, area, social handle, website). Edit freely.
+          </p>
+        </div>
         <Field label="Internal notes (admin only)">
           <textarea
             rows={2}

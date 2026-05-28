@@ -35,6 +35,8 @@ const QuoteInputSchema = z.object({
   customer_message: z.string().max(2000).optional().nullable(),
   internal_notes: z.string().max(2000).optional().nullable(),
   expires_days: z.number().int().min(1).max(90).default(14),
+  surface_type: z.enum(["dirt", "grass", "concrete", "paver", "asphalt", "other"]).optional().nullable(),
+  needs_power_supply: z.boolean().optional().nullable(),
 });
 
 function computeTotals(items: any[], discount_cents: number, tax_cents: number) {
@@ -92,6 +94,8 @@ export async function createQuote(input: z.infer<typeof QuoteInputSchema>) {
       total_cents: total,
       customer_message: parsed.data.customer_message,
       internal_notes: parsed.data.internal_notes,
+      surface_type: parsed.data.surface_type ?? null,
+      needs_power_supply: parsed.data.needs_power_supply ?? null,
       expires_at: expiresAt.toISOString(),
       created_by: me.id,
       status: "draft",
@@ -154,6 +158,8 @@ export async function updateQuote(id: string, input: z.infer<typeof QuoteInputSc
       total_cents: total,
       customer_message: parsed.data.customer_message,
       internal_notes: parsed.data.internal_notes,
+      surface_type: parsed.data.surface_type ?? null,
+      needs_power_supply: parsed.data.needs_power_supply ?? null,
       expires_at: expiresAt.toISOString(),
     })
     .eq("id", id);
@@ -178,6 +184,15 @@ export async function sendQuote(id: string) {
     .single();
   if (!q) return { error: "Quote not found" };
   if (q.status !== "draft") return { error: "Only draft quotes can be sent" };
+
+  // Operational fields required before sending — dispatch needs them
+  // on approval to bring the right anchors + generator.
+  if (!q.surface_type) {
+    return { error: "Pick a setup surface (grass/dirt/concrete/paver/asphalt/other) before sending the quote." };
+  }
+  if (q.needs_power_supply === null || q.needs_power_supply === undefined) {
+    return { error: "Specify whether the customer has a power outlet or needs a generator before sending the quote." };
+  }
 
   const { error } = await supabase
     .from("quotes")

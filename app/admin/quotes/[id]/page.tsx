@@ -6,6 +6,9 @@ import { formatCurrency } from "@/lib/utils";
 import { ArrowLeft, ExternalLink } from "lucide-react";
 import { QuoteEditor } from "../QuoteEditor";
 import { QuoteActions } from "./QuoteActions";
+import { getSiteSettings } from "@/lib/site-settings";
+import { getTenantInfo, getTenantPublicUrl } from "@/lib/tenant/business";
+import { buildDefaultQuoteMessage } from "../message-template";
 
 export const dynamic = "force-dynamic";
 
@@ -37,11 +40,22 @@ export default async function AdminQuoteDetailPage({
 
   // Drafts: render editable form
   if (quote.status === "draft") {
-    const { data: products } = await supabase
-      .from("products")
-      .select("id, name, slug, price_per_day")
-      .eq("is_active", true)
-      .order("name", { ascending: true });
+    const [productsResult, customersResult, settings, tenant] = await Promise.all([
+      supabase
+        .from("products")
+        .select("id, name, slug, price_per_day")
+        .eq("is_active", true)
+        .order("name", { ascending: true }),
+      supabase
+        .from("customers")
+        .select("id, first_name, last_name, email, phone, address")
+        .order("last_name", { ascending: true })
+        .limit(2000),
+      getSiteSettings(),
+      getTenantInfo(),
+    ]);
+
+    const defaultMessage = buildDefaultQuoteMessage(settings, getTenantPublicUrl(tenant));
 
     const initial = {
       id: quote.id,
@@ -59,8 +73,13 @@ export default async function AdminQuoteDetailPage({
       discount_cents: quote.discount_cents || 0,
       discount_note: quote.discount_note || "",
       tax_cents: quote.tax_cents || 0,
-      customer_message: quote.customer_message || "",
+      customer_message: quote.customer_message || defaultMessage,
       internal_notes: quote.internal_notes || "",
+      surface_type: (quote as any).surface_type || "",
+      needs_power_supply:
+        (quote as any).needs_power_supply === null || (quote as any).needs_power_supply === undefined
+          ? null
+          : Boolean((quote as any).needs_power_supply),
       expires_days: Math.max(
         1,
         Math.ceil(
@@ -77,7 +96,12 @@ export default async function AdminQuoteDetailPage({
           token={quote.token}
           status={quote.status}
         />
-        <QuoteEditor initial={initial} products={products || []} />
+        <QuoteEditor
+          initial={initial}
+          products={productsResult.data || []}
+          customers={customersResult.data || []}
+          defaultMessage={defaultMessage}
+        />
       </div>
     );
   }
