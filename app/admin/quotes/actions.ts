@@ -15,6 +15,7 @@ const LineItemSchema = z.object({
   description: z.string().max(2000).optional().nullable(),
   quantity: z.number().int().min(1),
   unit_price_cents: z.number().int().min(0),
+  tax_exempt: z.boolean().optional().default(false),
 });
 
 const QuoteInputSchema = z.object({
@@ -41,6 +42,7 @@ const QuoteInputSchema = z.object({
   damage_protection_cents: z.number().int().min(0).default(0),
   waiver_required: z.boolean().default(true),
   tax_exempt: z.boolean().default(false),
+  tax_manual_override: z.boolean().default(false),
 });
 
 function computeTotals(items: any[], discount_cents: number, tax_cents: number) {
@@ -106,6 +108,7 @@ export async function createQuote(input: z.infer<typeof QuoteInputSchema>) {
         : 0,
       waiver_required: parsed.data.waiver_required,
       tax_exempt: parsed.data.tax_exempt,
+      tax_manual_override: parsed.data.tax_manual_override,
       expires_at: expiresAt.toISOString(),
       created_by: me.id,
       status: "draft",
@@ -176,6 +179,7 @@ export async function updateQuote(id: string, input: z.infer<typeof QuoteInputSc
         : 0,
       waiver_required: parsed.data.waiver_required,
       tax_exempt: parsed.data.tax_exempt,
+      tax_manual_override: parsed.data.tax_manual_override,
       expires_at: expiresAt.toISOString(),
     })
     .eq("id", id);

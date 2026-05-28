@@ -53,6 +53,7 @@ export interface QuoteFormData {
   discount_note: string;
   tax_cents: number;
   tax_exempt: boolean;
+  tax_manual_override: boolean;
   customer_message: string;
   internal_notes: string;
   expires_days: number;
@@ -116,6 +117,7 @@ export function QuoteEditor({
       discount_note: "",
       tax_cents: 0,
       tax_exempt: false,
+      tax_manual_override: false,
       customer_message: defaultMessage,
       internal_notes: "",
       expires_days: 14,
@@ -168,7 +170,11 @@ export function QuoteEditor({
   // enabled, the customer is NOT exempt, and the admin hasn't explicitly
   // overridden it. We track overrides via taxManuallyEdited: once the admin
   // types in the field, we stop auto-recalculating until they reset.
-  const [taxManuallyEdited, setTaxManuallyEdited] = useState(false);
+  // Hydrate from saved quote.tax_manual_override so reopening doesn't
+  // overwrite an admin's previous manual amount with auto-rate.
+  const [taxManuallyEdited, setTaxManuallyEdited] = useState(
+    !!initial?.tax_manual_override,
+  );
   const taxRate = settings?.tax_rate_percent || 0;
   const taxAutoActive = !!settings?.tax_enabled && taxRate > 0 && !data.tax_exempt && !taxManuallyEdited;
   useEffect(() => {
@@ -248,6 +254,7 @@ export function QuoteEditor({
         internal_notes: data.internal_notes || null,
         surface_type: data.surface_type || null,
         needs_power_supply: data.needs_power_supply,
+        tax_manual_override: taxManuallyEdited,
       };
       const r = data.id
         ? await updateQuote(data.id, payload as any)

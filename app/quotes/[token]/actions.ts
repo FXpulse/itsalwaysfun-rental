@@ -200,9 +200,12 @@ export async function approveQuote(token: string, input: ApproveInput) {
 
   // Validate surface_type against the tenant's currently-active list
   // (the form should already enforce this client-side, but never trust input).
+  // Explicit tenant scoping: the quote's tenant_id is authoritative, not the
+  // request host (which can differ when shared via custom domains).
   const { data: surfaceMatch } = await supabase
     .from("setup_surfaces")
     .select("value")
+    .eq("tenant_id", quote.tenant_id)
     .eq("value", parsed.data.surface_type)
     .eq("is_active", true)
     .maybeSingle();
@@ -234,9 +237,13 @@ export async function approveQuote(token: string, input: ApproveInput) {
   let powerSupplyCents = 0;
   let powerSupplyAddon: any = null;
   if (parsed.data.needs_power_supply) {
+    // Explicit tenant scoping — public route's middleware tenant resolution
+    // may not match the quote's tenant when shared via custom domain etc.
+    // Always use the quote's tenant_id as the source of truth.
     const { data: powerProduct } = await supabase
       .from("products")
       .select("id, name, slug, price_per_day")
+      .eq("tenant_id", quote.tenant_id)
       .eq("slug", "power-supply")
       .eq("is_addon", true)
       .eq("is_active", true)
@@ -272,6 +279,7 @@ export async function approveQuote(token: string, input: ApproveInput) {
     const { data: taxRows } = await supabase
       .from("site_settings")
       .select("key, value")
+      .eq("tenant_id", quote.tenant_id)
       .in("key", ["tax_enabled", "tax_rate_percent"]);
     const taxMap = new Map<string, string>(
       ((taxRows as any[]) || []).map((r) => [String(r.key), String(r.value)]),
