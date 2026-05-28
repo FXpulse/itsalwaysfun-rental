@@ -91,6 +91,27 @@ function buildVars(b: BookingRow, extras: Record<string, any> = {}): Record<stri
   };
 }
 
+/** Fetch the tenant's important_tips for an email. Looks up the booking's
+ *  tenant_id and returns both plain-text + HTML-escaped <br> versions. */
+async function fetchImportantTips(tenantId: string | null | undefined): Promise<{
+  importantTips: string;
+  importantTipsHtml: string;
+}> {
+  if (!tenantId) return { importantTips: "", importantTipsHtml: "" };
+  const supabase = createAdminClient({ unscoped: true });
+  const { data } = await supabase
+    .from("site_settings")
+    .select("value")
+    .eq("tenant_id", tenantId)
+    .eq("key", "important_tips")
+    .maybeSingle();
+  const text = String((data as any)?.value || "").trim();
+  return {
+    importantTips: text,
+    importantTipsHtml: text ? text.replace(/\n/g, "<br>") : "",
+  };
+}
+
 /** Send the immediate booking confirmation email + SMS. Idempotent. */
 export async function sendBookingConfirmation(bookingId: string): Promise<void> {
   const supabase = createAdminClient({ unscoped: true });
@@ -105,10 +126,11 @@ export async function sendBookingConfirmation(bookingId: string): Promise<void> 
 
   // Email (idempotent via ledger)
   if (isEmailConfigured() && !(await alreadySent(bookingId, "booking_confirmation"))) {
+    const tips = await fetchImportantTips((b as any).tenant_id);
     const r = await sendTemplated({
       key: "booking_confirmation",
       to: b.customer_email,
-      vars: buildVars(b),
+      vars: buildVars(b, tips),
       tags: [
         { name: "type", value: "booking_confirmation" },
         { name: "booking_id", value: bookingId },

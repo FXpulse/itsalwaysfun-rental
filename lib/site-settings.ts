@@ -24,6 +24,7 @@ export interface SiteSettings {
   trust_rating: string;
   footer_description: string;
   booking_terms_note: string;
+  important_tips: string;
   // Appearance (per-zone styling — empty = use defaults)
   hero_bg_color: string;
   hero_text_color: string;
@@ -73,6 +74,7 @@ const DEFAULTS: SiteSettings = {
   footer_description:
     "Bounce houses + party rentals delivered to your door. Setup, takedown, and clean-up included.",
   booking_terms_note: "Reschedule up to 7 days before with no fee.",
+  important_tips: "",
   // Appearance defaults (empty → tailwind classes take over)
   hero_bg_color: "",
   hero_text_color: "",

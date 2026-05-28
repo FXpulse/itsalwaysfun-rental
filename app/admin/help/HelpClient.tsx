@@ -147,6 +147,56 @@ export function HelpClient() {
       ),
     },
     {
+      id: "important-tips",
+      title: "Important tips & policies — shows up in 4 places",
+      icon: AlertTriangle,
+      content: (
+        <div className="space-y-3 text-sm">
+          <p>
+            One block of customer-facing policies (payment methods, surface
+            restrictions, staking, weather/cancellation, park requirements,
+            setup time) is now editable in one place and surfaced everywhere
+            customers might need to see it.
+          </p>
+          <p className="font-semibold">Edit once at:</p>
+          <ul className="list-disc pl-5 text-xs space-y-1">
+            <li>
+              <code>/admin/site</code> → scroll to <strong>Important tips</strong>{" "}
+              (textarea). Edit freely — use blank lines between paragraphs.
+            </li>
+          </ul>
+          <p className="font-semibold">Shows up in:</p>
+          <ul className="list-disc pl-5 text-xs space-y-1">
+            <li>
+              <strong>Booking confirmation email</strong> — appended in a
+              yellow accent box at the bottom of the email body.
+            </li>
+            <li>
+              <strong>Quote email</strong> (when you click Send to customer)
+              — same yellow accent box, so the customer reads the policies
+              before they approve.
+            </li>
+            <li>
+              <strong>Public page</strong>{" "}
+              <code>/info/policies</code> — full-page version with the
+              tenant's phone + email at the bottom. Link from anywhere.
+            </li>
+            <li>
+              <strong>FAQs</strong> at <code>/info/faqs</code> — each tip
+              auto-seeded as its own FAQ entry. Customers searching common
+              questions find the answers in their native format.
+            </li>
+          </ul>
+          <p className="text-xs text-slate-500 bg-amber-50 border border-amber-200 rounded p-2">
+            ⚠️ This is OPERATIONAL policy, not legal. The liability waiver
+            at <code>/admin/waiver</code> is separate — keep it focused on
+            legal language (assumption of risk, indemnification) and put
+            day-to-day reminders here.
+          </p>
+        </div>
+      ),
+    },
+    {
       id: "tax",
       title: "Sales tax / IVA / VAT — per-tenant configurable",
       icon: Calculator,

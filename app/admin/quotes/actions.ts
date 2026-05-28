@@ -245,6 +245,16 @@ export async function sendQuote(id: string) {
           year: "numeric",
         })
       : "";
+
+    // Tenant's "important tips" — appended to the email body so customers
+    // see payment / setup / cancellation policies before approving.
+    const { data: tipsRow } = await supabase
+      .from("site_settings")
+      .select("value")
+      .eq("key", "important_tips")
+      .maybeSingle();
+    const importantTipsText = String(tipsRow?.value || "").trim();
+
     const r = await sendTemplated({
       key: "quote_sent",
       to: q.customer_email,
@@ -257,6 +267,10 @@ export async function sendQuote(id: string) {
         message: q.customer_message || "",
         quoteUrl,
         expiresAtFormatted: expiresFormatted,
+        importantTips: importantTipsText,
+        importantTipsHtml: importantTipsText
+          ? importantTipsText.replace(/\n/g, "<br>")
+          : "",
       },
       fallback: async () => {
         const tenant = await getTenantInfo((q as any).tenant_id);

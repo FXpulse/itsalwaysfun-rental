@@ -33,6 +33,7 @@ const LONG_TEXT_KEYS = new Set([
   "hero_subtitle",
   "footer_description",
   "service_area",
+  "important_tips",
 ]);
 
 // Font family options — for per-zone overrides (full CSS values with fallback).
