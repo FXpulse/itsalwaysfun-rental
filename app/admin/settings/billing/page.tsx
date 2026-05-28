@@ -4,6 +4,12 @@ import { getCurrentUserRole } from "@/lib/auth/roles";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentTenantId } from "@/lib/tenant/db";
 import { TIERS } from "@/lib/stripe/billing";
+import {
+  fetchPaymentMethod,
+  fetchInvoices,
+  fetchUpcomingCharge,
+  sumPaidThisYear,
+} from "@/lib/stripe/billing-data";
 import { BillingPanel } from "./BillingPanel";
 
 export const dynamic = "force-dynamic";
@@ -21,6 +27,20 @@ export default async function BillingPage() {
     )
     .eq("id", tenantId)
     .single();
+
+  // Live data from Stripe — only if the tenant has a customer. Founder tier
+  // and pre-subscription tenants skip these calls.
+  const customerId = tenant?.stripe_customer_id || null;
+  const [paymentMethod, invoices, upcomingCharge] =
+    customerId && tenant?.plan !== "founder"
+      ? await Promise.all([
+          fetchPaymentMethod(customerId),
+          fetchInvoices(customerId, 12),
+          fetchUpcomingCharge(customerId),
+        ])
+      : [null, [], null];
+
+  const paidThisYearCents = sumPaidThisYear(invoices);
 
   return (
     <div className="max-w-3xl">
@@ -42,6 +62,10 @@ export default async function BillingPage() {
           has_customer: !!tenant?.stripe_customer_id,
         }}
         tiers={Object.values(TIERS)}
+        paymentMethod={paymentMethod}
+        invoices={invoices}
+        upcomingCharge={upcomingCharge}
+        paidThisYearCents={paidThisYearCents}
       />
     </div>
   );

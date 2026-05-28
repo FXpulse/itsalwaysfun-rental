@@ -27,6 +27,7 @@ import {
   History,
   CalendarCheck as CalendarCheckIcon,
   Calculator,
+  Receipt,
 } from "lucide-react";
 
 interface Section {
@@ -1772,6 +1773,54 @@ export function HelpClient() {
             Storage and are managed by Supabase's own bucket lifecycle. On Free
             plan there's no automatic bucket backup — consider upgrading to Pro
             ($25/mo) for full Supabase-managed backups.
+          </p>
+        </div>
+      ),
+    },
+    {
+      id: "billing",
+      title: "Billing — invoices, card on file, next charge",
+      icon: Receipt,
+      content: (
+        <div className="space-y-3 text-sm">
+          <p>
+            <code>/admin/settings/billing</code> shows everything about your
+            RentalFlow subscription (separate from Stripe Connect — which
+            handles customer payments to your bank).
+          </p>
+          <p className="font-semibold">What's there:</p>
+          <ul className="list-disc pl-5 text-xs space-y-1">
+            <li>
+              <strong>Current subscription card</strong> — plan, status,
+              next renewal date. "Manage" button opens Stripe's hosted
+              billing portal where you can cancel, change plan, update
+              billing email, etc.
+            </li>
+            <li>
+              <strong>Next charge</strong> — exact amount + date of the
+              upcoming invoice. Cancels show "No future charges".
+            </li>
+            <li>
+              <strong>Paid this year</strong> — running total of paid
+              invoices in the current calendar year. Useful when
+              deducting RentalFlow as a business expense at tax time.
+            </li>
+            <li>
+              <strong>Payment method on file</strong> — card brand + last 4
+              + expiry, with red/amber alerts if expired or about to
+              expire. "Update card" opens Stripe's secure portal — we
+              never store your card number.
+            </li>
+            <li>
+              <strong>Invoice history</strong> — last 12 invoices with
+              date, billing period, amount, status pill, and a "PDF"
+              download link straight from Stripe.
+            </li>
+          </ul>
+          <p className="text-xs text-slate-500 bg-amber-50 border border-amber-200 rounded p-2">
+            🔒 RentalFlow never stores your card. The "Manage" / "Update
+            card" buttons all redirect to Stripe's PCI-compliant portal;
+            after you're done there, you come back here.
           </p>
         </div>
       ),
