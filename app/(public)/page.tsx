@@ -75,7 +75,6 @@ export default async function HomePage() {
 
   const dbCategoryCards = allCategories
     .filter((c) => c.is_active)
-    .slice(0, 3) // limit to 3 so home page stays clean (4 cards total with Order by Date)
     .map((c) => ({
       title: c.name,
       href: `/category/${c.slug}`,
