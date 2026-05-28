@@ -31,6 +31,83 @@ function datesInRange(start: string, end: string): string[] {
   return out;
 }
 
+/** Check availability for every line item that has a product_id. Returns
+ *  null if all are available, or a human-friendly error string naming
+ *  the conflicting products + dates if any are sold out. excludeBookingId
+ *  lets the re-check at payment time ignore the customer's own held booking. */
+async function checkLineItemsAvailability(
+  supabase: any,
+  items: any[],
+  startDate: string,
+  endDate: string,
+  excludeBookingId?: string,
+): Promise<string | null> {
+  const productIds = items.map((it: any) => it.product_id).filter(Boolean);
+  if (productIds.length === 0) return null;
+
+  // Pull all the relevant products' stock in one query
+  const { data: productRows } = await supabase
+    .from("products")
+    .select("id, name, stock")
+    .in("id", productIds);
+
+  const productsById = new Map<string, { name: string; stock: number }>();
+  for (const p of (productRows as any[]) || []) {
+    productsById.set(p.id, { name: p.name, stock: Number(p.stock) || 0 });
+  }
+
+  const nowISO = new Date().toISOString();
+  const errors: string[] = [];
+
+  for (const pid of productIds) {
+    const p = productsById.get(pid);
+    if (!p || p.stock <= 0) continue; // unlimited stock or unknown — skip
+
+    let query = supabase
+      .from("bookings")
+      .select("id, event_date, event_end_date, booking_status, hold_expires_at")
+      .eq("product_id", pid)
+      .lte("event_date", endDate)
+      .or(
+        `event_end_date.gte.${startDate},and(event_end_date.is.null,event_date.gte.${startDate})`,
+      )
+      .in("booking_status", ["pending_payment", "confirmed", "delivered"]);
+    if (excludeBookingId) {
+      query = query.neq("id", excludeBookingId);
+    }
+
+    const { data: existingBookings } = await query;
+
+    const occupiedByDay: Record<string, number> = {};
+    for (const b of (existingBookings as any[]) || []) {
+      if (
+        b.booking_status === "pending_payment" &&
+        b.hold_expires_at &&
+        b.hold_expires_at < nowISO
+      ) {
+        continue;
+      }
+      const bStart = b.event_date;
+      const bEnd = b.event_end_date || b.event_date;
+      for (const day of datesInRange(bStart, bEnd)) {
+        if (day >= startDate && day <= endDate) {
+          occupiedByDay[day] = (occupiedByDay[day] || 0) + 1;
+        }
+      }
+    }
+
+    const conflictDays = Object.entries(occupiedByDay)
+      .filter(([_, count]) => count >= p.stock)
+      .map(([day]) => day);
+    if (conflictDays.length > 0) {
+      errors.push(`${p.name} on ${conflictDays.join(", ")}`);
+    }
+  }
+
+  if (errors.length === 0) return null;
+  return `Sorry — these items are no longer available: ${errors.join("; ")}. Someone reserved them while this quote was open. Please contact us to find another date or substitute items.`;
+}
+
 /** Customer approves the quote with their setup choices.
  *  Validates required choices, then creates the booking + Stripe PaymentIntent.
  *  Returns client_secret for the Stripe Elements step. */
@@ -90,62 +167,16 @@ export async function approveQuote(token: string, input: ApproveInput) {
       ? primaryItem.name
       : `${primaryItem.name} + ${items.length - 1} more item${items.length > 2 ? "s" : ""}`;
 
-  // ─── Availability check (only for the primary product — multi-product
-  //     quotes only track inventory on the first item, same as the rest
-  //     of the booking flow). Prevents race conditions where two quotes
-  //     for the same product/date both approve. ─────────────────────────
-  if (primaryItem.product_id) {
-    const startDate: string = quote.event_date;
-    const endDate: string = quote.event_end_date || quote.event_date;
-
-    const { data: productRow } = await supabase
-      .from("products")
-      .select("id, name, stock")
-      .eq("id", primaryItem.product_id)
-      .single();
-
-    if (productRow && Number(productRow.stock) > 0) {
-      const { data: existingBookings } = await supabase
-        .from("bookings")
-        .select("id, event_date, event_end_date, booking_status, hold_expires_at")
-        .eq("product_id", productRow.id)
-        .lte("event_date", endDate)
-        .or(
-          `event_end_date.gte.${startDate},and(event_end_date.is.null,event_date.gte.${startDate})`,
-        )
-        .in("booking_status", ["pending_payment", "confirmed", "delivered"]);
-
-      const nowISO = new Date().toISOString();
-      const occupiedByDay: Record<string, number> = {};
-      for (const b of existingBookings || []) {
-        // Skip expired holds — those slots are free
-        if (
-          b.booking_status === "pending_payment" &&
-          b.hold_expires_at &&
-          b.hold_expires_at < nowISO
-        ) {
-          continue;
-        }
-        const bStart = b.event_date;
-        const bEnd = b.event_end_date || b.event_date;
-        for (const day of datesInRange(bStart, bEnd)) {
-          if (day >= startDate && day <= endDate) {
-            occupiedByDay[day] = (occupiedByDay[day] || 0) + 1;
-          }
-        }
-      }
-
-      const conflictDays = Object.entries(occupiedByDay)
-        .filter(([_, count]) => count >= Number(productRow.stock))
-        .map(([day]) => day);
-
-      if (conflictDays.length > 0) {
-        return {
-          error: `Sorry — ${productRow.name} is no longer available on ${conflictDays.join(", ")}. Someone reserved it while this quote was open. Please contact us to find another date.`,
-        };
-      }
-    }
-  }
+  // ─── Availability check for ALL line items with a product_id.
+  //     Race-condition guard: rejects approval if ANY product in the
+  //     quote no longer has stock for the requested dates. The 24h hold
+  //     created after approval still only blocks the primary product
+  //     (architectural limit), but the check at approval time catches
+  //     simultaneous approvals across the full bundle. ─────────────────
+  const startDate: string = quote.event_date;
+  const endDate: string = quote.event_end_date || quote.event_date;
+  const conflicts = await checkLineItemsAvailability(supabase, items, startDate, endDate);
+  if (conflicts) return { error: conflicts };
 
   const noteParts: string[] = [`From quote ${quote.quote_number}`];
   if (items.length > 1) {
@@ -290,6 +321,74 @@ export async function declineQuote(token: string, reason: string) {
   revalidatePath(`/quotes/${token}`);
   revalidatePath(`/admin/quotes/${quote.id}`);
   return { success: true };
+}
+
+/** Re-check availability + refresh hold for an approved quote whose
+ *  24h hold has expired. Called from the public quote page when the
+ *  customer returns after the hold window. If the slot is still free
+ *  for ALL line items, extends the hold by 1 hour so they have time
+ *  to complete the Stripe payment. Returns { refreshed, holdExpiresAt }
+ *  on success or { error } if any item is no longer available. */
+export async function refreshHoldOrFail(token: string): Promise<
+  | { refreshed: true; holdExpiresAt: string }
+  | { refreshed: false; reason: "still_valid" | "no_booking" | "paid" }
+  | { error: string }
+> {
+  if (!token || token.length < 8) return { error: "Invalid quote link" };
+
+  const supabase = createAdminClient();
+  const { data: quote } = await supabase
+    .from("quotes")
+    .select("id, status, converted_booking_id, event_date, event_end_date, line_items")
+    .eq("token", token)
+    .single();
+
+  if (!quote) return { error: "Quote not found" };
+  if (quote.status !== "approved") return { refreshed: false, reason: "paid" };
+  if (!quote.converted_booking_id) return { refreshed: false, reason: "no_booking" };
+
+  const { data: booking } = await supabase
+    .from("bookings")
+    .select("id, hold_expires_at, stripe_payment_status, booking_status")
+    .eq("id", quote.converted_booking_id)
+    .single();
+
+  if (!booking) return { refreshed: false, reason: "no_booking" };
+
+  // Already paid / not pending — no refresh needed
+  if (booking.stripe_payment_status === "paid") return { refreshed: false, reason: "paid" };
+  if (booking.booking_status !== "pending_payment") return { refreshed: false, reason: "paid" };
+
+  // Hold still valid → nothing to do
+  const nowISO = new Date().toISOString();
+  if (booking.hold_expires_at && booking.hold_expires_at > nowISO) {
+    return { refreshed: false, reason: "still_valid" };
+  }
+
+  // Hold expired — re-check availability for ALL line items (excluding
+  // the customer's own booking row so they don't conflict with themselves)
+  const startDate: string = quote.event_date;
+  const endDate: string = quote.event_end_date || quote.event_date;
+  const conflicts = await checkLineItemsAvailability(
+    supabase,
+    (quote.line_items || []) as any[],
+    startDate,
+    endDate,
+    booking.id,
+  );
+  if (conflicts) {
+    return { error: conflicts };
+  }
+
+  // Still available — extend hold by 1 hour for payment completion
+  const REFRESH_MINUTES = 60;
+  const newHold = new Date(Date.now() + REFRESH_MINUTES * 60_000).toISOString();
+  await supabase
+    .from("bookings")
+    .update({ hold_expires_at: newHold })
+    .eq("id", booking.id);
+
+  return { refreshed: true, holdExpiresAt: newHold };
 }
 
 /** Called after Stripe confirmation succeeds client-side. Marks the

@@ -1228,13 +1228,56 @@ export function HelpClient() {
             </p>
           </div>
 
+          <div className="bg-slate-50 border border-slate-200 rounded p-3">
+            <p className="font-semibold mb-2">5. Customer returns after hold expired</p>
+            <ul className="list-disc pl-5 space-y-1 text-xs">
+              <li>
+                When the customer lands on the public quote page (their unique
+                magic link), if the 24h hold already expired and the booking
+                is still pending payment → the system runs the availability
+                check again across ALL line items.
+              </li>
+              <li>
+                If everything is still free → extends the hold by 1 hour so
+                the customer has time to complete payment via Stripe.
+              </li>
+              <li>
+                If anything got booked in the meantime → shows a red banner
+                "This reservation is no longer available" and hides the
+                payment button. The customer is asked to contact you for
+                alternative dates or substitute items.
+              </li>
+            </ul>
+          </div>
+
+          <p className="text-xs text-slate-600 bg-emerald-50 border border-emerald-200 rounded p-3">
+            <strong>Multi-product quotes — availability:</strong> at approval
+            time AND at re-check time, EVERY line item with a product_id is
+            checked against stock for the requested dates. If any single
+            product in the bundle isn't available, the approval is blocked
+            with an error naming which items conflict and on what dates.
+            <br />
+            <br />
+            <strong>Inventory hold limit:</strong> the 24h hold itself still
+            only blocks the FIRST line item's product (architectural limit of
+            the bookings table — each booking row has one product_id). Items
+            beyond the first are checked but not held. In practice this is
+            usually fine because secondary items in bundles tend to be high-
+            stock add-ons (tables, chairs, generators) where conflicts are
+            rare. If your inventory profile is different, contact us.
+          </p>
+
           <p className="text-xs text-slate-600 bg-blue-50 border border-blue-200 rounded p-3">
-            <strong>Multi-product quotes — known limitation:</strong> the
-            availability check + inventory hold only applies to the FIRST line
-            item's product. Other items in the quote aren't tracked for
-            conflicts (mirrors the rest of the booking flow). If you commonly
-            quote multi-product bundles, contact us about adding multi-product
-            inventory tracking.
+            <strong>Editable reminder email:</strong> the 24h hold reminder is
+            now an editable template at{" "}
+            <code>/admin/email-templates</code> with key{" "}
+            <code>quote_hold_reminder</code>. Available merge vars:{" "}
+            <code>firstName</code>, <code>brandName</code>,{" "}
+            <code>quoteNumber</code>, <code>totalDollars</code>,{" "}
+            <code>quoteUrl</code>, <code>expiryLabel</code>,{" "}
+            <code>hoursLeft</code>, <code>hoursLeftPlural</code>. If the
+            template is missing from the DB, the cron falls back to a
+            hardcoded version with the same content.
           </p>
         </div>
       ),

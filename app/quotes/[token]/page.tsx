@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { isStripeConfigured } from "@/lib/stripe/server";
 import { QuoteCustomerView } from "./QuoteCustomerView";
 import { getSiteSettings } from "@/lib/site-settings";
+import { refreshHoldOrFail } from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -42,6 +43,18 @@ export default async function CustomerQuotePage({
   if (isExpired && quote.status !== "expired") {
     await supabase.from("quotes").update({ status: "expired" }).eq("id", quote.id);
     quote.status = "expired";
+  }
+
+  // Re-check availability + refresh hold when the customer returns
+  // after the 24h hold expired. If something else snagged the slot,
+  // this surfaces an "unavailable" message instead of letting them pay
+  // for a booking that's actually in conflict.
+  let availabilityError: string | null = null;
+  if (quote.status === "approved" && quote.converted_booking_id) {
+    const r = await refreshHoldOrFail(params.token);
+    if ("error" in r) {
+      availabilityError = r.error;
+    }
   }
 
   // For approved quotes, fetch booking to get client_secret
@@ -102,6 +115,7 @@ export default async function CustomerQuotePage({
       waiverTitle={waiverTitle}
       waiverText={waiverText}
       damageCoverageCents={damageCoverageCents}
+      availabilityError={availabilityError}
     />
   );
 }

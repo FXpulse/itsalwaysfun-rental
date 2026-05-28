@@ -70,6 +70,7 @@ export function QuoteCustomerView({
   waiverTitle,
   waiverText,
   damageCoverageCents,
+  availabilityError,
 }: {
   quote: Quote;
   clientSecret: string | null;
@@ -78,6 +79,7 @@ export function QuoteCustomerView({
   waiverTitle: string;
   waiverText: string;
   damageCoverageCents: number;
+  availabilityError?: string | null;
 }) {
   return (
     <div className="min-h-screen bg-slate-50">
@@ -94,6 +96,25 @@ export function QuoteCustomerView({
       </header>
 
       <main className="max-w-3xl mx-auto px-4 py-8 space-y-6">
+        {availabilityError && (
+          <div className="card border-red-200 bg-red-50">
+            <div className="flex items-start gap-3">
+              <AlertCircle className="h-6 w-6 text-red-600 mt-0.5 flex-shrink-0" />
+              <div>
+                <h2 className="font-semibold text-red-900 mb-1">
+                  This reservation is no longer available
+                </h2>
+                <p className="text-sm text-red-800">{availabilityError}</p>
+                <p className="text-xs text-red-700 mt-2">
+                  Your 24-hour hold expired and another customer reserved the
+                  date(s). Please contact us so we can find another date or
+                  substitute items for you.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         <QuoteDetails quote={quote} />
 
         {(quote.status === "sent" || quote.status === "viewed") && (
@@ -105,7 +126,7 @@ export function QuoteCustomerView({
           />
         )}
 
-        {quote.status === "approved" && (
+        {quote.status === "approved" && !availabilityError && (
           <PaymentSection
             quote={quote}
             clientSecret={clientSecret}

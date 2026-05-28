@@ -10,7 +10,8 @@
 import { NextResponse } from "next/server";
 import { headers } from "next/headers";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { sendEmail, isEmailConfigured } from "@/lib/email/send";
+import { isEmailConfigured } from "@/lib/email/send";
+import { sendTemplated } from "@/lib/email/send-template";
 import { getTenantInfo } from "@/lib/tenant/business";
 
 export const dynamic = "force-dynamic";
@@ -114,11 +115,25 @@ export async function GET() {
       const brand = tenant.business_name;
       const replyTo = tenant.owner_email || undefined;
 
-      const res = await sendEmail({
+      const vars = {
+        firstName: customerName,
+        brandName: brand,
+        quoteNumber: q.quote_number || q.id?.substring(0, 8) || "",
+        totalDollars,
+        quoteUrl,
+        expiryLabel,
+        hoursLeft: String(hoursLeft),
+        hoursLeftPlural: hoursLeft !== 1,
+      };
+
+      const res = await sendTemplated({
+        key: "quote_hold_reminder",
         to: q.customer_email,
         replyTo,
-        subject: `Your reservation expires in ${hoursLeft}h — complete payment to lock it in`,
-        html: `<div style="font-family:system-ui,sans-serif;max-width:600px;color:#0f172a;">
+        vars,
+        fallback: () => ({
+          subject: `Your reservation expires in ${hoursLeft}h — complete payment to lock it in`,
+          html: `<div style="font-family:system-ui,sans-serif;max-width:600px;color:#0f172a;">
 <p>Hi ${customerName},</p>
 <p>Friendly reminder — you approved your quote with ${brand} and your reservation
 is on hold, but the payment hasn't gone through yet.</p>
@@ -126,7 +141,7 @@ is on hold, but the payment hasn't gone through yet.</p>
 If we don't receive payment by then, we can't guarantee your booking — the date
 becomes available to other customers.</p>
 <table style="border-collapse:collapse;width:100%;background:#f8fafc;border-radius:6px;padding:16px;margin:16px 0;">
-  <tr><td style="padding:6px 0;color:#64748b;width:90px;">Quote #</td><td style="padding:6px 0;font-weight:600;">${q.quote_number || q.id?.substring(0, 8)}</td></tr>
+  <tr><td style="padding:6px 0;color:#64748b;width:90px;">Quote #</td><td style="padding:6px 0;font-weight:600;">${vars.quoteNumber}</td></tr>
   <tr><td style="padding:6px 0;color:#64748b;">Total due</td><td style="padding:6px 0;font-weight:bold;color:#1a1a6e;font-size:18px;">$${totalDollars}</td></tr>
   <tr><td style="padding:6px 0;color:#64748b;">Hold expires</td><td style="padding:6px 0;font-weight:600;color:#b45309;">${expiryLabel}</td></tr>
 </table>
@@ -139,19 +154,20 @@ becomes available to other customers.</p>
 </p>
 <p style="color:#64748b;font-size:13px;">— The ${brand} team</p>
 </div>`,
-        text: `Hi ${customerName},
+          text: `Hi ${customerName},
 
 Reminder: your reservation with ${brand} is on hold but payment hasn't completed yet.
 Your hold expires ${expiryLabel} (about ${hoursLeft}h from now).
 If we don't receive payment, we can't guarantee your booking.
 
-Quote #${q.quote_number || q.id?.substring(0, 8)}
+Quote #${vars.quoteNumber}
 Total due: $${totalDollars}
 
 Complete payment: ${quoteUrl}
 
 Already paid? Ignore this email — can take a few minutes to confirm.
 — ${brand}`,
+        }),
         tags: [
           { name: "type", value: "quote_hold_reminder" },
           { name: "quote_number", value: String(q.quote_number || "") },
