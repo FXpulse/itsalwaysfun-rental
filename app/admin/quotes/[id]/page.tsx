@@ -107,6 +107,7 @@ export default async function AdminQuoteDetailPage({
       damage_protection_offered: Boolean((quote as any).damage_protection_offered),
       damage_protection_cents: Number((quote as any).damage_protection_cents) || 0,
       waiver_required: (quote as any).waiver_required !== false,
+      tax_exempt: Boolean((quote as any).tax_exempt),
       expires_days: Math.max(
         1,
         Math.ceil(

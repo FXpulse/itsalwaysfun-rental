@@ -50,6 +50,7 @@ export interface QuoteFormData {
   discount_cents: number;
   discount_note: string;
   tax_cents: number;
+  tax_exempt: boolean;
   customer_message: string;
   internal_notes: string;
   expires_days: number;
@@ -109,6 +110,7 @@ export function QuoteEditor({
       discount_cents: 0,
       discount_note: "",
       tax_cents: 0,
+      tax_exempt: false,
       customer_message: defaultMessage,
       internal_notes: "",
       expires_days: 14,
@@ -587,18 +589,49 @@ export function QuoteEditor({
             </Field>
           </div>
           <div></div>
-          <Field label="Tax (USD)" small>
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-xs font-medium text-slate-700">
+                Tax (USD)
+              </label>
+              <label className="flex items-center gap-1 text-xs cursor-pointer text-slate-600 hover:text-slate-800">
+                <input
+                  type="checkbox"
+                  className="h-3 w-3"
+                  checked={data.tax_exempt}
+                  onChange={(e) =>
+                    patch({
+                      tax_exempt: e.target.checked,
+                      // Force tax to 0 when exempt — eliminates any leftover manual amount
+                      tax_cents: e.target.checked ? 0 : data.tax_cents,
+                    })
+                  }
+                />
+                Tax exempt customer
+              </label>
+            </div>
             <input
               type="number"
               min={0}
               step="0.01"
               className="input"
               value={(data.tax_cents / 100).toFixed(2)}
+              disabled={data.tax_exempt}
               onChange={(e) =>
                 patch({ tax_cents: Math.round(parseFloat(e.target.value || "0") * 100) })
               }
             />
-          </Field>
+            {data.tax_exempt ? (
+              <p className="text-[11px] text-emerald-700 mt-1">
+                ✓ No tax will be applied at approval. Document the exemption certificate in
+                internal notes.
+              </p>
+            ) : (
+              <p className="text-[11px] text-slate-400 mt-1">
+                Leave at $0 to use the tenant's default tax rate at approval time.
+              </p>
+            )}
+          </div>
           <div className="col-span-2 border-t pt-2 flex justify-between text-base">
             <span className="font-semibold">Total</span>
             <span className="font-mono font-bold text-brand-navy text-lg">

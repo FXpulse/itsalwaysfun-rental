@@ -40,6 +40,7 @@ const QuoteInputSchema = z.object({
   damage_protection_offered: z.boolean().default(false),
   damage_protection_cents: z.number().int().min(0).default(0),
   waiver_required: z.boolean().default(true),
+  tax_exempt: z.boolean().default(false),
 });
 
 function computeTotals(items: any[], discount_cents: number, tax_cents: number) {
@@ -104,6 +105,7 @@ export async function createQuote(input: z.infer<typeof QuoteInputSchema>) {
         ? parsed.data.damage_protection_cents
         : 0,
       waiver_required: parsed.data.waiver_required,
+      tax_exempt: parsed.data.tax_exempt,
       expires_at: expiresAt.toISOString(),
       created_by: me.id,
       status: "draft",
@@ -173,6 +175,7 @@ export async function updateQuote(id: string, input: z.infer<typeof QuoteInputSc
         ? parsed.data.damage_protection_cents
         : 0,
       waiver_required: parsed.data.waiver_required,
+      tax_exempt: parsed.data.tax_exempt,
       expires_at: expiresAt.toISOString(),
     })
     .eq("id", id);

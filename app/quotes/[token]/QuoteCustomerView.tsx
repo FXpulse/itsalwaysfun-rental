@@ -49,6 +49,7 @@ interface Quote {
   damage_protection_offered?: boolean;
   damage_protection_cents?: number;
   waiver_required?: boolean;
+  tax_exempt?: boolean;
 }
 
 interface SurfaceOption {
@@ -413,10 +414,10 @@ function ApproveDecline({
   const protectionAddCents = protectionAccepted === true ? protectionPriceCents : 0;
   const powerSupplyTotalCents = needsPower === true ? powerSupplyPerDayCents * numDays : 0;
   const preTaxTotalCents = quote.total_cents + protectionAddCents + powerSupplyTotalCents;
-  // Tax: honor admin-set quote.tax_cents if non-zero (manual override),
-  // else auto-calc when tax is enabled at the tenant level.
-  const taxCents =
-    (quote.tax_cents || 0) > 0
+  // Tax resolution: tax_exempt wins, then manual override, then auto-calc.
+  const taxCents = quote.tax_exempt
+    ? 0
+    : (quote.tax_cents || 0) > 0
       ? quote.tax_cents
       : taxEnabled && taxRatePercent > 0
         ? Math.round((preTaxTotalCents * taxRatePercent) / 100)

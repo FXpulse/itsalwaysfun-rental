@@ -259,13 +259,16 @@ export async function approveQuote(token: string, input: ApproveInput) {
   }
 
   // ─── Tax (per-tenant config from site_settings) ────────────────────
-  //     If the quote has a non-zero quote.tax_cents the admin set
-  //     manually, honor that snapshot. Otherwise, auto-calculate using
-  //     the tenant's current tax rate applied to (subtotal + protection
-  //     + power supply). Manual override wins so exempt customers /
-  //     out-of-state events can be priced specifically.
-  let taxCents = Number(quote.tax_cents || 0);
-  if (taxCents === 0) {
+  //     Resolution order:
+  //       1. quote.tax_exempt = true → no tax, period. (exempt customer)
+  //       2. quote.tax_cents > 0 → honor admin's manual snapshot
+  //       3. tenant has tax_enabled + rate_percent → auto-calculate
+  let taxCents = 0;
+  if (quote.tax_exempt === true) {
+    taxCents = 0;
+  } else if (Number(quote.tax_cents || 0) > 0) {
+    taxCents = Number(quote.tax_cents);
+  } else {
     const { data: taxRows } = await supabase
       .from("site_settings")
       .select("key, value")
