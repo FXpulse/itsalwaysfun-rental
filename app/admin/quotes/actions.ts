@@ -37,6 +37,9 @@ const QuoteInputSchema = z.object({
   expires_days: z.number().int().min(1).max(90).default(14),
   surface_type: z.enum(["dirt", "grass", "concrete", "paver", "asphalt", "other"]).optional().nullable(),
   needs_power_supply: z.boolean().optional().nullable(),
+  damage_protection_offered: z.boolean().default(false),
+  damage_protection_cents: z.number().int().min(0).default(0),
+  waiver_required: z.boolean().default(true),
 });
 
 function computeTotals(items: any[], discount_cents: number, tax_cents: number) {
@@ -96,6 +99,11 @@ export async function createQuote(input: z.infer<typeof QuoteInputSchema>) {
       internal_notes: parsed.data.internal_notes,
       surface_type: parsed.data.surface_type ?? null,
       needs_power_supply: parsed.data.needs_power_supply ?? null,
+      damage_protection_offered: parsed.data.damage_protection_offered,
+      damage_protection_cents: parsed.data.damage_protection_offered
+        ? parsed.data.damage_protection_cents
+        : 0,
+      waiver_required: parsed.data.waiver_required,
       expires_at: expiresAt.toISOString(),
       created_by: me.id,
       status: "draft",
@@ -160,6 +168,11 @@ export async function updateQuote(id: string, input: z.infer<typeof QuoteInputSc
       internal_notes: parsed.data.internal_notes,
       surface_type: parsed.data.surface_type ?? null,
       needs_power_supply: parsed.data.needs_power_supply ?? null,
+      damage_protection_offered: parsed.data.damage_protection_offered,
+      damage_protection_cents: parsed.data.damage_protection_offered
+        ? parsed.data.damage_protection_cents
+        : 0,
+      waiver_required: parsed.data.waiver_required,
       expires_at: expiresAt.toISOString(),
     })
     .eq("id", id);
@@ -184,15 +197,6 @@ export async function sendQuote(id: string) {
     .single();
   if (!q) return { error: "Quote not found" };
   if (q.status !== "draft") return { error: "Only draft quotes can be sent" };
-
-  // Operational fields required before sending — dispatch needs them
-  // on approval to bring the right anchors + generator.
-  if (!q.surface_type) {
-    return { error: "Pick a setup surface (grass/dirt/concrete/paver/asphalt/other) before sending the quote." };
-  }
-  if (q.needs_power_supply === null || q.needs_power_supply === undefined) {
-    return { error: "Specify whether the customer has a power outlet or needs a generator before sending the quote." };
-  }
 
   const { error } = await supabase
     .from("quotes")

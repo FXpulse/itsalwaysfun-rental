@@ -40,7 +40,7 @@ export default async function AdminQuoteDetailPage({
 
   // Drafts: render editable form
   if (quote.status === "draft") {
-    const [productsResult, customersResult, settings, tenant] = await Promise.all([
+    const [productsResult, customersResult, settings, tenant, protectionAndWaiverRows] = await Promise.all([
       supabase
         .from("products")
         .select("id, name, slug, price_per_day")
@@ -53,9 +53,36 @@ export default async function AdminQuoteDetailPage({
         .limit(2000),
       getSiteSettings(),
       getTenantInfo(),
+      supabase
+        .from("site_settings")
+        .select("key, value")
+        .in("key", [
+          "damage_protection_enabled",
+          "damage_protection_price_cents",
+          "damage_protection_coverage_cents",
+          "waiver_enabled",
+          "waiver_title",
+        ]),
     ]);
 
     const defaultMessage = buildDefaultQuoteMessage(settings, getTenantPublicUrl(tenant));
+
+    const settingsMap = new Map<string, string>(
+      ((protectionAndWaiverRows.data as any[]) || []).map((r) => [r.key, r.value]),
+    );
+    const editorSettings = {
+      damage_protection_enabled: settingsMap.get("damage_protection_enabled") === "true",
+      damage_protection_price_cents: parseInt(
+        settingsMap.get("damage_protection_price_cents") || "2500",
+        10,
+      ),
+      damage_protection_coverage_cents: parseInt(
+        settingsMap.get("damage_protection_coverage_cents") || "50000",
+        10,
+      ),
+      waiver_enabled: (settingsMap.get("waiver_enabled") || "true").toLowerCase() !== "false",
+      waiver_title: settingsMap.get("waiver_title") || "Liability Waiver",
+    };
 
     const initial = {
       id: quote.id,
@@ -80,6 +107,9 @@ export default async function AdminQuoteDetailPage({
         (quote as any).needs_power_supply === null || (quote as any).needs_power_supply === undefined
           ? null
           : Boolean((quote as any).needs_power_supply),
+      damage_protection_offered: Boolean((quote as any).damage_protection_offered),
+      damage_protection_cents: Number((quote as any).damage_protection_cents) || 0,
+      waiver_required: (quote as any).waiver_required !== false,
       expires_days: Math.max(
         1,
         Math.ceil(
@@ -101,6 +131,7 @@ export default async function AdminQuoteDetailPage({
           products={productsResult.data || []}
           customers={customersResult.data || []}
           defaultMessage={defaultMessage}
+          settings={editorSettings}
         />
       </div>
     );

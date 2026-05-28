@@ -55,6 +55,17 @@ export interface QuoteFormData {
   expires_days: number;
   surface_type: SurfaceType;
   needs_power_supply: boolean | null;
+  damage_protection_offered: boolean;
+  damage_protection_cents: number;
+  waiver_required: boolean;
+}
+
+export interface QuoteEditorSettings {
+  damage_protection_enabled: boolean;
+  damage_protection_price_cents: number;
+  damage_protection_coverage_cents: number;
+  waiver_enabled: boolean;
+  waiver_title: string;
 }
 
 const SURFACE_OPTIONS: { value: SurfaceType; label: string }[] = [
@@ -71,11 +82,13 @@ export function QuoteEditor({
   products,
   customers = [],
   defaultMessage = "",
+  settings,
 }: {
   initial?: QuoteFormData;
   products: QuoteProduct[];
   customers?: QuoteCustomer[];
   defaultMessage?: string;
+  settings?: QuoteEditorSettings;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -101,6 +114,9 @@ export function QuoteEditor({
       expires_days: 14,
       surface_type: "",
       needs_power_supply: null,
+      damage_protection_offered: false,
+      damage_protection_cents: settings?.damage_protection_price_cents || 2500,
+      waiver_required: settings?.waiver_enabled ?? true,
     },
   );
 
@@ -358,67 +374,89 @@ export function QuoteEditor({
         </div>
       </Section>
 
-      {/* Setup details — surface + power. Required before sending so dispatch
-          knows what anchors/generator to bring once approved. */}
-      <Section title="Setup details (required before sending)">
+      {/* Customer-decided fields (surface, power) are collected on the public
+          quote page after the customer clicks Approve — not here.
+          Admin only decides whether to OFFER damage protection and REQUIRE waiver. */}
+      <Section title="Customer choices on approval">
+        <p className="text-xs text-slate-500 mb-3">
+          The customer fills setup surface + power source on the public quote page
+          when they approve. Here you only decide what to OFFER them.
+        </p>
         <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
-              Setup surface <span className="text-red-500">*</span>
-            </label>
-            <p className="text-xs text-slate-500 mb-2">
-              Where will the inflatable be set up? Determines which anchors/stakes the crew brings.
-            </p>
-            <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
-              {SURFACE_OPTIONS.map((opt) => (
-                <button
-                  key={opt.value}
-                  type="button"
-                  onClick={() => patch({ surface_type: opt.value })}
-                  className={`text-xs font-semibold py-2 px-2 rounded border transition ${
-                    data.surface_type === opt.value
-                      ? "bg-brand-navy text-white border-brand-navy"
-                      : "bg-white text-slate-700 border-slate-300 hover:border-brand-navy"
-                  }`}
-                >
-                  {opt.label}
-                </button>
-              ))}
+          {/* Damage protection — admin chooses whether to OFFER it on this quote.
+              Only shown if tenant has damage protection enabled globally. */}
+          {settings?.damage_protection_enabled && (
+            <div className="border-t border-slate-100 pt-4">
+              <label className="flex items-start gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  className="mt-1 h-4 w-4"
+                  checked={data.damage_protection_offered}
+                  onChange={(e) => patch({ damage_protection_offered: e.target.checked })}
+                />
+                <div>
+                  <div className="text-sm font-medium text-slate-700">
+                    Offer damage protection on this quote
+                  </div>
+                  <p className="text-xs text-slate-500">
+                    The customer will see an opt-in checkbox before approving.
+                    Optional, not required — they decide.
+                  </p>
+                </div>
+              </label>
+              {data.damage_protection_offered && (
+                <div className="mt-2 ml-6 max-w-xs">
+                  <label className="block text-xs font-medium text-slate-500 mb-1">
+                    Price for this quote (USD)
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">$</span>
+                    <input
+                      type="number"
+                      min={0}
+                      step="0.01"
+                      className="input pl-7"
+                      value={(data.damage_protection_cents / 100).toFixed(2)}
+                      onChange={(e) =>
+                        patch({
+                          damage_protection_cents: Math.round(parseFloat(e.target.value || "0") * 100),
+                        })
+                      }
+                    />
+                  </div>
+                  <p className="text-xs text-slate-400 mt-1">
+                    Coverage up to{" "}
+                    {formatCurrency(settings.damage_protection_coverage_cents)}.
+                  </p>
+                </div>
+              )}
             </div>
-          </div>
+          )}
 
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
-              Power source available? <span className="text-red-500">*</span>
-            </label>
-            <p className="text-xs text-slate-500 mb-2">
-              Inflatables need an outlet within ~75ft. If not available, dispatch brings a portable generator.
-            </p>
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => patch({ needs_power_supply: false })}
-                className={`text-sm font-semibold py-3 px-2 rounded border transition ${
-                  data.needs_power_supply === false
-                    ? "bg-brand-navy text-white border-brand-navy"
-                    : "bg-white text-slate-700 border-slate-300 hover:border-brand-navy"
-                }`}
-              >
-                ✓ Customer has outlet
-              </button>
-              <button
-                type="button"
-                onClick={() => patch({ needs_power_supply: true })}
-                className={`text-sm font-semibold py-3 px-2 rounded border transition ${
-                  data.needs_power_supply === true
-                    ? "bg-amber-600 text-white border-amber-600"
-                    : "bg-white text-slate-700 border-slate-300 hover:border-amber-600"
-                }`}
-              >
-                Bring generator
-              </button>
+          {/* Waiver — admin decides whether the customer must sign before paying.
+              Only shown if tenant has the waiver feature enabled globally. */}
+          {settings?.waiver_enabled && (
+            <div className="border-t border-slate-100 pt-4">
+              <label className="flex items-start gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  className="mt-1 h-4 w-4"
+                  checked={data.waiver_required}
+                  onChange={(e) => patch({ waiver_required: e.target.checked })}
+                />
+                <div>
+                  <div className="text-sm font-medium text-slate-700">
+                    Require liability waiver signature before payment
+                  </div>
+                  <p className="text-xs text-slate-500">
+                    Once approved, the customer signs your liability waiver
+                    (configured at <code>/admin/waiver</code>) before Stripe checkout.
+                    Strongly recommended.
+                  </p>
+                </div>
+              </label>
             </div>
-          </div>
+          )}
         </div>
       </Section>
 

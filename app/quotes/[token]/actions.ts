@@ -1,13 +1,30 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getStripe, isStripeConfigured } from "@/lib/stripe/server";
 
-/** Customer approves the quote.
- *  Creates a booking + Stripe PaymentIntent. Returns client_secret. */
-export async function approveQuote(token: string) {
+const ApproveInputSchema = z.object({
+  surface_type: z.enum(["dirt", "grass", "concrete", "paver", "asphalt", "other"]),
+  needs_power_supply: z.boolean(),
+  damage_protection_accepted: z.boolean().optional().nullable(),
+  waiver_signed_name: z.string().trim().min(2).max(200).optional().nullable(),
+});
+
+export type ApproveInput = z.infer<typeof ApproveInputSchema>;
+
+/** Customer approves the quote with their setup choices.
+ *  Validates required choices, then creates the booking + Stripe PaymentIntent.
+ *  Returns client_secret for the Stripe Elements step. */
+export async function approveQuote(token: string, input: ApproveInput) {
   if (!token || token.length < 8) return { error: "Invalid quote link" };
+
+  const parsed = ApproveInputSchema.safeParse(input);
+  if (!parsed.success) {
+    const first = parsed.error.errors[0];
+    return { error: `${first.path.join(".")}: ${first.message}` };
+  }
 
   const supabase = createAdminClient();
   const { data: quote } = await supabase
@@ -32,6 +49,19 @@ export async function approveQuote(token: string) {
     return { error: "This quote is not available for approval" };
   }
 
+  // Per-quote required decisions
+  if (quote.damage_protection_offered && parsed.data.damage_protection_accepted === null) {
+    return { error: "Choose Yes or No for damage protection before continuing." };
+  }
+  if (quote.waiver_required && !parsed.data.waiver_signed_name) {
+    return { error: "Sign the liability waiver by typing your full name before continuing." };
+  }
+
+  // Decide protection price contribution (price snapshot from the quote)
+  const protectionAccepted = !!parsed.data.damage_protection_accepted;
+  const protectionCents = protectionAccepted ? Number(quote.damage_protection_cents || 0) : 0;
+  const finalTotalCents = Number(quote.total_cents) + protectionCents;
+
   // Create booking — use first line item's product as primary booking product,
   // and build a combined product_name from all line items.
   const items = (quote.line_items || []) as any[];
@@ -42,6 +72,14 @@ export async function approveQuote(token: string) {
     items.length === 1
       ? primaryItem.name
       : `${primaryItem.name} + ${items.length - 1} more item${items.length > 2 ? "s" : ""}`;
+
+  const noteParts: string[] = [`From quote ${quote.quote_number}`];
+  if (items.length > 1) {
+    noteParts.push(`Line items: ${items.map((it: any) => `${it.quantity}× ${it.name}`).join(", ")}`);
+  }
+  if (protectionAccepted) {
+    noteParts.push(`Damage protection: opted in (+$${(protectionCents / 100).toFixed(2)})`);
+  }
 
   const { data: booking, error: bookingErr } = await supabase
     .from("bookings")
@@ -57,11 +95,14 @@ export async function approveQuote(token: string) {
       end_time: quote.end_time,
       product_id: primaryItem.product_id || null,
       product_name: productName,
-      total_amount: quote.total_cents,
+      total_amount: finalTotalCents,
       discount_amount: quote.discount_cents || 0,
+      surface_type: parsed.data.surface_type,
+      needs_power_supply: parsed.data.needs_power_supply,
+      damage_protection: protectionAccepted,
       stripe_payment_status: "pending",
       booking_status: "pending_payment",
-      notes: `From quote ${quote.quote_number}${items.length > 1 ? `\nLine items: ${items.map((it: any) => `${it.quantity}× ${it.name}`).join(", ")}` : ""}`,
+      notes: noteParts.join("\n"),
     })
     .select("id")
     .single();
@@ -70,13 +111,26 @@ export async function approveQuote(token: string) {
     return { error: `Failed to create booking: ${bookingErr?.message}` };
   }
 
+  // Record waiver signature if required
+  if (quote.waiver_required && parsed.data.waiver_signed_name) {
+    try {
+      await supabase.from("waivers").insert({
+        booking_id: booking.id,
+        signed_name: parsed.data.waiver_signed_name,
+        signed_at: new Date().toISOString(),
+      });
+    } catch (e) {
+      console.error("[waiver insert failed — booking still created]", e);
+    }
+  }
+
   // Stripe Payment Intent
   let clientSecret: string | null = null;
   if (isStripeConfigured()) {
     try {
       const stripe = getStripe();
       const intent = await stripe.paymentIntents.create({
-        amount: quote.total_cents,
+        amount: finalTotalCents,
         currency: "usd",
         automatic_payment_methods: { enabled: true },
         description: `Quote ${quote.quote_number} — ${productName}`,
@@ -99,13 +153,18 @@ export async function approveQuote(token: string) {
     }
   }
 
-  // Update quote → approved + linked
+  // Update quote → approved + linked + record what the customer chose
   const { error: updateErr } = await supabase
     .from("quotes")
     .update({
       status: "approved",
       approved_at: new Date().toISOString(),
       converted_booking_id: booking.id,
+      surface_type: parsed.data.surface_type,
+      needs_power_supply: parsed.data.needs_power_supply,
+      damage_protection_accepted: quote.damage_protection_offered ? protectionAccepted : null,
+      waiver_signed_name: quote.waiver_required ? parsed.data.waiver_signed_name : null,
+      waiver_signed_at: quote.waiver_required ? new Date().toISOString() : null,
     })
     .eq("id", quote.id);
 
@@ -121,7 +180,7 @@ export async function approveQuote(token: string) {
     booking_id: booking.id,
     client_secret: clientSecret,
     stripe_configured: isStripeConfigured(),
-    amount: quote.total_cents,
+    amount: finalTotalCents,
   };
 }
 

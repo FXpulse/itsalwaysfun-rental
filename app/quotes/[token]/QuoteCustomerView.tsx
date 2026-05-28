@@ -46,18 +46,38 @@ interface Quote {
   approved_at: string | null;
   declined_at: string | null;
   expires_at: string | null;
+  damage_protection_offered?: boolean;
+  damage_protection_cents?: number;
+  waiver_required?: boolean;
 }
+
+type SurfaceType = "" | "dirt" | "grass" | "concrete" | "paver" | "asphalt" | "other";
+
+const SURFACE_OPTIONS: { value: SurfaceType; label: string }[] = [
+  { value: "grass", label: "Grass" },
+  { value: "dirt", label: "Dirt" },
+  { value: "concrete", label: "Concrete" },
+  { value: "paver", label: "Paver" },
+  { value: "asphalt", label: "Asphalt" },
+  { value: "other", label: "Other" },
+];
 
 export function QuoteCustomerView({
   quote,
   clientSecret,
   stripeConfigured,
   stripePublishableKey,
+  waiverTitle,
+  waiverText,
+  damageCoverageCents,
 }: {
   quote: Quote;
   clientSecret: string | null;
   stripeConfigured: boolean;
   stripePublishableKey: string;
+  waiverTitle: string;
+  waiverText: string;
+  damageCoverageCents: number;
 }) {
   return (
     <div className="min-h-screen bg-slate-50">
@@ -77,7 +97,12 @@ export function QuoteCustomerView({
         <QuoteDetails quote={quote} />
 
         {(quote.status === "sent" || quote.status === "viewed") && (
-          <ApproveDecline token={quote.token} />
+          <ApproveDecline
+            quote={quote}
+            waiverTitle={waiverTitle}
+            waiverText={waiverText}
+            damageCoverageCents={damageCoverageCents}
+          />
         )}
 
         {quote.status === "approved" && (
@@ -289,16 +314,61 @@ function QuoteDetails({ quote }: { quote: Quote }) {
   );
 }
 
-function ApproveDecline({ token }: { token: string }) {
+function ApproveDecline({
+  quote,
+  waiverTitle,
+  waiverText,
+  damageCoverageCents,
+}: {
+  quote: Quote;
+  waiverTitle: string;
+  waiverText: string;
+  damageCoverageCents: number;
+}) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [showDecline, setShowDecline] = useState(false);
+  const [showSetup, setShowSetup] = useState(false);
   const [reason, setReason] = useState("");
 
-  function handleApprove() {
-    if (!confirm("Approve this quote and proceed to payment?")) return;
+  // Customer setup choices — required before booking creation
+  const [surfaceType, setSurfaceType] = useState<SurfaceType>("");
+  const [needsPower, setNeedsPower] = useState<boolean | null>(null);
+  const [protectionAccepted, setProtectionAccepted] = useState<boolean | null>(null);
+  const [waiverName, setWaiverName] = useState("");
+  const [waiverAgreed, setWaiverAgreed] = useState(false);
+
+  function handleSubmitSetup() {
+    if (!surfaceType) {
+      toast.error("Pick where the inflatable will be set up.");
+      return;
+    }
+    if (needsPower === null) {
+      toast.error("Tell us whether you have a power outlet within ~75ft.");
+      return;
+    }
+    if (quote.damage_protection_offered && protectionAccepted === null) {
+      toast.error("Choose Yes or No for damage protection.");
+      return;
+    }
+    if (quote.waiver_required) {
+      if (!waiverAgreed) {
+        toast.error("Please agree to the liability waiver to continue.");
+        return;
+      }
+      if (waiverName.trim().length < 2) {
+        toast.error("Type your full name as your signature.");
+        return;
+      }
+    }
+
     startTransition(async () => {
-      const r = await approveQuote(token);
+      const r = await approveQuote(quote.token, {
+        surface_type: surfaceType as Exclude<SurfaceType, "">,
+        needs_power_supply: needsPower,
+        damage_protection_accepted: quote.damage_protection_offered ? protectionAccepted : null,
+        waiver_signed_name: quote.waiver_required ? waiverName.trim() : null,
+      });
       if (r.error) {
         toast.error(r.error);
         return;
@@ -310,7 +380,7 @@ function ApproveDecline({ token }: { token: string }) {
 
   function handleDecline() {
     startTransition(async () => {
-      const r = await declineQuote(token, reason);
+      const r = await declineQuote(quote.token, reason);
       if (r.error) {
         toast.error(r.error);
         return;
@@ -353,17 +423,183 @@ function ApproveDecline({ token }: { token: string }) {
     );
   }
 
+  // Setup form — shown after the customer clicks "Approve". Captures
+  // surface, power, damage protection opt-in (if offered), and waiver
+  // signature (if required) before creating the booking + payment intent.
+  if (showSetup) {
+    const protectionPrice = quote.damage_protection_cents || 0;
+    return (
+      <div className="card space-y-6">
+        <div>
+          <h2 className="text-lg font-bold text-brand-navy">Almost there</h2>
+          <p className="text-sm text-slate-600">
+            Just a few quick details so our crew can set everything up properly.
+          </p>
+        </div>
+
+        {/* Surface */}
+        <div>
+          <label className="block text-sm font-medium text-slate-700 mb-1">
+            Setup surface <span className="text-red-500">*</span>
+          </label>
+          <p className="text-xs text-slate-500 mb-2">
+            Where will it be set up? We bring different anchors depending on the surface.
+          </p>
+          <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+            {SURFACE_OPTIONS.filter((o) => o.value !== "").map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => setSurfaceType(opt.value)}
+                className={`text-xs font-semibold py-2 px-2 rounded border transition ${
+                  surfaceType === opt.value
+                    ? "bg-brand-navy text-white border-brand-navy"
+                    : "bg-white text-slate-700 border-slate-300 hover:border-brand-navy"
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Power */}
+        <div>
+          <label className="block text-sm font-medium text-slate-700 mb-1">
+            Power source available? <span className="text-red-500">*</span>
+          </label>
+          <p className="text-xs text-slate-500 mb-2">
+            Inflatables need an outlet within ~75ft. If not available, we bring a portable generator.
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => setNeedsPower(false)}
+              className={`text-sm font-semibold py-3 px-2 rounded border transition ${
+                needsPower === false
+                  ? "bg-brand-navy text-white border-brand-navy"
+                  : "bg-white text-slate-700 border-slate-300 hover:border-brand-navy"
+              }`}
+            >
+              ✓ Yes, I have an outlet
+            </button>
+            <button
+              type="button"
+              onClick={() => setNeedsPower(true)}
+              className={`text-sm font-semibold py-3 px-2 rounded border transition ${
+                needsPower === true
+                  ? "bg-amber-600 text-white border-amber-600"
+                  : "bg-white text-slate-700 border-slate-300 hover:border-amber-600"
+              }`}
+            >
+              No — bring power supply
+            </button>
+          </div>
+        </div>
+
+        {/* Damage protection (optional, only if offered by admin) */}
+        {quote.damage_protection_offered && (
+          <div className="border-t border-slate-100 pt-4">
+            <label className="block text-sm font-medium text-slate-700 mb-1">
+              Damage protection (optional) <span className="text-red-500">*</span>
+            </label>
+            <p className="text-xs text-slate-500 mb-2">
+              For {formatCurrency(protectionPrice)}, we cover up to{" "}
+              {formatCurrency(damageCoverageCents)} in accidental damage. Your choice.
+            </p>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setProtectionAccepted(true)}
+                className={`text-sm font-semibold py-3 px-2 rounded border transition ${
+                  protectionAccepted === true
+                    ? "bg-emerald-600 text-white border-emerald-600"
+                    : "bg-white text-slate-700 border-slate-300 hover:border-emerald-600"
+                }`}
+              >
+                ✓ Yes, add protection (+{formatCurrency(protectionPrice)})
+              </button>
+              <button
+                type="button"
+                onClick={() => setProtectionAccepted(false)}
+                className={`text-sm font-semibold py-3 px-2 rounded border transition ${
+                  protectionAccepted === false
+                    ? "bg-slate-700 text-white border-slate-700"
+                    : "bg-white text-slate-700 border-slate-300 hover:border-slate-700"
+                }`}
+              >
+                No thanks
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Waiver (required if admin enabled it) */}
+        {quote.waiver_required && (
+          <div className="border-t border-slate-100 pt-4">
+            <label className="block text-sm font-medium text-slate-700 mb-1">
+              {waiverTitle} <span className="text-red-500">*</span>
+            </label>
+            <div className="border border-slate-200 rounded p-3 bg-slate-50 max-h-40 overflow-y-auto text-xs text-slate-700 whitespace-pre-wrap mb-2">
+              {waiverText || "Liability waiver text not configured. Contact the rental owner."}
+            </div>
+            <label className="flex items-start gap-2 cursor-pointer mb-2">
+              <input
+                type="checkbox"
+                className="mt-1 h-4 w-4"
+                checked={waiverAgreed}
+                onChange={(e) => setWaiverAgreed(e.target.checked)}
+              />
+              <span className="text-sm text-slate-700">
+                I have read and agree to the liability waiver above.
+              </span>
+            </label>
+            <input
+              type="text"
+              className="input"
+              placeholder="Type your full name as signature"
+              value={waiverName}
+              onChange={(e) => setWaiverName(e.target.value)}
+              maxLength={200}
+            />
+            <p className="text-xs text-slate-400 mt-1">
+              Typing your name acts as your electronic signature (UETA/E-SIGN compliant).
+            </p>
+          </div>
+        )}
+
+        <div className="flex gap-2 pt-2 border-t border-slate-100">
+          <button
+            onClick={() => setShowSetup(false)}
+            className="inline-flex items-center justify-center rounded-md border border-slate-300 px-4 py-3 text-slate-700 hover:bg-slate-50"
+            disabled={pending}
+          >
+            ← Back
+          </button>
+          <button
+            onClick={handleSubmitSetup}
+            disabled={pending}
+            className="flex-1 bg-brand-navy text-white font-bold py-3 px-6 rounded-md hover:bg-brand-navy-dark transition disabled:opacity-50 inline-flex items-center justify-center gap-2"
+          >
+            <CheckCircle2 className="h-5 w-5" />
+            {pending ? "Approving..." : "Approve & continue to payment"}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="card sticky bottom-4 shadow-lg border-2 border-brand-yellow">
       <h2 className="text-lg font-bold text-brand-navy mb-3">Ready to book?</h2>
       <div className="flex flex-col sm:flex-row gap-2">
         <button
-          onClick={handleApprove}
+          onClick={() => setShowSetup(true)}
           disabled={pending}
           className="flex-1 bg-brand-navy text-white font-bold py-3 px-6 rounded-md hover:bg-brand-navy-dark transition disabled:opacity-50 inline-flex items-center justify-center gap-2"
         >
           <CheckCircle2 className="h-5 w-5" />
-          {pending ? "Approving..." : "Approve & pay"}
+          Approve quote
         </button>
         <button
           onClick={() => setShowDecline(true)}
@@ -373,7 +609,7 @@ function ApproveDecline({ token }: { token: string }) {
         </button>
       </div>
       <p className="text-xs text-slate-500 mt-2 text-center">
-        Questions? Call <strong>(904) 584-3047</strong> before approving.
+        Questions? Call us before approving.
       </p>
     </div>
   );

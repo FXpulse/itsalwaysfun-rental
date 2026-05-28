@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isStripeConfigured } from "@/lib/stripe/server";
 import { QuoteCustomerView } from "./QuoteCustomerView";
+import { getSiteSettings } from "@/lib/site-settings";
 
 export const dynamic = "force-dynamic";
 
@@ -72,12 +73,35 @@ export default async function CustomerQuotePage({
   const stripePublishableKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || "";
   const stripeReady = isStripeConfigured() && !!stripePublishableKey;
 
+  // Waiver text + damage protection coverage are needed on the customer page
+  // to render the setup form they fill out before paying.
+  const { data: protectionAndWaiverRows } = await supabase
+    .from("site_settings")
+    .select("key, value")
+    .in("key", [
+      "waiver_title",
+      "waiver_text",
+      "damage_protection_coverage_cents",
+    ]);
+  const settingsMap = new Map<string, string>(
+    (protectionAndWaiverRows as any[] || []).map((r) => [r.key, r.value]),
+  );
+  const waiverTitle = settingsMap.get("waiver_title") || "Liability Waiver";
+  const waiverText = settingsMap.get("waiver_text") || "";
+  const damageCoverageCents = parseInt(
+    settingsMap.get("damage_protection_coverage_cents") || "50000",
+    10,
+  );
+
   return (
     <QuoteCustomerView
       quote={quote}
       clientSecret={clientSecret}
       stripeConfigured={stripeReady}
       stripePublishableKey={stripePublishableKey}
+      waiverTitle={waiverTitle}
+      waiverText={waiverText}
+      damageCoverageCents={damageCoverageCents}
     />
   );
 }
