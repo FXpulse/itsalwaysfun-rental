@@ -14,6 +14,23 @@ const ApproveInputSchema = z.object({
 
 export type ApproveInput = z.infer<typeof ApproveInputSchema>;
 
+// 24h hold from quote approval — gives customer a day to complete payment.
+// After this expires, the inventory becomes available to other bookings.
+const QUOTE_HOLD_HOURS = 24;
+
+function datesInRange(start: string, end: string): string[] {
+  const out: string[] = [];
+  const s = new Date(start + "T00:00:00");
+  const e = new Date(end + "T00:00:00");
+  if (e < s) return [];
+  const cur = new Date(s);
+  while (cur <= e) {
+    out.push(cur.toISOString().split("T")[0]);
+    cur.setDate(cur.getDate() + 1);
+  }
+  return out;
+}
+
 /** Customer approves the quote with their setup choices.
  *  Validates required choices, then creates the booking + Stripe PaymentIntent.
  *  Returns client_secret for the Stripe Elements step. */
@@ -73,6 +90,63 @@ export async function approveQuote(token: string, input: ApproveInput) {
       ? primaryItem.name
       : `${primaryItem.name} + ${items.length - 1} more item${items.length > 2 ? "s" : ""}`;
 
+  // ─── Availability check (only for the primary product — multi-product
+  //     quotes only track inventory on the first item, same as the rest
+  //     of the booking flow). Prevents race conditions where two quotes
+  //     for the same product/date both approve. ─────────────────────────
+  if (primaryItem.product_id) {
+    const startDate: string = quote.event_date;
+    const endDate: string = quote.event_end_date || quote.event_date;
+
+    const { data: productRow } = await supabase
+      .from("products")
+      .select("id, name, stock")
+      .eq("id", primaryItem.product_id)
+      .single();
+
+    if (productRow && Number(productRow.stock) > 0) {
+      const { data: existingBookings } = await supabase
+        .from("bookings")
+        .select("id, event_date, event_end_date, booking_status, hold_expires_at")
+        .eq("product_id", productRow.id)
+        .lte("event_date", endDate)
+        .or(
+          `event_end_date.gte.${startDate},and(event_end_date.is.null,event_date.gte.${startDate})`,
+        )
+        .in("booking_status", ["pending_payment", "confirmed", "delivered"]);
+
+      const nowISO = new Date().toISOString();
+      const occupiedByDay: Record<string, number> = {};
+      for (const b of existingBookings || []) {
+        // Skip expired holds — those slots are free
+        if (
+          b.booking_status === "pending_payment" &&
+          b.hold_expires_at &&
+          b.hold_expires_at < nowISO
+        ) {
+          continue;
+        }
+        const bStart = b.event_date;
+        const bEnd = b.event_end_date || b.event_date;
+        for (const day of datesInRange(bStart, bEnd)) {
+          if (day >= startDate && day <= endDate) {
+            occupiedByDay[day] = (occupiedByDay[day] || 0) + 1;
+          }
+        }
+      }
+
+      const conflictDays = Object.entries(occupiedByDay)
+        .filter(([_, count]) => count >= Number(productRow.stock))
+        .map(([day]) => day);
+
+      if (conflictDays.length > 0) {
+        return {
+          error: `Sorry — ${productRow.name} is no longer available on ${conflictDays.join(", ")}. Someone reserved it while this quote was open. Please contact us to find another date.`,
+        };
+      }
+    }
+  }
+
   const noteParts: string[] = [`From quote ${quote.quote_number}`];
   if (items.length > 1) {
     noteParts.push(`Line items: ${items.map((it: any) => `${it.quantity}× ${it.name}`).join(", ")}`);
@@ -80,6 +154,9 @@ export async function approveQuote(token: string, input: ApproveInput) {
   if (protectionAccepted) {
     noteParts.push(`Damage protection: opted in (+$${(protectionCents / 100).toFixed(2)})`);
   }
+
+  // 24h hold — gives customer time to pay; after expiry slot is free
+  const holdExpiresAt = new Date(Date.now() + QUOTE_HOLD_HOURS * 60 * 60_000).toISOString();
 
   const { data: booking, error: bookingErr } = await supabase
     .from("bookings")
@@ -102,6 +179,7 @@ export async function approveQuote(token: string, input: ApproveInput) {
       damage_protection: protectionAccepted,
       stripe_payment_status: "pending",
       booking_status: "pending_payment",
+      hold_expires_at: holdExpiresAt,
       notes: noteParts.join("\n"),
     })
     .select("id")
