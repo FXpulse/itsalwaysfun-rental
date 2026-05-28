@@ -4,6 +4,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendTemplated } from "@/lib/email/send-template";
 import { isEmailConfigured } from "@/lib/email/send";
+import { formatDateUS } from "@/lib/email/format-date";
 
 const BASE_URL =
   process.env.NEXT_PUBLIC_APP_URL || "https://itsalwaysfun-rental.vercel.app";
@@ -66,7 +67,7 @@ export async function sendBookingRefunded(
     vars: {
       firstName: booking.customer_first_name,
       productName: booking.product_name,
-      eventDate: booking.event_date,
+      eventDate: formatDateUS(booking.event_date),
       refundAmount: (refundCents / 100).toFixed(2),
       refundMethod: methodLabel,
     },
@@ -108,7 +109,7 @@ export async function sendBookingCancelled(
     vars: {
       firstName: booking.customer_first_name,
       productName: booking.product_name,
-      eventDate: booking.event_date,
+      eventDate: formatDateUS(booking.event_date),
       cancellationReason: cancellationReason || "",
       hadPayment: hadPayment ? "true" : "",
       bookAgainUrl: `${BASE_URL}/order-by-date`,

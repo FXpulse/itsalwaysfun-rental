@@ -7,6 +7,7 @@ import { isEmailConfigured } from "@/lib/email/send";
 import { sendTemplated } from "@/lib/email/send-template";
 import { renderQuoteEmail } from "@/lib/email/templates";
 import { getTenantInfo, tenantToEmailBrand } from "@/lib/tenant/business";
+import { formatDateUS } from "@/lib/email/format-date";
 import { z } from "zod";
 
 const LineItemSchema = z.object({
@@ -265,8 +266,8 @@ export async function sendQuote(id: string) {
       vars: {
         firstName: q.customer_first_name,
         quoteNumber: q.quote_number,
-        eventDate: q.event_date,
-        eventEndDate: q.event_end_date,
+        eventDate: formatDateUS(q.event_date),
+        eventEndDate: formatDateUS(q.event_end_date),
         totalDollars: (q.total_cents / 100).toFixed(2),
         message: q.customer_message || "",
         quoteUrl,
@@ -283,8 +284,8 @@ export async function sendQuote(id: string) {
           quoteNumber: q.quote_number,
           quoteUrl,
           total: q.total_cents,
-          eventDate: q.event_date,
-          eventEndDate: q.event_end_date,
+          eventDate: formatDateUS(q.event_date),
+          eventEndDate: formatDateUS(q.event_end_date),
           message: q.customer_message,
           expiresAt: q.expires_at,
           brand: tenantToEmailBrand(tenant),

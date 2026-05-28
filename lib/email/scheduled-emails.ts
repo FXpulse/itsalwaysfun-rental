@@ -71,13 +71,16 @@ async function recordSend(
   });
 }
 
+import { formatDateUS } from "./format-date";
+
 function buildVars(b: BookingRow, extras: Record<string, any> = {}): Record<string, any> {
   return {
     firstName: b.customer_first_name,
     lastName: b.customer_last_name,
     productName: b.product_name,
-    eventDate: b.event_date,
-    eventEndDate: b.event_end_date || "",
+    // Customer-facing dates use MM/DD/YYYY for consistency across emails
+    eventDate: formatDateUS(b.event_date),
+    eventEndDate: formatDateUS(b.event_end_date),
     startTime: b.start_time || "",
     endTime: b.end_time || "",
     address: b.customer_address || "",
@@ -86,7 +89,7 @@ function buildVars(b: BookingRow, extras: Record<string, any> = {}): Record<stri
     bookingPortalUrl: `${BASE_URL}/portal/bookings/${b.id}`,
     bookNextUrl: `${BASE_URL}/order-by-date`,
     bookAgainUrl: `${BASE_URL}/order-by-date`,
-    lastEventDate: b.event_date,
+    lastEventDate: formatDateUS(b.event_date),
     ...extras,
   };
 }
