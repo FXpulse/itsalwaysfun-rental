@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, useMemo } from "react";
+import { useState, useTransition, useMemo, useEffect } from "react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { Plus, Trash2, ArrowLeft, User as UserIcon } from "lucide-react";
@@ -67,6 +67,9 @@ export interface QuoteEditorSettings {
   damage_protection_coverage_cents: number;
   waiver_enabled: boolean;
   waiver_title: string;
+  tax_enabled: boolean;
+  tax_rate_percent: number;
+  tax_label: string;
 }
 
 const SURFACE_OPTIONS: { value: SurfaceType; label: string }[] = [
@@ -149,6 +152,23 @@ export function QuoteEditor({
   function patch(p: Partial<QuoteFormData>) {
     setData((d) => ({ ...d, ...p }));
   }
+
+  // Auto-calculate tax when subtotal/discount changes IF the tenant has tax
+  // enabled, the customer is NOT exempt, and the admin hasn't explicitly
+  // overridden it. We track overrides via taxManuallyEdited: once the admin
+  // types in the field, we stop auto-recalculating until they reset.
+  const [taxManuallyEdited, setTaxManuallyEdited] = useState(false);
+  const taxRate = settings?.tax_rate_percent || 0;
+  const taxAutoActive = !!settings?.tax_enabled && taxRate > 0 && !data.tax_exempt && !taxManuallyEdited;
+  useEffect(() => {
+    if (!taxAutoActive) return;
+    const taxableBase = Math.max(0, subtotal - data.discount_cents);
+    const autoTax = Math.round((taxableBase * taxRate) / 100);
+    if (autoTax !== data.tax_cents) {
+      setData((d) => ({ ...d, tax_cents: autoTax }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [subtotal, data.discount_cents, taxRate, taxAutoActive]);
 
   function addLineFromProduct(productId: string) {
     if (!productId) return;
@@ -592,20 +612,20 @@ export function QuoteEditor({
           <div>
             <div className="flex items-center justify-between mb-1">
               <label className="block text-xs font-medium text-slate-700">
-                Tax (USD)
+                {settings?.tax_label || "Tax"} (USD)
               </label>
               <label className="flex items-center gap-1 text-xs cursor-pointer text-slate-600 hover:text-slate-800">
                 <input
                   type="checkbox"
                   className="h-3 w-3"
                   checked={data.tax_exempt}
-                  onChange={(e) =>
+                  onChange={(e) => {
+                    setTaxManuallyEdited(false);
                     patch({
                       tax_exempt: e.target.checked,
-                      // Force tax to 0 when exempt — eliminates any leftover manual amount
                       tax_cents: e.target.checked ? 0 : data.tax_cents,
-                    })
-                  }
+                    });
+                  }}
                 />
                 Tax exempt customer
               </label>
@@ -617,18 +637,37 @@ export function QuoteEditor({
               className="input"
               value={(data.tax_cents / 100).toFixed(2)}
               disabled={data.tax_exempt}
-              onChange={(e) =>
-                patch({ tax_cents: Math.round(parseFloat(e.target.value || "0") * 100) })
-              }
+              onChange={(e) => {
+                setTaxManuallyEdited(true);
+                patch({ tax_cents: Math.round(parseFloat(e.target.value || "0") * 100) });
+              }}
             />
             {data.tax_exempt ? (
               <p className="text-[11px] text-emerald-700 mt-1">
                 ✓ No tax will be applied at approval. Document the exemption certificate in
                 internal notes.
               </p>
+            ) : settings?.tax_enabled && taxRate > 0 ? (
+              taxManuallyEdited ? (
+                <p className="text-[11px] text-amber-700 mt-1 flex items-center justify-between">
+                  <span>⚠️ Manual override active — won't auto-update on line item changes.</span>
+                  <button
+                    type="button"
+                    onClick={() => setTaxManuallyEdited(false)}
+                    className="text-brand-navy hover:underline ml-2"
+                  >
+                    ↺ Reset to auto ({taxRate}%)
+                  </button>
+                </p>
+              ) : (
+                <p className="text-[11px] text-emerald-700 mt-1">
+                  ✓ Auto-calculated at {taxRate}% of (subtotal − discount). Edit the field to override.
+                </p>
+              )
             ) : (
               <p className="text-[11px] text-slate-400 mt-1">
-                Leave at $0 to use the tenant's default tax rate at approval time.
+                Tax is disabled at tenant level. Set it at <code>/admin/site</code> to auto-calculate,
+                or type a manual amount here.
               </p>
             )}
           </div>

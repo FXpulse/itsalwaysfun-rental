@@ -59,6 +59,9 @@ export default async function AdminQuoteDetailPage({
           "damage_protection_coverage_cents",
           "waiver_enabled",
           "waiver_title",
+          "tax_enabled",
+          "tax_rate_percent",
+          "tax_label",
         ]),
     ]);
 
@@ -79,6 +82,9 @@ export default async function AdminQuoteDetailPage({
       ),
       waiver_enabled: (settingsMap.get("waiver_enabled") || "true").toLowerCase() !== "false",
       waiver_title: settingsMap.get("waiver_title") || "Liability Waiver",
+      tax_enabled: (settingsMap.get("tax_enabled") || "false").toLowerCase() === "true",
+      tax_rate_percent: Number.parseFloat(settingsMap.get("tax_rate_percent") || "0") || 0,
+      tax_label: settingsMap.get("tax_label") || "Sales tax",
     };
 
     const initial = {
