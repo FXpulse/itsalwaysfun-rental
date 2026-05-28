@@ -70,6 +70,9 @@ export function QuoteCustomerView({
   finalAmountCents,
   logoUrl,
   brandName,
+  taxEnabled,
+  taxRatePercent,
+  taxLabel,
 }: {
   quote: Quote;
   clientSecret: string | null;
@@ -87,6 +90,9 @@ export function QuoteCustomerView({
   finalAmountCents: number;
   logoUrl: string;
   brandName: string;
+  taxEnabled: boolean;
+  taxRatePercent: number;
+  taxLabel: string;
 }) {
   return (
     <div className="min-h-screen bg-slate-50">
@@ -144,6 +150,9 @@ export function QuoteCustomerView({
             damageCoverageCents={damageCoverageCents}
             powerSupplyPerDayCents={powerSupplyPerDayCents}
             surfaceOptions={surfaceOptions}
+            taxEnabled={taxEnabled}
+            taxRatePercent={taxRatePercent}
+            taxLabel={taxLabel}
           />
         )}
 
@@ -371,6 +380,9 @@ function ApproveDecline({
   damageCoverageCents,
   powerSupplyPerDayCents,
   surfaceOptions,
+  taxEnabled,
+  taxRatePercent,
+  taxLabel,
 }: {
   quote: Quote;
   waiverTitle: string;
@@ -378,6 +390,9 @@ function ApproveDecline({
   damageCoverageCents: number;
   powerSupplyPerDayCents: number;
   surfaceOptions: SurfaceOption[];
+  taxEnabled: boolean;
+  taxRatePercent: number;
+  taxLabel: string;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -397,7 +412,16 @@ function ApproveDecline({
   const protectionPriceCents = quote.damage_protection_cents || 0;
   const protectionAddCents = protectionAccepted === true ? protectionPriceCents : 0;
   const powerSupplyTotalCents = needsPower === true ? powerSupplyPerDayCents * numDays : 0;
-  const finalTotalCents = quote.total_cents + protectionAddCents + powerSupplyTotalCents;
+  const preTaxTotalCents = quote.total_cents + protectionAddCents + powerSupplyTotalCents;
+  // Tax: honor admin-set quote.tax_cents if non-zero (manual override),
+  // else auto-calc when tax is enabled at the tenant level.
+  const taxCents =
+    (quote.tax_cents || 0) > 0
+      ? quote.tax_cents
+      : taxEnabled && taxRatePercent > 0
+        ? Math.round((preTaxTotalCents * taxRatePercent) / 100)
+        : 0;
+  const finalTotalCents = preTaxTotalCents + taxCents;
 
   function handleSubmitSetup() {
     if (!surfaceType) {
@@ -663,6 +687,17 @@ function ApproveDecline({
                   + Power supply ({numDays} day{numDays > 1 ? "s" : ""})
                 </span>
                 <span className="font-mono">{formatCurrency(powerSupplyTotalCents)}</span>
+              </div>
+            )}
+            {taxCents > 0 && (
+              <div className="flex justify-between text-slate-600">
+                <span>
+                  + {taxLabel}
+                  {taxRatePercent > 0 && (quote.tax_cents || 0) === 0
+                    ? ` (${taxRatePercent}%)`
+                    : ""}
+                </span>
+                <span className="font-mono">{formatCurrency(taxCents)}</span>
               </div>
             )}
             <div className="flex justify-between pt-2 mt-2 border-t border-slate-200 text-base font-bold text-brand-navy">

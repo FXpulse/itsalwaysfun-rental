@@ -137,6 +137,68 @@ export function HelpClient() {
       ),
     },
     {
+      id: "tax",
+      title: "Sales tax / IVA / VAT — per-tenant configurable",
+      icon: Calculator,
+      content: (
+        <div className="space-y-3 text-sm">
+          <p>
+            Each tenant can turn on sales tax at their own rate. When
+            enabled, tax is calculated automatically on every public
+            booking and every quote approval, and stored separately on
+            <code> bookings.tax_cents</code> so it can be reported and
+            itemized on receipts.
+          </p>
+          <p className="font-semibold">Setup (one-time):</p>
+          <ul className="list-disc pl-5 text-xs space-y-1">
+            <li>
+              Go to <code>/admin/site</code> → scroll to the new
+              <strong> Sales tax / IVA / VAT</strong> section.
+            </li>
+            <li>
+              <strong>Tax enabled</strong>: Yes / No dropdown. Default: No.
+            </li>
+            <li>
+              <strong>Tax rate percent</strong>: decimal like
+              <code> 7.5</code> for 7.5%. Florida ≈ 7%, NY ≈ 8.875%,
+              CA ≈ 7.25–10.25%. Check your jurisdiction.
+            </li>
+            <li>
+              <strong>Tax label</strong>: how it shows to customers
+              ("Sales tax", "IVA", "VAT").
+            </li>
+          </ul>
+          <p className="font-semibold">Where it applies:</p>
+          <ul className="list-disc pl-5 text-xs space-y-1">
+            <li>
+              <strong>Public booking</strong> (<code>/order-by-date</code>):
+              tax is calculated on the taxable base (after discounts +
+              gift cards + points), added to the total, and saved on
+              the booking.
+            </li>
+            <li>
+              <strong>Quote approval</strong>: tax auto-calculates on
+              (line items + damage protection + power supply) at the
+              moment the customer approves. The live breakdown in the
+              setup form shows the tax row alongside the other extras.
+            </li>
+            <li>
+              <strong>Admin quote editor</strong>: the <code>Tax</code>{" "}
+              field stays — set it manually to override the auto-rate
+              for an exempt customer or an out-of-state event. If you
+              leave it at 0, the auto-rate fires at approval time.
+            </li>
+          </ul>
+          <p className="text-xs text-slate-500 bg-amber-50 border border-amber-200 rounded p-2">
+            ⚠️ This is a flat-rate tax. If you operate in multiple
+            jurisdictions with different rates by zip code, you'll need
+            to set the rate that covers your most common case and
+            handle exceptions per-quote.
+          </p>
+        </div>
+      ),
+    },
+    {
       id: "setup-surfaces",
       title: "Configurable setup surface options",
       icon: Tag,

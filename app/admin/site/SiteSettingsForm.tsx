@@ -22,7 +22,11 @@ const CATEGORY_LABELS: Record<string, string> = {
   general: "General",
   appearance: "Appearance — colors & fonts (per zone)",
   loyalty: "Loyalty & referrals (points + commission)",
+  tax: "Sales tax / IVA / VAT",
 };
+
+// Keys that should render as a true/false dropdown instead of a free-text input
+const BOOLEAN_KEYS = new Set(["tax_enabled"]);
 
 // Settings that should render as textarea
 const LONG_TEXT_KEYS = new Set([
@@ -251,7 +255,18 @@ export function SiteSettingsForm({
                     {s.description && (
                       <p className="text-xs text-slate-500 mb-1">{s.description}</p>
                     )}
-                    {isFont ? (
+                    {BOOLEAN_KEYS.has(s.key) ? (
+                      <select
+                        id={s.key}
+                        name={s.key}
+                        defaultValue={(s.value || "false").toLowerCase()}
+                        className="input"
+                        disabled={pending}
+                      >
+                        <option value="false">No (disabled)</option>
+                        <option value="true">Yes (enabled)</option>
+                      </select>
+                    ) : isFont ? (
                       <select
                         id={s.key}
                         name={s.key}

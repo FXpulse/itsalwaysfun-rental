@@ -258,8 +258,33 @@ export async function approveQuote(token: string, input: ApproveInput) {
     // can't auto-add a charge (admin will handle it).
   }
 
-  // Final total customer pays = quote line items + protection + power supply
-  const finalTotalCents = Number(quote.total_cents) + protectionCents + powerSupplyCents;
+  // ─── Tax (per-tenant config from site_settings) ────────────────────
+  //     If the quote has a non-zero quote.tax_cents the admin set
+  //     manually, honor that snapshot. Otherwise, auto-calculate using
+  //     the tenant's current tax rate applied to (subtotal + protection
+  //     + power supply). Manual override wins so exempt customers /
+  //     out-of-state events can be priced specifically.
+  let taxCents = Number(quote.tax_cents || 0);
+  if (taxCents === 0) {
+    const { data: taxRows } = await supabase
+      .from("site_settings")
+      .select("key, value")
+      .in("key", ["tax_enabled", "tax_rate_percent"]);
+    const taxMap = new Map<string, string>(
+      ((taxRows as any[]) || []).map((r) => [String(r.key), String(r.value)]),
+    );
+    const taxEnabled = (taxMap.get("tax_enabled") || "false").toLowerCase() === "true";
+    const ratePercent = Number.parseFloat(taxMap.get("tax_rate_percent") || "0") || 0;
+    if (taxEnabled && ratePercent > 0) {
+      const taxableBaseCents =
+        Number(quote.total_cents) + protectionCents + powerSupplyCents;
+      taxCents = Math.round((taxableBaseCents * ratePercent) / 100);
+    }
+  }
+
+  // Final total customer pays = quote line items + protection + power supply + tax
+  const finalTotalCents =
+    Number(quote.total_cents) + protectionCents + powerSupplyCents + taxCents;
 
   // ─── Build addons array: secondary line items + power supply ──────
   //     Stored on the booking row in the existing addons JSONB column,
@@ -321,6 +346,7 @@ export async function approveQuote(token: string, input: ApproveInput) {
       product_name: productName,
       total_amount: finalTotalCents,
       discount_amount: quote.discount_cents || 0,
+      tax_cents: taxCents,
       surface_type: parsed.data.surface_type,
       needs_power_supply: parsed.data.needs_power_supply,
       damage_protection_purchased: protectionAccepted,

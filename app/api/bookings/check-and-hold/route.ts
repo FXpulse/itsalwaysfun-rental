@@ -425,6 +425,26 @@ export async function POST(request: Request) {
     }
   }
 
+  // 4d. Apply sales tax (per-tenant config from site_settings).
+  // Tax is calculated on the TAXABLE base (after discounts + gift cards +
+  // point redemption), so the customer doesn't pay tax on freebies.
+  let taxCents = 0;
+  {
+    const { data: taxRows } = await supabase
+      .from("site_settings")
+      .select("key, value")
+      .in("key", ["tax_enabled", "tax_rate_percent"]);
+    const taxMap = new Map<string, string>(
+      ((taxRows as any[]) || []).map((r) => [String(r.key), String(r.value)]),
+    );
+    const taxEnabled = (taxMap.get("tax_enabled") || "false").toLowerCase() === "true";
+    const ratePercent = Number.parseFloat(taxMap.get("tax_rate_percent") || "0") || 0;
+    if (taxEnabled && ratePercent > 0 && totalAmount > 0) {
+      taxCents = Math.round((totalAmount * ratePercent) / 100);
+      totalAmount = totalAmount + taxCents;
+    }
+  }
+
   // 5. Create booking with hold
   const holdExpiresAt = new Date(Date.now() + HOLD_MINUTES * 60_000).toISOString();
 
@@ -445,6 +465,7 @@ export async function POST(request: Request) {
       product_id: product.id,
       product_name: product.name,
       total_amount: totalAmount,
+      tax_cents: taxCents,
       coupon_code: appliedCouponCode,
       discount_amount: discountAmount,
       surface_type: parsed.data.surface_type || null,

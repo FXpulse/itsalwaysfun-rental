@@ -96,8 +96,8 @@ export default async function CustomerQuotePage({
   const stripePublishableKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || "";
   const stripeReady = isStripeConfigured() && !!stripePublishableKey;
 
-  // Waiver text + damage protection coverage are needed on the customer page
-  // to render the setup form they fill out before paying.
+  // Waiver text + damage protection coverage + tax config are needed on the
+  // customer page to render the setup form they fill out before paying.
   const { data: protectionAndWaiverRows } = await supabase
     .from("site_settings")
     .select("key, value")
@@ -105,6 +105,9 @@ export default async function CustomerQuotePage({
       "waiver_title",
       "waiver_text",
       "damage_protection_coverage_cents",
+      "tax_enabled",
+      "tax_rate_percent",
+      "tax_label",
     ]);
   const settingsMap = new Map<string, string>(
     (protectionAndWaiverRows as any[] || []).map((r) => [r.key, r.value]),
@@ -115,6 +118,9 @@ export default async function CustomerQuotePage({
     settingsMap.get("damage_protection_coverage_cents") || "50000",
     10,
   );
+  const taxEnabled = (settingsMap.get("tax_enabled") || "false").toLowerCase() === "true";
+  const taxRatePercent = Number.parseFloat(settingsMap.get("tax_rate_percent") || "0") || 0;
+  const taxLabel = settingsMap.get("tax_label") || "Sales tax";
 
   // Power supply add-on — when the customer says they need a generator,
   // we add this product's per-day price × num days to the quote total.
@@ -171,6 +177,9 @@ export default async function CustomerQuotePage({
       finalAmountCents={finalAmountCents}
       logoUrl={logoUrl}
       brandName={brandName}
+      taxEnabled={taxEnabled}
+      taxRatePercent={taxRatePercent}
+      taxLabel={taxLabel}
     />
   );
 }
