@@ -37,6 +37,7 @@ const MULTI_TENANT_TABLES = new Set([
   "product_inventory_requirements",
   "product_images",
   "categories",
+  "setup_surfaces",
   "inventory_items",
   "inventory_units",
   "inventory_categories",
