@@ -68,6 +68,8 @@ export function QuoteCustomerView({
   surfaceOptions,
   availabilityError,
   finalAmountCents,
+  logoUrl,
+  brandName,
 }: {
   quote: Quote;
   clientSecret: string | null;
@@ -83,14 +85,16 @@ export function QuoteCustomerView({
    *  supply). Sourced from the Stripe PaymentIntent so it always matches
    *  what Stripe will actually charge. */
   finalAmountCents: number;
+  logoUrl: string;
+  brandName: string;
 }) {
   return (
     <div className="min-h-screen bg-slate-50">
       <header className="bg-brand-navy text-white py-6">
-        <div className="max-w-3xl mx-auto px-4 flex justify-between items-center">
-          <div>
-            <div className="text-xs text-brand-yellow tracking-widest font-bold">
-              IT'S ALWAYS FUN, LLC
+        <div className="max-w-3xl mx-auto px-4 flex justify-between items-center gap-4">
+          <div className="min-w-0">
+            <div className="text-xs text-brand-yellow tracking-widest font-bold uppercase truncate">
+              {brandName}
             </div>
             <h1 className="text-2xl font-bold">Quote {quote.quote_number}</h1>
           </div>
@@ -99,6 +103,18 @@ export function QuoteCustomerView({
       </header>
 
       <main className="max-w-3xl mx-auto px-4 py-8 space-y-6">
+        {/* Logo above the customer message — branded reinforcement of who
+            the quote is from, the first thing they see in the body. */}
+        {logoUrl && (
+          <div className="text-center pt-2">
+            <img
+              src={logoUrl}
+              alt={brandName}
+              className="h-20 w-auto inline-block"
+            />
+          </div>
+        )}
+
         {availabilityError && (
           <div className="card border-red-200 bg-red-50">
             <div className="flex items-start gap-3">

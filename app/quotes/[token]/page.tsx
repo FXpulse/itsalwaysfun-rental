@@ -140,6 +140,22 @@ export default async function CustomerQuotePage({
     label: String(r.label),
   }));
 
+  // Brand logo for the page header — checks tenant.branding.logo_url first,
+  // then falls back to site_settings.logo_url (some tenants store it there).
+  const { getTenantInfo } = await import("@/lib/tenant/business");
+  const tenant = await getTenantInfo();
+  const tenantBranding = (tenant.branding as Record<string, any>) || {};
+  let logoUrl: string = String(tenantBranding.logo_url || "");
+  if (!logoUrl) {
+    const { data: logoRow } = await supabase
+      .from("site_settings")
+      .select("value")
+      .eq("key", "logo_url")
+      .maybeSingle();
+    logoUrl = String(logoRow?.value || "");
+  }
+  const brandName = tenant.business_name || "Rental Management";
+
   return (
     <QuoteCustomerView
       quote={quote}
@@ -153,6 +169,8 @@ export default async function CustomerQuotePage({
       surfaceOptions={surfaceOptions}
       availabilityError={availabilityError}
       finalAmountCents={finalAmountCents}
+      logoUrl={logoUrl}
+      brandName={brandName}
     />
   );
 }

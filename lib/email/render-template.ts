@@ -65,6 +65,7 @@ interface WrapperBrand {
   name: string;
   phone?: string;
   email?: string;
+  logoUrl?: string;
   primaryColor: string;
   accentColor: string;
 }
@@ -75,6 +76,7 @@ function brandForWrapper(t: TenantInfo): WrapperBrand {
     name: b.name,
     phone: b.phone,
     email: b.email,
+    logoUrl: b.logoUrl,
     primaryColor: b.primaryColor || "#1a1a6e",
     accentColor: b.accentColor || "#FFD700",
   };
@@ -111,6 +113,7 @@ ${preheader ? `<div style="display:none;font-size:1px;line-height:1px;max-height
       <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="600" style="max-width:600px;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.05);">
         <tr>
           <td style="background:${brand.primaryColor};padding:24px 32px;text-align:center;">
+            ${brand.logoUrl ? `<img src="${escapeHtml(brand.logoUrl)}" alt="${escapeHtml(brand.name)}" style="display:block;max-width:160px;max-height:60px;height:auto;margin:0 auto 12px auto;" />` : ""}
             <div style="display:inline-block;background:${brand.accentColor};color:${brand.primaryColor};font-size:10px;letter-spacing:2px;font-weight:bold;padding:4px 10px;border-radius:4px;">${escapeHtml(nameUpper)}</div>
             <h1 style="color:#ffffff;font-size:22px;margin:8px 0 0 0;font-weight:bold;">${escapeHtml(title)}</h1>
           </td>
