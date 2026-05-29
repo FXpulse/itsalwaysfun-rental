@@ -16,6 +16,17 @@ export async function middleware(request: NextRequest) {
 
   const tenant = await resolveTenantByHostname(hostname);
 
+  // /free-tools/* only lives on the marketing apex. If a tenant subdomain or
+  // custom domain hits these URLs, send them to the apex so they don't get a
+  // tenant-branded version of the lead-magnet pages.
+  if (
+    request.nextUrl.pathname.startsWith("/free-tools") &&
+    tenant.resolved_via !== "marketing"
+  ) {
+    const apex = "https://getrentalflow.com" + request.nextUrl.pathname + request.nextUrl.search;
+    return NextResponse.redirect(apex);
+  }
+
   // Build forwarded headers that server components / API routes can read
   // via headers() — these flow through Next.js request context.
   const requestHeaders = new Headers(request.headers);
