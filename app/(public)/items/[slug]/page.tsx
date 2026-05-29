@@ -41,7 +41,11 @@ export async function generateMetadata({
   const description = product.description
     ? truncate(product.description, 155)
     : `Rent ${product.name} starting at ${formatCurrency(product.price_per_day)}/day. Delivery, setup, and takedown included. Book online today.`;
-  const image = product.image_url || settings.logo_url || `${baseUrl}/og-default.png`;
+  const image =
+    product.image_url ||
+    settings.seo_og_image_url ||
+    settings.logo_url ||
+    `${baseUrl}/og-default.png`;
 
   return {
     title,

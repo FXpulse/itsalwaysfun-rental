@@ -45,6 +45,13 @@ export interface SiteSettings {
   site_font_family: string;
   site_font_google_url: string;
   site_font_self_hosted_url: string;
+  // SEO — editable from /admin/site (see supabase/seo_settings.sql)
+  seo_default_title: string;
+  seo_default_description: string;
+  seo_og_image_url: string;
+  seo_google_verification: string;
+  seo_bing_verification: string;
+  google_business_profile_url: string;
 }
 
 // Sensible defaults (used if DB query fails or key missing)
@@ -95,6 +102,12 @@ const DEFAULTS: SiteSettings = {
   site_font_google_url:
     "https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&display=swap",
   site_font_self_hosted_url: "",
+  seo_default_title: "",
+  seo_default_description: "",
+  seo_og_image_url: "",
+  seo_google_verification: "",
+  seo_bing_verification: "",
+  google_business_profile_url: "",
 };
 
 export async function getSiteSettings(): Promise<SiteSettings> {

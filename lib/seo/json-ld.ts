@@ -18,7 +18,11 @@ export function localBusinessJsonLd({ settings, baseUrl }: LocalBusinessInput) {
   const phoneE164 = toE164(settings.business_phone);
   const address = parseAddress(settings.business_address);
   const hours = parseHours(settings.business_hours);
-  const sameAs = [settings.instagram_url, settings.facebook_url].filter(Boolean);
+  const sameAs = [
+    settings.instagram_url,
+    settings.facebook_url,
+    settings.google_business_profile_url,
+  ].filter(Boolean);
 
   return {
     "@context": "https://schema.org",

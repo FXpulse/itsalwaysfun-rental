@@ -21,11 +21,16 @@ export async function generateMetadata(): Promise<Metadata> {
   const baseUrl = `${proto}://${host}`;
 
   const city = settings.business_address.split(",")[1]?.trim() || "your area";
-  const title = `${settings.business_name} — Bounce Houses & Party Rentals in ${city}`;
+  // Admin override > auto-generated default
+  const title =
+    settings.seo_default_title ||
+    `${settings.business_name} — Bounce Houses & Party Rentals in ${city}`;
   const description =
+    settings.seo_default_description ||
     settings.footer_description ||
     `${settings.hero_subtitle} Serving ${settings.service_area}.`;
-  const ogImage = settings.logo_url || `${baseUrl}/og-default.png`;
+  const ogImage =
+    settings.seo_og_image_url || settings.logo_url || `${baseUrl}/og-default.png`;
 
   return {
     title,

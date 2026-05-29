@@ -23,6 +23,7 @@ const CATEGORY_LABELS: Record<string, string> = {
   appearance: "Appearance — colors & fonts (per zone)",
   loyalty: "Loyalty & referrals (points + commission)",
   tax: "Sales tax / IVA / VAT",
+  seo: "SEO — Google + Bing search engines",
 };
 
 // Keys that should render as a true/false dropdown instead of a free-text input
@@ -34,6 +35,7 @@ const LONG_TEXT_KEYS = new Set([
   "footer_description",
   "service_area",
   "important_tips",
+  "seo_default_description",
 ]);
 
 // Font family options — for per-zone overrides (full CSS values with fallback).

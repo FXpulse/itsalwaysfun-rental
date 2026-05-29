@@ -11,10 +11,12 @@ import {
   Check,
   ChevronRight,
   Sparkles,
+  Search,
 } from "lucide-react";
 import {
   saveOnboardingBusinessInfo,
   createOnboardingProduct,
+  saveOnboardingSeo,
   finishOnboarding,
   skipOnboarding,
 } from "./actions";
@@ -34,6 +36,7 @@ const STEPS = [
   { id: 2, label: "Logo", icon: ImageIcon },
   { id: 3, label: "First rental item", icon: Package },
   { id: 4, label: "Connect Stripe", icon: CreditCard },
+  { id: 5, label: "Show up on Google", icon: Search },
 ] as const;
 
 export function OnboardingWizard({
@@ -66,6 +69,10 @@ export function OnboardingWizard({
   const [productDesc, setProductDesc] = useState("");
   const [productPrice, setProductPrice] = useState("150");
   const [productStock, setProductStock] = useState("1");
+
+  // Step 5 form state
+  const [gbpUrl, setGbpUrl] = useState("");
+  const [gscCode, setGscCode] = useState("");
 
   function markSaved(s: number) {
     setSavedSteps((prev) => new Set(prev).add(s));
@@ -111,6 +118,23 @@ export function OnboardingWizard({
 
   function handleFinish() {
     startTransition(async () => {
+      await finishOnboarding();
+    });
+  }
+
+  function handleSaveSeo(e: React.FormEvent) {
+    e.preventDefault();
+    const fd = new FormData();
+    fd.set("google_business_profile_url", gbpUrl);
+    fd.set("seo_google_verification", gscCode);
+    startTransition(async () => {
+      const res = await saveOnboardingSeo(fd);
+      if (res?.error) {
+        toast.error(res.error);
+        return;
+      }
+      toast.success("SEO settings saved");
+      markSaved(5);
       await finishOnboarding();
     });
   }
@@ -421,14 +445,112 @@ export function OnboardingWizard({
                 </button>
                 <button
                   type="button"
-                  onClick={handleFinish}
+                  onClick={() => setStep(5)}
                   disabled={pending}
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-6 py-2 rounded inline-flex items-center gap-1 disabled:opacity-50"
+                  className="btn-primary inline-flex items-center gap-1"
                 >
-                  {pending ? "Finishing..." : "Finish setup"} <Check className="h-4 w-4" />
+                  Next: Get found on Google <ChevronRight className="h-4 w-4" />
                 </button>
               </div>
             </div>
+          )}
+
+          {step === 5 && (
+            <form onSubmit={handleSaveSeo} className="space-y-4">
+              <div>
+                <h2 className="text-xl font-bold text-brand-navy mb-1">Show up on Google (optional)</h2>
+                <p className="text-sm text-slate-500 mb-4">
+                  These two links help customers find you when they search. Both optional — you can finish without and add them later from <code className="text-xs bg-slate-100 px-1 rounded">/admin/site</code> → SEO.
+                </p>
+              </div>
+
+              <div className="bg-blue-50 border border-blue-200 rounded p-4 text-sm space-y-2">
+                <p className="font-semibold text-blue-900">1. Google Business Profile (most important)</p>
+                <p className="text-blue-800">
+                  Free Google listing that puts you on Google Maps and the "near me" results. Takes ~5 min to set up — Google mails a postcard to verify your address (5-14 days).
+                </p>
+                <a
+                  href="https://business.google.com"
+                  target="_blank"
+                  rel="noopener"
+                  className="inline-block text-blue-700 underline hover:text-blue-900"
+                >
+                  Open business.google.com →
+                </a>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  Your Google Business Profile URL
+                </label>
+                <input
+                  type="url"
+                  className="input"
+                  value={gbpUrl}
+                  onChange={(e) => setGbpUrl(e.target.value)}
+                  disabled={pending}
+                  placeholder="https://g.page/your-business or https://maps.google.com/..."
+                />
+                <p className="text-xs text-slate-500 mt-1">
+                  Find it in your GBP dashboard under "Share profile". Leave blank if you don't have one yet.
+                </p>
+              </div>
+
+              <div className="bg-emerald-50 border border-emerald-200 rounded p-4 text-sm space-y-2">
+                <p className="font-semibold text-emerald-900">2. Google Search Console verification (optional)</p>
+                <p className="text-emerald-800">
+                  Lets you see what people search before clicking on your site. Add your domain at Google Search Console, choose "HTML tag" verification, and paste the code below.
+                </p>
+                <a
+                  href="https://search.google.com/search-console"
+                  target="_blank"
+                  rel="noopener"
+                  className="inline-block text-emerald-700 underline hover:text-emerald-900"
+                >
+                  Open Search Console →
+                </a>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  Verification code or full meta tag
+                </label>
+                <input
+                  type="text"
+                  className="input font-mono text-sm"
+                  value={gscCode}
+                  onChange={(e) => setGscCode(e.target.value)}
+                  disabled={pending}
+                  placeholder='Paste the whole <meta name="google-site-verification" content="..."> OR just the content value'
+                />
+                <p className="text-xs text-slate-500 mt-1">
+                  We auto-strip the wrapper if you paste the whole &lt;meta&gt; tag.
+                </p>
+              </div>
+
+              <div className="flex items-center justify-between pt-3 border-t border-slate-100 mt-4">
+                <button type="button" onClick={() => setStep(4)} className="text-sm text-slate-500 hover:underline">
+                  ← Back
+                </button>
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={handleFinish}
+                    disabled={pending}
+                    className="text-sm text-slate-500 hover:underline"
+                  >
+                    Skip — finish setup
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={pending}
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-6 py-2 rounded inline-flex items-center gap-1 disabled:opacity-50"
+                  >
+                    {pending ? "Saving..." : "Save & finish"} <Check className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            </form>
           )}
         </div>
 

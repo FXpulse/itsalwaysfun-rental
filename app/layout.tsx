@@ -3,6 +3,7 @@ import "./globals.css";
 import { Toaster } from "sonner";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentTenant } from "@/lib/tenant/server";
+import { getSiteSettings } from "@/lib/site-settings";
 
 // Tenant-aware metadata: each tenant host (custom domain or *.getrentalflow.com)
 // sees THEIR business name as the tab title, and THEIR uploaded logo as the
@@ -54,6 +55,18 @@ export async function generateMetadata(): Promise<Metadata> {
   const primaryColor = (branding.primary_color as string | undefined) || "#1a1a6e";
   const iconUrl = logoUrl || generateInitialFaviconDataUri(name, primaryColor);
 
+  // Search-engine verification meta tags — emitted on every tenant page so
+  // Google Search Console + Bing Webmaster Tools stay verified even if
+  // page-level metadata changes. Empty values are not emitted.
+  const settings = await getSiteSettings();
+  const verification: Record<string, string> = {};
+  if (settings.seo_google_verification) {
+    verification["google-site-verification"] = settings.seo_google_verification;
+  }
+  if (settings.seo_bing_verification) {
+    verification["msvalidate.01"] = settings.seo_bing_verification;
+  }
+
   return {
     title: name,
     description: `${name} — book online, manage rentals.`,
@@ -63,6 +76,7 @@ export async function generateMetadata(): Promise<Metadata> {
       title: name,
     },
     icons: { icon: [{ url: iconUrl }], shortcut: iconUrl, apple: iconUrl },
+    other: Object.keys(verification).length > 0 ? verification : undefined,
   };
 }
 

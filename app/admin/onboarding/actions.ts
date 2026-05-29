@@ -126,6 +126,40 @@ export async function createOnboardingProduct(formData: FormData) {
   return { success: true };
 }
 
+const SeoInput = z.object({
+  google_business_profile_url: z.string().max(500).optional().nullable(),
+  seo_google_verification: z.string().max(200).optional().nullable(),
+});
+
+export async function saveOnboardingSeo(formData: FormData) {
+  await requireAdmin();
+  const parsed = SeoInput.safeParse({
+    google_business_profile_url:
+      String(formData.get("google_business_profile_url") || "").trim() || null,
+    seo_google_verification:
+      String(formData.get("seo_google_verification") || "").trim() || null,
+  });
+  if (!parsed.success) return { error: parsed.error.errors[0].message };
+
+  const scoped = createAdminClient();
+  const updates: { key: string; value: string }[] = [];
+  if (parsed.data.google_business_profile_url) {
+    updates.push({ key: "google_business_profile_url", value: parsed.data.google_business_profile_url });
+  }
+  if (parsed.data.seo_google_verification) {
+    // Strip wrapping <meta ...content="..."> if user pasted the full tag
+    const raw = parsed.data.seo_google_verification;
+    const m = raw.match(/content=["']([^"']+)["']/i);
+    updates.push({ key: "seo_google_verification", value: m ? m[1]! : raw });
+  }
+  for (const u of updates) {
+    await scoped
+      .from("site_settings")
+      .upsert({ key: u.key, value: u.value, category: "seo" }, { onConflict: "tenant_id,key" });
+  }
+  return { success: true };
+}
+
 export async function finishOnboarding() {
   const me = await requireAdmin();
   const tenantId = getCurrentTenantId();
