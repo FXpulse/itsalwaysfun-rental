@@ -1,3 +1,44 @@
+// Security headers applied to every response. Tuned to allow:
+//   - Stripe (js.stripe.com, m.stripe.com, hooks.stripe.com)
+//   - Supabase (*.supabase.co)
+//   - GoHighLevel chat widget (beta.leadconnectorhq.com, msgsndr.com)
+//   - Sentry (*.ingest.sentry.io)
+//   - Google Fonts (fonts.googleapis.com, fonts.gstatic.com)
+//
+// CSP uses 'unsafe-inline' for styles (required by Next.js + many libs) and
+// for scripts (required by Stripe.js inline init + Next.js hydration markers).
+// Strict-Transport-Security forces HTTPS-only access from supporting browsers.
+const SECURITY_HEADERS = [
+  {
+    key: "Strict-Transport-Security",
+    value: "max-age=63072000; includeSubDomains; preload",
+  },
+  { key: "X-Content-Type-Options", value: "nosniff" },
+  { key: "X-Frame-Options", value: "SAMEORIGIN" },
+  { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+  {
+    key: "Permissions-Policy",
+    value: "camera=(), microphone=(), geolocation=(self), payment=(self)",
+  },
+  {
+    key: "Content-Security-Policy",
+    value: [
+      "default-src 'self'",
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com https://m.stripe.com https://beta.leadconnectorhq.com https://msgsndr.com https://*.googletagmanager.com https://www.googletagmanager.com https://www.google-analytics.com",
+      "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+      "img-src 'self' data: blob: https: http:",
+      "font-src 'self' data: https://fonts.gstatic.com",
+      "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.stripe.com https://m.stripe.com https://*.ingest.sentry.io https://*.ingest.us.sentry.io https://beta.leadconnectorhq.com https://services.leadconnectorhq.com https://msgsndr.com wss://msgsndr.com https://www.google-analytics.com",
+      "frame-src 'self' https://js.stripe.com https://hooks.stripe.com https://beta.leadconnectorhq.com",
+      "frame-ancestors 'self'",
+      "base-uri 'self'",
+      "form-action 'self' https://*.stripe.com",
+      "object-src 'none'",
+      "upgrade-insecure-requests",
+    ].join("; "),
+  },
+];
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
@@ -8,6 +49,14 @@ const nextConfig = {
       { protocol: "https", hostname: "itsalwaysfun.net" },
       { protocol: "https", hostname: "files.sysers.com" },
     ],
+  },
+  async headers() {
+    return [
+      {
+        source: "/:path*",
+        headers: SECURITY_HEADERS,
+      },
+    ];
   },
 };
 
