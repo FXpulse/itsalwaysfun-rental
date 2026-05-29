@@ -1,3 +1,5 @@
+import type { Metadata } from "next";
+import { headers } from "next/headers";
 import Link from "next/link";
 import Image from "next/image";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -6,9 +8,52 @@ import { formatCurrency } from "@/lib/utils";
 import { Calendar, Sparkles, ArrowRight } from "lucide-react";
 import { HomeBanners } from "@/components/public/HomeBanners";
 import { ReviewsCarousel } from "@/components/public/ReviewsCarousel";
+import { localBusinessJsonLd } from "@/lib/seo/json-ld";
 import type { Product } from "@/types/database";
 
 export const revalidate = 60;
+
+export async function generateMetadata(): Promise<Metadata> {
+  const settings = await getSiteSettings();
+  const h = headers();
+  const host = h.get("host") || "itsalwaysfun.net";
+  const proto = h.get("x-forwarded-proto") || "https";
+  const baseUrl = `${proto}://${host}`;
+
+  const city = settings.business_address.split(",")[1]?.trim() || "your area";
+  const title = `${settings.business_name} — Bounce Houses & Party Rentals in ${city}`;
+  const description =
+    settings.footer_description ||
+    `${settings.hero_subtitle} Serving ${settings.service_area}.`;
+  const ogImage = settings.logo_url || `${baseUrl}/og-default.png`;
+
+  return {
+    title,
+    description,
+    metadataBase: new URL(baseUrl),
+    alternates: { canonical: "/" },
+    openGraph: {
+      title,
+      description,
+      url: baseUrl,
+      siteName: settings.business_name,
+      images: [{ url: ogImage, width: 1200, height: 630, alt: settings.business_name }],
+      locale: "en_US",
+      type: "website",
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+      images: [ogImage],
+    },
+    robots: {
+      index: true,
+      follow: true,
+      googleBot: { index: true, follow: true, "max-image-preview": "large" },
+    },
+  };
+}
 
 export default async function HomePage() {
   const supabase = createAdminClient();
@@ -113,8 +158,20 @@ export default async function HomePage() {
     ...(settings.trust_font_family && { fontFamily: settings.trust_font_family }),
   };
 
+  // LocalBusiness JSON-LD — Google reads this to populate local pack + maps
+  const h = headers();
+  const host = h.get("host") || "itsalwaysfun.net";
+  const proto = h.get("x-forwarded-proto") || "https";
+  const baseUrl = `${proto}://${host}`;
+  const jsonLd = localBusinessJsonLd({ settings, baseUrl });
+
   return (
     <div>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
+
       {/* Banner carousel (above hero, only if banners exist) */}
       {banners.length > 0 && <HomeBanners banners={banners} />}
 

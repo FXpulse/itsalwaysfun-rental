@@ -1,14 +1,75 @@
+import type { Metadata } from "next";
+import { headers } from "next/headers";
 import Link from "next/link";
 import Image from "next/image";
 import { notFound } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getSiteSettings } from "@/lib/site-settings";
 import { formatCurrency } from "@/lib/utils";
+import { productJsonLd } from "@/lib/seo/json-ld";
 import { Calendar, Maximize2, Zap, Users, ArrowLeft, ChevronRight } from "lucide-react";
 import type { Product } from "@/types/database";
 import { BookNowButton } from "./BookNowButton";
 import { ProductGallery, type GalleryPhoto } from "./ProductGallery";
 
 export const dynamic = "force-dynamic";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: { slug: string };
+}): Promise<Metadata> {
+  const supabase = createAdminClient();
+  const { data: product } = await supabase
+    .from("products")
+    .select("name, description, image_url, price_per_day")
+    .eq("slug", params.slug)
+    .eq("is_active", true)
+    .single();
+
+  if (!product) {
+    return { title: "Rental not found", robots: { index: false, follow: false } };
+  }
+
+  const settings = await getSiteSettings();
+  const h = headers();
+  const host = h.get("host") || "itsalwaysfun.net";
+  const proto = h.get("x-forwarded-proto") || "https";
+  const baseUrl = `${proto}://${host}`;
+
+  const title = `${product.name} Rental — ${settings.business_name}`;
+  const description = product.description
+    ? truncate(product.description, 155)
+    : `Rent ${product.name} starting at ${formatCurrency(product.price_per_day)}/day. Delivery, setup, and takedown included. Book online today.`;
+  const image = product.image_url || settings.logo_url || `${baseUrl}/og-default.png`;
+
+  return {
+    title,
+    description,
+    metadataBase: new URL(baseUrl),
+    alternates: { canonical: `/items/${params.slug}` },
+    openGraph: {
+      title,
+      description,
+      url: `${baseUrl}/items/${params.slug}`,
+      siteName: settings.business_name,
+      images: [{ url: image, width: 1200, height: 630, alt: product.name }],
+      type: "website",
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+      images: [image],
+    },
+    robots: { index: true, follow: true },
+  };
+}
+
+function truncate(s: string, n: number) {
+  if (s.length <= n) return s;
+  return s.slice(0, n - 1).trimEnd() + "…";
+}
 
 export default async function ItemDetailPage({
   params,
@@ -57,8 +118,28 @@ export default async function ItemDetailPage({
     }
   }
 
+  // Product JSON-LD — Google can render price + availability in search results
+  const h = headers();
+  const host = h.get("host") || "itsalwaysfun.net";
+  const proto = h.get("x-forwarded-proto") || "https";
+  const baseUrl = `${proto}://${host}`;
+  const settings = await getSiteSettings();
+  const jsonLd = productJsonLd({
+    name: p.name,
+    description: p.description,
+    image: p.image_url,
+    priceCents: p.price_per_day,
+    slug: p.slug,
+    baseUrl,
+    businessName: settings.business_name,
+  });
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       {/* Breadcrumb */}
       <nav className="text-sm text-slate-500 mb-4 flex items-center gap-1">
         <Link href="/" className="hover:text-brand-navy">
