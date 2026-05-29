@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
+import { loginAction } from "./actions";
 
 export function LoginForm({ businessName }: { businessName: string }) {
   const router = useRouter();
@@ -27,12 +28,11 @@ export function LoginForm({ businessName }: { businessName: string }) {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
-    const supabase = createClient();
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const res = await loginAction(email, password);
     setLoading(false);
 
-    if (error) {
-      toast.error(error.message);
+    if ("error" in res) {
+      toast.error(res.error);
       return;
     }
     toast.success("Welcome back!");
