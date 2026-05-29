@@ -8,6 +8,7 @@ import {
   fetchPaymentMethod,
   fetchInvoices,
   fetchUpcomingCharge,
+  fetchSubscriptionMeta,
   sumPaidThisYear,
 } from "@/lib/stripe/billing-data";
 import { BillingPanel } from "./BillingPanel";
@@ -31,14 +32,16 @@ export default async function BillingPage() {
   // Live data from Stripe — only if the tenant has a customer. Founder tier
   // and pre-subscription tenants skip these calls.
   const customerId = tenant?.stripe_customer_id || null;
-  const [paymentMethod, invoices, upcomingCharge] =
+  const subscriptionId = tenant?.stripe_subscription_id || null;
+  const [paymentMethod, invoices, upcomingCharge, subscriptionMeta] =
     customerId && tenant?.plan !== "founder"
       ? await Promise.all([
           fetchPaymentMethod(customerId),
           fetchInvoices(customerId, 12),
           fetchUpcomingCharge(customerId),
+          subscriptionId ? fetchSubscriptionMeta(subscriptionId) : Promise.resolve(null),
         ])
-      : [null, [], null];
+      : [null, [], null, null];
 
   const paidThisYearCents = sumPaidThisYear(invoices);
 
@@ -65,6 +68,7 @@ export default async function BillingPage() {
         paymentMethod={paymentMethod}
         invoices={invoices}
         upcomingCharge={upcomingCharge}
+        subscriptionMeta={subscriptionMeta}
         paidThisYearCents={paidThisYearCents}
       />
     </div>

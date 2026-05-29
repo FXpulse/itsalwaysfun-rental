@@ -35,6 +35,12 @@ export interface UpcomingCharge {
   next_payment_at: string | null;
 }
 
+export interface SubscriptionMeta {
+  cadence: "monthly" | "annual" | "unknown";
+  paused_until: string | null;
+  current_period_end: string | null;
+}
+
 /** Fetch the default payment method (card on file). */
 export async function fetchPaymentMethod(
   customerId: string,
@@ -120,6 +126,31 @@ export async function fetchUpcomingCharge(
     };
   } catch (e) {
     // No upcoming invoice when subscription is canceled / no sub — that's fine
+    return null;
+  }
+}
+
+/** Read cadence + pause info for a subscription. Returns null if the
+ *  subscription can't be fetched. */
+export async function fetchSubscriptionMeta(
+  subscriptionId: string,
+): Promise<SubscriptionMeta | null> {
+  try {
+    const stripe = getStripe();
+    const sub: any = await stripe.subscriptions.retrieve(subscriptionId);
+    const interval = sub.items?.data?.[0]?.price?.recurring?.interval;
+    const cadence: SubscriptionMeta["cadence"] =
+      interval === "year" ? "annual" : interval === "month" ? "monthly" : "unknown";
+    const resumesAt = sub.pause_collection?.resumes_at;
+    return {
+      cadence,
+      paused_until: resumesAt ? new Date(resumesAt * 1000).toISOString() : null,
+      current_period_end: sub.current_period_end
+        ? new Date(sub.current_period_end * 1000).toISOString()
+        : null,
+    };
+  } catch (e) {
+    console.error("[fetchSubscriptionMeta]", e);
     return null;
   }
 }

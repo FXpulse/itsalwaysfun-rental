@@ -13,14 +13,21 @@
 import { getStripe } from "./server";
 
 export type Tier = "starter" | "pro" | "enterprise";
+export type Cadence = "monthly" | "annual";
 
 export interface TierInfo {
   id: Tier;
   name: string;
   price_cents: number;
   price_id_env_var: string;
+  annual_price_cents?: number;
+  annual_price_id_env_var?: string;
   features: string[];
 }
+
+// $99/mo × 12 = $1188/yr. Annual at $990 = $82.50/mo effective = ~17% off.
+export const ANNUAL_PRICE_CENTS = 99000;
+export const ANNUAL_DISCOUNT_PCT = 17;
 
 // SINGLE-TIER pricing: $99/mo flat, every feature included.
 // Tier type union kept for forward-compat (if multi-tier ever returns).
@@ -30,6 +37,8 @@ export const TIERS: Record<Tier, TierInfo> = {
     name: "Pro",
     price_cents: 9900,
     price_id_env_var: "STRIPE_PRICE_PRO",
+    annual_price_cents: ANNUAL_PRICE_CENTS,
+    annual_price_id_env_var: "STRIPE_PRICE_PRO_ANNUAL",
     features: [
       "Unlimited bookings",
       "Online booking page + custom domain",
@@ -67,8 +76,16 @@ export const TIERS: Record<Tier, TierInfo> = {
 /** The only tier exposed in the public signup + billing UI. */
 export const ACTIVE_TIER: Tier = "pro";
 
-export function getPriceIdForTier(tier: Tier): string | null {
-  const envName = TIERS[tier]?.price_id_env_var;
+export function getPriceIdForTier(
+  tier: Tier,
+  cadence: Cadence = "monthly",
+): string | null {
+  const tierInfo = TIERS[tier];
+  if (!tierInfo) return null;
+  const envName =
+    cadence === "annual"
+      ? tierInfo.annual_price_id_env_var
+      : tierInfo.price_id_env_var;
   if (!envName) return null;
   const id = process.env[envName];
   return id || null;
@@ -101,15 +118,21 @@ export async function ensureCustomer(params: {
 export async function createSubscriptionCheckout(params: {
   customerId: string;
   tier: Tier;
+  cadence?: Cadence;
   successUrl: string;
   cancelUrl: string;
   trialDays?: number;
 }): Promise<string> {
   const stripe = getStripe();
-  const priceId = getPriceIdForTier(params.tier);
+  const cadence = params.cadence || "monthly";
+  const priceId = getPriceIdForTier(params.tier, cadence);
   if (!priceId) {
+    const envVar =
+      cadence === "annual"
+        ? TIERS[params.tier].annual_price_id_env_var
+        : TIERS[params.tier].price_id_env_var;
     throw new Error(
-      `Stripe Price for "${params.tier}" tier not configured. Set ${TIERS[params.tier].price_id_env_var} env var.`,
+      `Stripe Price for "${params.tier}" ${cadence} not configured. Set ${envVar} env var.`,
     );
   }
 
@@ -141,4 +164,56 @@ export async function createBillingPortal(params: {
     return_url: params.returnUrl,
   });
   return session.url;
+}
+
+/** Pause subscription billing for a number of months. Stripe stops generating
+ *  invoices until `resumes_at`, and the customer is not charged during the
+ *  pause. Useful for seasonal rental businesses (winter pause). */
+export async function pauseSubscription(params: {
+  subscriptionId: string;
+  months: number;
+}): Promise<{ paused_until: string }> {
+  const stripe = getStripe();
+  const resumesAt = new Date();
+  resumesAt.setMonth(resumesAt.getMonth() + params.months);
+  const resumesAtUnix = Math.floor(resumesAt.getTime() / 1000);
+
+  await stripe.subscriptions.update(params.subscriptionId, {
+    pause_collection: {
+      behavior: "void",
+      resumes_at: resumesAtUnix,
+    },
+  });
+
+  return { paused_until: resumesAt.toISOString() };
+}
+
+/** Resume a paused subscription immediately. */
+export async function resumeSubscription(params: {
+  subscriptionId: string;
+}): Promise<void> {
+  const stripe = getStripe();
+  await stripe.subscriptions.update(params.subscriptionId, {
+    pause_collection: "",
+  } as any);
+}
+
+/** Switch subscription cadence (monthly ↔ annual). Prorates the difference. */
+export async function switchSubscriptionCadence(params: {
+  subscriptionId: string;
+  newCadence: Cadence;
+  tier: Tier;
+}): Promise<void> {
+  const stripe = getStripe();
+  const newPriceId = getPriceIdForTier(params.tier, params.newCadence);
+  if (!newPriceId) {
+    throw new Error(`Price ID for ${params.tier} ${params.newCadence} not configured`);
+  }
+  const sub = await stripe.subscriptions.retrieve(params.subscriptionId);
+  const currentItemId = sub.items.data[0]?.id;
+  if (!currentItemId) throw new Error("Subscription has no items");
+  await stripe.subscriptions.update(params.subscriptionId, {
+    items: [{ id: currentItemId, price: newPriceId }],
+    proration_behavior: "create_prorations",
+  });
 }

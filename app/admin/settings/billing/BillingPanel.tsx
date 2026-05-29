@@ -1,6 +1,6 @@
 "use client";
 
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import {
   CheckCircle2,
@@ -13,13 +13,29 @@ import {
   Calendar,
   Download,
   TrendingUp,
+  Pause,
+  Play,
+  ArrowLeftRight,
 } from "lucide-react";
-import { startSubscriptionCheckout, openBillingPortal } from "./actions";
-import type { TierInfo, Tier } from "@/lib/stripe/billing";
+import {
+  startSubscriptionCheckout,
+  openBillingPortal,
+  pauseSubscriptionAction,
+  resumeSubscriptionAction,
+  switchCadenceAction,
+} from "./actions";
+import {
+  ANNUAL_PRICE_CENTS,
+  ANNUAL_DISCOUNT_PCT,
+  type TierInfo,
+  type Tier,
+  type Cadence,
+} from "@/lib/stripe/billing";
 import type {
   BillingPaymentMethod,
   BillingInvoice,
   UpcomingCharge,
+  SubscriptionMeta,
 } from "@/lib/stripe/billing-data";
 import { formatCurrency } from "@/lib/utils";
 
@@ -29,6 +45,7 @@ export function BillingPanel({
   paymentMethod,
   invoices = [],
   upcomingCharge,
+  subscriptionMeta,
   paidThisYearCents = 0,
 }: {
   tenant: {
@@ -43,18 +60,63 @@ export function BillingPanel({
   paymentMethod?: BillingPaymentMethod | null;
   invoices?: BillingInvoice[];
   upcomingCharge?: UpcomingCharge | null;
+  subscriptionMeta?: SubscriptionMeta | null;
   paidThisYearCents?: number;
 }) {
   const [pending, startTransition] = useTransition();
+  const [signupCadence, setSignupCadence] = useState<Cadence>("monthly");
 
-  function handleStart(tier: Tier) {
+  function handleStart(tier: Tier, cadence: Cadence = signupCadence) {
     startTransition(async () => {
-      const r = await startSubscriptionCheckout(tier);
+      const r = await startSubscriptionCheckout(tier, cadence);
       if (r.error) {
         toast.error(r.error);
         return;
       }
       if (r.url) window.location.href = r.url;
+    });
+  }
+
+  function handlePause(months: 1 | 3 | 6) {
+    if (!confirm(`Pause billing for ${months} month${months > 1 ? "s" : ""}? You won't be charged during the pause and Stripe auto-resumes on the date shown.`)) return;
+    startTransition(async () => {
+      const r = await pauseSubscriptionAction(months);
+      if (r.error) {
+        toast.error(r.error);
+        return;
+      }
+      toast.success(`Paused until ${new Date(r.paused_until!).toLocaleDateString()}`);
+      window.location.reload();
+    });
+  }
+
+  function handleResume() {
+    if (!confirm("Resume billing now? You'll be charged on the next regular cycle.")) return;
+    startTransition(async () => {
+      const r = await resumeSubscriptionAction();
+      if (r.error) {
+        toast.error(r.error);
+        return;
+      }
+      toast.success("Subscription resumed");
+      window.location.reload();
+    });
+  }
+
+  function handleSwitchCadence(newCadence: Cadence) {
+    const yearly = formatCurrency(ANNUAL_PRICE_CENTS);
+    const msg = newCadence === "annual"
+      ? `Switch to annual ($${ANNUAL_PRICE_CENTS / 100}/yr, ${ANNUAL_DISCOUNT_PCT}% off)? Stripe will prorate the difference on your next invoice.`
+      : "Switch back to monthly ($99/mo)? Stripe will prorate the difference.";
+    if (!confirm(msg)) return;
+    startTransition(async () => {
+      const r = await switchCadenceAction(newCadence);
+      if (r.error) {
+        toast.error(r.error);
+        return;
+      }
+      toast.success(`Switched to ${newCadence}`);
+      window.location.reload();
     });
   }
 
@@ -102,8 +164,43 @@ export function BillingPanel({
 
     const currentTier = tiers.find((t) => t.id === tenant.plan);
 
+    const isPaused = !!subscriptionMeta?.paused_until;
+    const cadence = subscriptionMeta?.cadence;
+
     return (
       <div className="space-y-6">
+        {/* Paused banner — only when collection is paused */}
+        {isPaused && (
+          <div className="card bg-violet-50 border-2 border-violet-300">
+            <div className="flex items-start justify-between gap-3 flex-wrap">
+              <div className="flex items-start gap-3">
+                <Pause className="h-6 w-6 text-violet-700 flex-shrink-0" />
+                <div>
+                  <div className="font-bold text-violet-900">Subscription paused</div>
+                  <p className="text-sm text-violet-800 mt-1">
+                    Billing resumes automatically on{" "}
+                    <strong>
+                      {new Date(subscriptionMeta!.paused_until!).toLocaleDateString("en-US", {
+                        month: "long",
+                        day: "numeric",
+                        year: "numeric",
+                      })}
+                    </strong>
+                    . You're not being charged during the pause.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={handleResume}
+                disabled={pending}
+                className="bg-violet-700 hover:bg-violet-800 text-white text-sm font-semibold px-3 py-1.5 rounded inline-flex items-center gap-1"
+              >
+                <Play className="h-3 w-3" /> Resume now
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Current subscription card */}
         <div className={`card border-2 ${statusVisual.bg}`}>
           <div className="flex items-start justify-between gap-3">
@@ -112,6 +209,11 @@ export function BillingPanel({
               <div>
                 <div className={`font-bold capitalize ${statusVisual.text}`}>
                   {currentTier?.name || tenant.plan} — {tenant.subscription_status}
+                  {cadence && cadence !== "unknown" && (
+                    <span className="ml-2 text-xs font-normal text-slate-600">
+                      ({cadence === "annual" ? "Annual" : "Monthly"})
+                    </span>
+                  )}
                 </div>
                 {tenant.current_period_end && (
                   <p className="text-xs text-slate-600 mt-1">
@@ -135,6 +237,84 @@ export function BillingPanel({
             </button>
           </div>
         </div>
+
+        {/* Quick actions: switch cadence + pause — hidden when paused */}
+        {!isPaused && tenant.subscription_status === "active" && (
+          <div className="card border border-slate-200">
+            <h3 className="text-xs uppercase tracking-wider text-slate-500 mb-3">
+              Subscription options
+            </h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* Switch cadence */}
+              {cadence === "monthly" && (
+                <button
+                  onClick={() => handleSwitchCadence("annual")}
+                  disabled={pending}
+                  className="border-2 border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-left p-3 rounded transition disabled:opacity-50"
+                >
+                  <div className="flex items-center gap-2 text-emerald-900 font-semibold text-sm">
+                    <ArrowLeftRight className="h-4 w-4" />
+                    Switch to annual
+                  </div>
+                  <p className="text-xs text-emerald-800 mt-1">
+                    Save {ANNUAL_DISCOUNT_PCT}% — pay ${ANNUAL_PRICE_CENTS / 100}/yr (${(ANNUAL_PRICE_CENTS / 1200).toFixed(2)}/mo effective)
+                  </p>
+                </button>
+              )}
+              {cadence === "annual" && (
+                <button
+                  onClick={() => handleSwitchCadence("monthly")}
+                  disabled={pending}
+                  className="border border-slate-300 hover:bg-slate-50 text-left p-3 rounded transition disabled:opacity-50"
+                >
+                  <div className="flex items-center gap-2 text-slate-700 font-semibold text-sm">
+                    <ArrowLeftRight className="h-4 w-4" />
+                    Switch to monthly
+                  </div>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Pay $99/mo. You lose the annual discount.
+                  </p>
+                </button>
+              )}
+
+              {/* Pause subscription */}
+              <details className="border border-slate-300 hover:bg-slate-50 rounded">
+                <summary className="cursor-pointer p-3 list-none">
+                  <div className="flex items-center gap-2 text-slate-700 font-semibold text-sm">
+                    <Pause className="h-4 w-4" />
+                    Pause subscription (off-season)
+                  </div>
+                  <p className="text-xs text-slate-500 mt-1">
+                    No charges during pause — Stripe auto-resumes.
+                  </p>
+                </summary>
+                <div className="px-3 pb-3 flex gap-2 flex-wrap">
+                  <button
+                    onClick={() => handlePause(1)}
+                    disabled={pending}
+                    className="text-xs border border-slate-300 px-2 py-1 rounded hover:bg-white"
+                  >
+                    1 month
+                  </button>
+                  <button
+                    onClick={() => handlePause(3)}
+                    disabled={pending}
+                    className="text-xs border border-slate-300 px-2 py-1 rounded hover:bg-white"
+                  >
+                    3 months
+                  </button>
+                  <button
+                    onClick={() => handlePause(6)}
+                    disabled={pending}
+                    className="text-xs border border-slate-300 px-2 py-1 rounded hover:bg-white"
+                  >
+                    6 months
+                  </button>
+                </div>
+              </details>
+            </div>
+          </div>
+        )}
 
         {/* Upcoming charge + Paid this year — 2 mini cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -327,15 +507,58 @@ export function BillingPanel({
 
   // ─── No subscription — show the single $99 tier ─────────────────────
   const proTier = tiers.find((t) => t.id === "pro")!;
+  const annualMonthlyEffective = ANNUAL_PRICE_CENTS / 1200;
   return (
     <div className="card border-2 border-brand-navy shadow-lg max-w-2xl">
       <div className="inline-block bg-brand-yellow text-brand-navy text-[10px] uppercase tracking-widest font-bold px-2 py-0.5 rounded mb-2">
         Everything included
       </div>
       <h3 className="text-xl font-bold text-brand-navy">RentalFlow</h3>
-      <div className="my-3">
-        <span className="text-5xl font-bold">${proTier.price_cents / 100}</span>
-        <span className="text-base text-slate-500">/mo</span>
+
+      {/* Cadence toggle */}
+      <div className="inline-flex border border-slate-200 rounded-lg p-1 mt-3 mb-3 bg-slate-50">
+        <button
+          type="button"
+          onClick={() => setSignupCadence("monthly")}
+          className={`px-3 py-1.5 rounded text-xs font-semibold transition ${
+            signupCadence === "monthly"
+              ? "bg-white text-brand-navy shadow-sm"
+              : "text-slate-500 hover:text-slate-700"
+          }`}
+        >
+          Monthly
+        </button>
+        <button
+          type="button"
+          onClick={() => setSignupCadence("annual")}
+          className={`px-3 py-1.5 rounded text-xs font-semibold transition relative ${
+            signupCadence === "annual"
+              ? "bg-white text-brand-navy shadow-sm"
+              : "text-slate-500 hover:text-slate-700"
+          }`}
+        >
+          Annual
+          <span className="ml-1 bg-emerald-500 text-white text-[9px] font-bold px-1 py-0.5 rounded">
+            -{ANNUAL_DISCOUNT_PCT}%
+          </span>
+        </button>
+      </div>
+
+      <div className="my-2">
+        {signupCadence === "monthly" ? (
+          <>
+            <span className="text-5xl font-bold">${proTier.price_cents / 100}</span>
+            <span className="text-base text-slate-500">/mo</span>
+          </>
+        ) : (
+          <>
+            <span className="text-5xl font-bold">${ANNUAL_PRICE_CENTS / 100}</span>
+            <span className="text-base text-slate-500">/yr</span>
+            <div className="text-xs text-emerald-700 font-medium mt-1">
+              ${annualMonthlyEffective.toFixed(2)}/mo effective · save ${(proTier.price_cents * 12 - ANNUAL_PRICE_CENTS) / 100}/year
+            </div>
+          </>
+        )}
       </div>
       <p className="text-sm text-slate-600 mb-4">
         Replaces $300/mo competitors. No tiers, no transaction fees, no upsells.
@@ -350,7 +573,7 @@ export function BillingPanel({
         ))}
       </ul>
       <button
-        onClick={() => handleStart(proTier.id)}
+        onClick={() => handleStart(proTier.id, signupCadence)}
         disabled={pending}
         className="btn-primary w-full text-lg py-3"
       >
