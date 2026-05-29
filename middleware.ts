@@ -59,6 +59,13 @@ export async function middleware(request: NextRequest) {
         request: { headers: requestHeaders },
       });
     }
+    // Free-tools landings live under app/marketing/free-tools/* — rewrite
+    // the public URL (/free-tools/*) to the actual file route.
+    if (path.startsWith("/free-tools")) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/marketing" + path;
+      return NextResponse.rewrite(url, { request: { headers: requestHeaders } });
+    }
     if (path.startsWith("/admin")) {
       const url = request.nextUrl.clone();
       url.pathname = "/superadmin/login";
