@@ -8,6 +8,7 @@ import {
   XCircle,
   Pause,
   ExternalLink,
+  Mail,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -102,6 +103,12 @@ export default async function SuperadminTenantsPage() {
           </p>
         </div>
         <div className="flex items-center gap-3">
+          <Link
+            href="/superadmin/email"
+            className="text-sm text-slate-600 hover:text-brand-navy inline-flex items-center gap-1"
+          >
+            <Mail className="h-4 w-4" /> Email
+          </Link>
           <Link
             href="/superadmin/setup"
             className="text-sm text-slate-600 hover:text-brand-navy inline-flex items-center gap-1"
