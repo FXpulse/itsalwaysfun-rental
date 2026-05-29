@@ -6,7 +6,7 @@ import { z } from "zod";
 import { headers } from "next/headers";
 import * as Sentry from "@sentry/nextjs";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { createClient } from "@/lib/supabase/server";
+import { getSuperadminUser } from "@/lib/auth/superadmin";
 import { rateLimit } from "@/lib/rate-limit";
 import { smtpSend } from "@/lib/email/smtp-client";
 import { ImapClient } from "@/lib/email/imap-client";
@@ -24,13 +24,8 @@ const Body = z.object({
 export const dynamic = "force-dynamic";
 
 async function requireSuperadmin() {
-  const supabase = createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user?.email) throw new Error("Unauthorized");
-  const admin = createAdminClient({ unscoped: true });
-  const { data: rec } = await admin.from("user_roles")
-    .select("role").eq("user_id", user.id).maybeSingle();
-  if (rec?.role !== "superadmin") throw new Error("Unauthorized");
+  const user = await getSuperadminUser();
+  if (!user) throw new Error("Unauthorized");
   return user;
 }
 

@@ -1,15 +1,15 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Mail, Plus, AlertTriangle, CheckCircle2 } from "lucide-react";
-import { getCurrentUserRole } from "@/lib/auth/roles";
+import { getSuperadminUser } from "@/lib/auth/superadmin";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { EmailAccount } from "@/lib/email/types";
 
 export const dynamic = "force-dynamic";
 
 export default async function AccountsPage() {
-  const me = await getCurrentUserRole();
-  if (!me || me.role !== "superadmin") redirect("/superadmin/login");
+  const me = await getSuperadminUser();
+  if (!me) redirect("/superadmin/login?error=not_superadmin");
 
   const supabase = createAdminClient({ unscoped: true });
   const { data: accounts } = await supabase
