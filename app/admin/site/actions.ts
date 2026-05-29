@@ -21,7 +21,14 @@ export async function updateSiteSettings(formData: FormData) {
   const updates: { key: string; value: string }[] = [];
   formData.forEach((value, key) => {
     if (typeof value === "string") {
-      updates.push({ key, value });
+      let cleaned = value;
+      // Auto-extract content="..." for verification meta tags so admins can
+      // paste the whole <meta ... /> snippet they copied from Google/Bing.
+      if (key === "seo_google_verification" || key === "seo_bing_verification") {
+        const m = value.match(/content=["']([^"']+)["']/i);
+        if (m) cleaned = m[1]!;
+      }
+      updates.push({ key, value: cleaned });
     }
   });
 
