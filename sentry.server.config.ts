@@ -2,6 +2,7 @@
 // Captures: unhandled exceptions in API routes, server actions, server components.
 
 import * as Sentry from "@sentry/nextjs";
+import { scrubSentryEvent } from "@/lib/sentry/scrub-pii";
 
 const DSN = process.env.SENTRY_DSN || process.env.NEXT_PUBLIC_SENTRY_DSN;
 
@@ -13,5 +14,9 @@ if (DSN) {
     environment: process.env.VERCEL_ENV || process.env.NODE_ENV || "development",
     debug: false,
     sendDefaultPii: false,
+    beforeSend: scrubSentryEvent,
+    beforeBreadcrumb(breadcrumb) {
+      return scrubSentryEvent(breadcrumb);
+    },
   });
 }

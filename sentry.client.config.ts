@@ -3,6 +3,7 @@
 // React error boundaries, network errors.
 
 import * as Sentry from "@sentry/nextjs";
+import { scrubSentryEvent } from "@/lib/sentry/scrub-pii";
 
 const DSN = process.env.NEXT_PUBLIC_SENTRY_DSN;
 
@@ -21,6 +22,11 @@ if (DSN) {
     debug: false,
     // Don't send PII by default — Sentry can scrub but we don't need raw user emails in error reports.
     sendDefaultPii: false,
+    // PII scrubber for error messages, breadcrumbs, request data
+    beforeSend: scrubSentryEvent,
+    beforeBreadcrumb(breadcrumb) {
+      return scrubSentryEvent(breadcrumb);
+    },
     // Ignore noisy errors we can't act on
     ignoreErrors: [
       // Browser extensions
