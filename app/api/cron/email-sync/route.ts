@@ -100,6 +100,7 @@ async function syncOneAccount(supabase: any, account: EmailAccount) {
   const imap = new ImapClient(account);
   let foldersSynced = 0;
   let messagesFetched = 0;
+  const folderDetails: Array<{ path: string; exists: number; sinceUid: number; fetched: number }> = [];
   try {
     await imap.connect();
 
@@ -123,8 +124,15 @@ async function syncOneAccount(supabase: any, account: EmailAccount) {
     // 3. For each folder, fetch new UIDs
     for (const folder of (dbFolders as EmailFolder[]) || []) {
       const sinceUid = uidMap[folder.path] || 0;
+      const exists = await imap.folderMessageCount(folder.path);
       const newMessages = await imap.fetchSinceUid(folder.path, sinceUid);
       foldersSynced++;
+      folderDetails.push({
+        path: folder.path,
+        exists,
+        sinceUid,
+        fetched: newMessages.length,
+      });
       if (newMessages.length === 0) continue;
 
       let maxUid = sinceUid;
@@ -196,7 +204,7 @@ async function syncOneAccount(supabase: any, account: EmailAccount) {
       last_synced_uid_per_folder: uidMap,
     }).eq("id", account.id);
 
-    return { foldersSynced, messagesFetched };
+    return { foldersSynced, messagesFetched, folderDetails };
   } finally {
     await imap.close();
   }

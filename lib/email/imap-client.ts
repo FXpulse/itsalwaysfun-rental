@@ -76,14 +76,23 @@ export class ImapClient {
       }
       return out;
     } catch (e: any) {
-      // Some servers reject the messageset even when exists > 0 if sinceUid
-      // is past the last UID. Treat that as "no new messages" rather than
-      // a fatal error.
       const txt = String(e?.responseText || e?.message || "");
       if (/invalid messageset/i.test(txt)) {
         return [];
       }
       throw e;
+    } finally {
+      lock.release();
+    }
+  }
+
+  /** Number of messages currently in a folder. Lightweight — opens + reads
+   *  mailbox.exists, then closes. */
+  async folderMessageCount(folderPath: string): Promise<number> {
+    const lock = await this.flow.getMailboxLock(folderPath);
+    try {
+      const mailbox: any = (this.flow as any).mailbox;
+      return typeof mailbox?.exists === "number" ? mailbox.exists : 0;
     } finally {
       lock.release();
     }
