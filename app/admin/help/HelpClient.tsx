@@ -28,6 +28,8 @@ import {
   CalendarCheck as CalendarCheckIcon,
   Calculator,
   Receipt,
+  Key,
+  Calendar as CalendarIcon,
 } from "lucide-react";
 
 interface Section {
@@ -2162,6 +2164,95 @@ export function HelpClient() {
             </ol>
             Until you run all three, <code>/admin/overhead</code> and booking
             detail pages will throw errors.
+          </p>
+        </div>
+      ),
+    },
+    {
+      id: "api-keys",
+      title: "API keys — integrate with Zapier, Make, your back-office",
+      icon: Key,
+      content: (
+        <div className="space-y-3 text-sm">
+          <p>
+            Generate API tokens to read your data from external tools.
+            Manage at <code>/admin/api-keys</code>.
+          </p>
+          <p className="font-semibold">Available endpoints (GET only, JSON):</p>
+          <ul className="list-disc pl-5 space-y-1 text-xs">
+            <li><code>/api/v1/bookings</code> — list bookings. Query: <code>?limit=50&amp;since=2026-01-01&amp;status=confirmed</code></li>
+            <li><code>/api/v1/customers</code> — list customer profiles</li>
+            <li><code>/api/v1/products</code> — list catalog products</li>
+          </ul>
+          <p className="font-semibold">Quick start:</p>
+          <pre className="bg-slate-900 text-emerald-300 text-xs p-3 rounded overflow-x-auto">
+{`curl https://getrentalflow.com/api/v1/bookings \\
+  -H "Authorization: Bearer rfk_..."`}
+          </pre>
+          <p className="font-semibold">Scopes:</p>
+          <ul className="list-disc pl-5 text-xs space-y-1">
+            <li><code>bookings:read</code> — read bookings</li>
+            <li><code>customers:read</code> — read customers</li>
+            <li><code>products:read</code> — read products</li>
+            <li><code>*</code> — read ALL current + future endpoints</li>
+          </ul>
+          <p className="bg-amber-50 border border-amber-200 rounded p-2 text-xs">
+            ⚠️ The full key (starting <code>rfk_</code>) is shown ONCE at
+            creation. Copy it immediately — we only store a hash. If lost,
+            revoke and create a new one.
+          </p>
+          <p className="font-semibold">Expiry options:</p>
+          <ul className="list-disc pl-5 text-xs space-y-1">
+            <li><strong>Never</strong> — default, persists until you revoke</li>
+            <li><strong>30d / 90d / 1y</strong> — auto-expires for security rotation</li>
+          </ul>
+          <p className="text-xs text-slate-500">
+            Each key tracks <code>last_used_at</code> + <code>last_used_ip</code>
+            automatically. Click any key in the list to see when it was last
+            called.
+          </p>
+        </div>
+      ),
+    },
+    {
+      id: "calendar-feed",
+      title: "Calendar ICS feed — sync bookings to Google Cal / Apple Cal",
+      icon: CalendarIcon,
+      content: (
+        <div className="space-y-3 text-sm">
+          <p>
+            Subscribe to your bookings calendar in any calendar app. Read-only
+            feed that auto-refreshes (every 1-24h depending on the calendar app).
+          </p>
+          <p className="font-semibold">Get your feed URL:</p>
+          <ul className="list-disc pl-5 text-xs space-y-1">
+            <li>Go to <code>/admin/settings</code> → scroll to <strong>Calendar feed</strong></li>
+            <li>Copy the secret URL (format: <code>https://getrentalflow.com/api/calendar/&lt;your-token&gt;.ics</code>)</li>
+            <li>Click <strong>Regenerate token</strong> if you ever need to revoke an existing subscription</li>
+          </ul>
+          <p className="font-semibold">Add to Google Calendar:</p>
+          <ol className="list-decimal pl-5 text-xs space-y-1">
+            <li>Open Google Calendar</li>
+            <li>Left sidebar: <strong>Other calendars → +  → From URL</strong></li>
+            <li>Paste your ICS feed URL → <strong>Add calendar</strong></li>
+            <li>Bookings appear within ~15 min, then sync hourly</li>
+          </ol>
+          <p className="font-semibold">Add to Apple Calendar (Mac):</p>
+          <ol className="list-decimal pl-5 text-xs space-y-1">
+            <li>Calendar app → <strong>File → New Calendar Subscription</strong></li>
+            <li>Paste your ICS URL → choose auto-refresh interval (1h recommended)</li>
+          </ol>
+          <p className="font-semibold">What's included per event:</p>
+          <ul className="list-disc pl-5 text-xs space-y-1">
+            <li>Event title: <code>Booking #&lt;id&gt; — &lt;Customer name&gt;</code></li>
+            <li>Time: delivery_time → pickup_time (or event_date if same-day)</li>
+            <li>Location: delivery address</li>
+            <li>Notes: products, total, customer phone</li>
+            <li>Status: cancelled bookings excluded from feed</li>
+          </ul>
+          <p className="bg-amber-50 border border-amber-200 rounded p-2 text-xs">
+            ⚠️ The URL contains a secret token. Anyone with the URL can view
+            your bookings. Don't share it publicly. Regenerate if exposed.
           </p>
         </div>
       ),

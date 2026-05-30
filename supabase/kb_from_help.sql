@@ -2034,6 +2034,102 @@ on conflict (slug) do update set
   updated_at = now();
 
 insert into kb_articles (slug, title, body_md, category, tags, is_published) values
+  ($kbf$help-api-keys$kbf$, $kbf$API keys — integrate with Zapier, Make, your back-office$kbf$, $kbf$Generate API tokens to read your data from external tools.
+Manage at `/admin/api-keys`.
+
+Available endpoints (GET only, JSON):
+
+- `/api/v1/bookings` — list bookings. Query: `?limit=50&since=2026-01-01&status=confirmed`
+
+- `/api/v1/customers` — list customer profiles
+
+- `/api/v1/products` — list catalog products
+
+Quick start:
+
+curl https://getrentalflow.com/api/v1/bookings \\
+-H "Authorization: Bearer rfk_..."
+</pre>
+<p>Scopes:
+
+- `bookings:read` — read bookings
+
+- `customers:read` — read customers
+
+- `products:read` — read products
+
+- `*` — read ALL current + future endpoints
+
+⚠️ The full key (starting `rfk_`) is shown ONCE at
+creation. Copy it immediately — we only store a hash. If lost,
+revoke and create a new one.
+
+Expiry options:
+
+- **Never** — default, persists until you revoke
+
+- **30d / 90d / 1y** — auto-expires for security rotation
+
+Each key tracks `last_used_at` + `last_used_ip`
+automatically. Click any key in the list to see when it was last
+called.$kbf$, $kbf$Setup$kbf$, array[$kbf$help$kbf$, $kbf$imported$kbf$], true)
+on conflict (slug) do update set
+  title = excluded.title,
+  body_md = excluded.body_md,
+  category = excluded.category,
+  tags = excluded.tags,
+  updated_at = now();
+
+insert into kb_articles (slug, title, body_md, category, tags, is_published) values
+  ($kbf$help-calendar-feed$kbf$, $kbf$Calendar ICS feed — sync bookings to Google Cal / Apple Cal$kbf$, $kbf$Subscribe to your bookings calendar in any calendar app. Read-only
+feed that auto-refreshes (every 1-24h depending on the calendar app).
+
+Get your feed URL:
+
+- Go to `/admin/settings` → scroll to **Calendar feed**
+
+- Copy the secret URL (format: `https://getrentalflow.com/api/calendar/<your-token>.ics`)
+
+- Click **Regenerate token** if you ever need to revoke an existing subscription
+
+Add to Google Calendar:
+
+- Open Google Calendar
+
+- Left sidebar: **Other calendars → +  → From URL**
+
+- Paste your ICS feed URL → **Add calendar**
+
+- Bookings appear within ~15 min, then sync hourly
+
+Add to Apple Calendar (Mac):
+
+- Calendar app → **File → New Calendar Subscription**
+
+- Paste your ICS URL → choose auto-refresh interval (1h recommended)
+
+What's included per event:
+
+- Event title: `Booking #<id> — <Customer name>`
+
+- Time: delivery_time → pickup_time (or event_date if same-day)
+
+- Location: delivery address
+
+- Notes: products, total, customer phone
+
+- Status: cancelled bookings excluded from feed
+
+⚠️ The URL contains a secret token. Anyone with the URL can view
+your bookings. Don't share it publicly. Regenerate if exposed.$kbf$, $kbf$Setup$kbf$, array[$kbf$help$kbf$, $kbf$imported$kbf$], true)
+on conflict (slug) do update set
+  title = excluded.title,
+  body_md = excluded.body_md,
+  category = excluded.category,
+  tags = excluded.tags,
+  updated_at = now();
+
+insert into kb_articles (slug, title, body_md, category, tags, is_published) values
   ($kbf$help-tests$kbf$, $kbf$Testing checklist$kbf$, $kbf$Before going live, test these end-to-end:
 
 - ☐ Public booking → Stripe test card `4242 4242 4242 4242` → check email + SMS arrive

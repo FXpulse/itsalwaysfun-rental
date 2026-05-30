@@ -13,6 +13,7 @@ import { getSuperadminUser } from "@/lib/auth/superadmin";
 import { fetchDashboardData } from "@/lib/superadmin/dashboard-data";
 import { fetchSystemHealth } from "@/lib/superadmin/system-health";
 import { getOrGenerateTodayInsight } from "@/lib/superadmin/daily-insight";
+import { fetchActiveGoals, formatGoalLabel } from "@/lib/superadmin/goals";
 import { Sparkline } from "./Sparkline";
 
 export const dynamic = "force-dynamic";
@@ -39,10 +40,11 @@ export default async function DashboardPage() {
   const me = await getSuperadminUser();
   if (!me) redirect("/superadmin/login?error=not_superadmin");
 
-  const [data, sysHealth, insight] = await Promise.all([
+  const [data, sysHealth, insight, goals] = await Promise.all([
     fetchDashboardData(),
     fetchSystemHealth(),
     getOrGenerateTodayInsight(),
+    fetchActiveGoals(),
   ]);
   const healthScore = computeHealthScore(data);
 
@@ -60,6 +62,38 @@ export default async function DashboardPage() {
         </div>
         <HealthPulse score={healthScore} />
       </header>
+
+      {/* Goals progress strip */}
+      {goals.length > 0 && (
+        <section className="rounded-2xl bg-gradient-to-br from-amber-50 via-orange-50 to-rose-50 ring-1 ring-amber-200 p-4 shadow-sm">
+          <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+            <h2 className="text-xs uppercase tracking-wider text-amber-700 font-bold flex items-center gap-1">
+              🎯 Goals
+            </h2>
+            <Link href="/superadmin/goals" className="text-xs text-amber-700 hover:underline font-semibold">
+              Manage →
+            </Link>
+          </div>
+          <div className="space-y-2">
+            {goals.slice(0, 3).map((g) => {
+              const cls = g.projected_status === "achieved" ? "bg-emerald-500" :
+                g.projected_status === "ahead" || g.projected_status === "on_track" ? "bg-blue-500" :
+                g.projected_status === "behind" ? "bg-amber-500" : "bg-rose-500";
+              return (
+                <div key={g.id}>
+                  <div className="flex justify-between text-xs text-slate-700 mb-1">
+                    <span className="font-medium truncate">{formatGoalLabel(g)}</span>
+                    <span className="font-mono ml-2">{g.current_value.toLocaleString()} / {Number(g.target).toLocaleString()} · {g.pct_complete}%</span>
+                  </div>
+                  <div className="h-2 bg-white/70 rounded-full overflow-hidden">
+                    <div className={`${cls} h-full transition-all`} style={{ width: `${g.pct_complete}%` }} />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
 
       {/* AI Daily Insight panel — generated 1× per day */}
       {insight && (
@@ -394,6 +428,7 @@ export default async function DashboardPage() {
           <QuickAction href="/superadmin/kb" icon={<BookOpen className="h-4 w-4" />} label="KB" color="blue" />
           <QuickAction href="/superadmin/email" icon={<Mail className="h-4 w-4" />} label="Email" color="emerald" />
           <QuickAction href="/superadmin/email/compose" icon={<Sparkles className="h-4 w-4" />} label="Compose" color="amber" />
+          <QuickAction href="/superadmin/goals" icon={<Sparkles className="h-4 w-4" />} label="Goals" color="amber" />
         </div>
       </section>
 

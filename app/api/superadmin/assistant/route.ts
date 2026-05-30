@@ -45,7 +45,21 @@ export async function POST(req: NextRequest) {
     const question: string = (body.question || "").toString().slice(0, 2000);
     const history: Array<{ role: "user" | "assistant"; content: string }> =
       Array.isArray(body.history) ? body.history.slice(-6) : [];
+    const pathname: string = (body.pathname || "").toString();
     if (!question) return NextResponse.json({ error: "missing_question" }, { status: 400 });
+
+    // Extract tenant_id from pathname if on a tenant detail page
+    let pageContext = "";
+    const tenantMatch = pathname.match(/\/superadmin\/tenants\/([0-9a-f-]{36})/);
+    if (tenantMatch) {
+      const { data: t } = await supabase
+        .from("tenants")
+        .select("business_name, slug, plan, subscription_status, owner_email")
+        .eq("id", tenantMatch[1]).maybeSingle();
+      if (t) pageContext = `\n\nUSER IS CURRENTLY VIEWING tenant: ${t.business_name} (slug: ${t.slug}, plan: ${t.plan}, status: ${t.subscription_status}, owner: ${t.owner_email}). When she asks "this tenant" or makes generic queries, default to this one.`;
+    } else if (pathname) {
+      pageContext = `\n\nUSER IS CURRENTLY ON: ${pathname}. Frame answers in the context of that page when helpful.`;
+    }
 
     const ctx = await fetchAssistantContext();
     const mrr = (ctx.mrr_cents / 100).toLocaleString();
@@ -64,7 +78,7 @@ Rules:
 - Speak directly to Ludmila in her language (English or Spanish — match what she uses).
 - Never invent numbers. If you don't know, call a tool.
 - If a tool returns 0 results, say so clearly.
-- For action requests (suspend, refund, send email), say "I can't take that action yet — try <link>" and link the appropriate /superadmin page.`;
+- For action requests (suspend, refund, send email), say "I can't take that action yet — try <link>" and link the appropriate /superadmin page.${pageContext}`;
 
     const messages: any[] = [
       { role: "system", content: systemPrompt },

@@ -47,7 +47,7 @@ export function AssistantBubble() {
       const res = await fetch("/api/superadmin/assistant", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ question: q, history: messages }),
+        body: JSON.stringify({ question: q, history: messages, pathname }),
       });
       const data = await res.json();
       const answer = data.answer || data.error || "(empty)";
@@ -92,12 +92,64 @@ export function AssistantBubble() {
   // Hide on login page — no auth context there.
   if (pathname?.endsWith("/superadmin/login")) return null;
 
-  const examples = [
-    "How many tenants are past_due?",
-    "What's the most urgent ticket right now?",
-    "Resumen del estado del SaaS",
-    "Who signed up this week?",
-  ];
+  // Context-aware example questions per page
+  const examples = (() => {
+    if (pathname?.includes("/superadmin/tenants/") && pathname.length > "/superadmin/tenants/".length) {
+      return [
+        "Summarize this tenant's health",
+        "Should I reach out to this tenant?",
+        "What's their last booking?",
+      ];
+    }
+    if (pathname?.includes("/superadmin/support")) {
+      return [
+        "How many urgent tickets are open?",
+        "What categories of tickets are most common?",
+        "Search KB for billing questions",
+      ];
+    }
+    if (pathname?.includes("/superadmin/revenue")) {
+      return [
+        "What's the MRR trend this month?",
+        "Which cohort has best retention?",
+        "How much churn last 30 days?",
+      ];
+    }
+    if (pathname?.includes("/superadmin/billing")) {
+      return [
+        "Who's past due right now?",
+        "Total failed payments this month?",
+        "Stripe invoices overview",
+      ];
+    }
+    if (pathname?.includes("/superadmin/onboarding")) {
+      return [
+        "Which tenants are stalled?",
+        "Show recent signups",
+        "Onboarding completion stats",
+      ];
+    }
+    if (pathname?.includes("/superadmin/health")) {
+      return [
+        "Which tenants are at risk?",
+        "Who's predicted to churn next?",
+        "Show all churning tenants",
+      ];
+    }
+    if (pathname?.includes("/superadmin/email")) {
+      return [
+        "Any urgent emails today?",
+        "Search KB for a common question",
+        "Email volume this week",
+      ];
+    }
+    return [
+      "How many tenants are past_due?",
+      "What's the most urgent ticket right now?",
+      "Resumen del estado del SaaS",
+      "Who signed up this week?",
+    ];
+  })();
 
   return (
     <>

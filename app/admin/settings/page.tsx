@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentTenantId } from "@/lib/tenant/server";
-import { CreditCard, Palette, Receipt, ShieldCheck, ExternalLink } from "lucide-react";
+import { CreditCard, Palette, Receipt, ShieldCheck, ExternalLink, Calendar } from "lucide-react";
+import { CalendarFeed } from "./CalendarFeed";
 
 export const dynamic = "force-dynamic";
 
@@ -11,7 +12,7 @@ export default async function AdminSettingsPage() {
 
   const { data: tenant } = await unscoped
     .from("tenants")
-    .select("business_name, owner_email, owner_phone, custom_domain, slug, plan, trial_ends_at, stripe_account_id")
+    .select("business_name, owner_email, owner_phone, custom_domain, slug, plan, trial_ends_at, stripe_account_id, calendar_feed_token")
     .eq("id", tenantId)
     .maybeSingle();
 
@@ -108,6 +109,18 @@ export default async function AdminSettingsPage() {
           </Link>{" "}
           page.
         </p>
+      </div>
+
+      {/* Calendar feed */}
+      <div className="card mb-6">
+        <h2 className="text-lg font-semibold mb-2 flex items-center gap-2">
+          <Calendar className="h-5 w-5 text-brand-navy" /> Calendar feed
+        </h2>
+        <p className="text-xs text-slate-500 mb-4">
+          Subscribe to your bookings in Google Calendar, Apple Calendar, or Outlook.
+          Read-only, auto-refreshes hourly. See <Link href="/admin/help" className="underline">help</Link> for setup steps.
+        </p>
+        <CalendarFeed token={(tenant as any)?.calendar_feed_token || null} />
       </div>
 
       {/* Quick links to other settings */}
