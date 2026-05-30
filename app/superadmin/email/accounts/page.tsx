@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Mail, Plus, AlertTriangle, CheckCircle2 } from "lucide-react";
+import { Mail, Plus, AlertTriangle, CheckCircle2, Pencil } from "lucide-react";
 import { getSuperadminUser } from "@/lib/auth/superadmin";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { Crumbs } from "../../Crumbs";
@@ -60,11 +60,19 @@ export default async function AccountsPage() {
                   </div>
                 </div>
                 <div className="text-right text-xs text-slate-500">
+                  <Link
+                    href={`/superadmin/email/accounts/${a.id}/edit`}
+                    className="inline-flex items-center gap-1 text-brand-navy hover:underline font-semibold text-xs mb-2"
+                  >
+                    <Pencil className="h-3 w-3" /> Edit
+                  </Link>
+                  <div>
                   {a.last_sync_at ? (
                     <>Last sync: {new Date(a.last_sync_at).toLocaleString()}</>
                   ) : (
                     <>Never synced</>
                   )}
+                  </div>
                   {a.last_sync_error && (
                     <details className="text-red-600 mt-1 max-w-md">
                       <summary className="cursor-pointer">Error: {a.last_sync_error.slice(0, 60)}…</summary>
