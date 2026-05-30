@@ -15,6 +15,8 @@ import type {
 } from "@/lib/email/types";
 
 export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
+export const maxDuration = 60;
 
 export async function GET() {
   try {
