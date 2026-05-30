@@ -77,7 +77,8 @@ export async function saveAccount(input: EditInput): Promise<{ ok: true } | { er
     is_active: input.is_active,
     // Clear last error so the next sync attempt can populate fresh status
     last_sync_error: null,
-    failed_sync_count: 0,
+    last_sync_error_at: null,
+    consecutive_failures: 0,
     updated_at: new Date().toISOString(),
   };
   if (input.password) {
