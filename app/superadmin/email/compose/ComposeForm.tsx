@@ -6,13 +6,25 @@ import { useRouter } from "next/navigation";
 import { Send } from "lucide-react";
 import type { EmailAccount } from "@/lib/email/types";
 
-export function ComposeForm({ accounts }: { accounts: EmailAccount[] }) {
+export function ComposeForm({
+  accounts,
+  initialTo = "",
+  initialCc = "",
+  initialSubject = "",
+  initialBody = "",
+}: {
+  accounts: EmailAccount[];
+  initialTo?: string;
+  initialCc?: string;
+  initialSubject?: string;
+  initialBody?: string;
+}) {
   const router = useRouter();
   const [accountId, setAccountId] = useState(accounts[0]?.id || "");
-  const [to, setTo] = useState("");
-  const [cc, setCc] = useState("");
-  const [subject, setSubject] = useState("");
-  const [body, setBody] = useState("");
+  const [to, setTo] = useState(initialTo);
+  const [cc, setCc] = useState(initialCc);
+  const [subject, setSubject] = useState(initialSubject);
+  const [body, setBody] = useState(initialBody);
   const [pending, startTransition] = useTransition();
 
   function submit() {

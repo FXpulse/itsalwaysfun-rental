@@ -3,6 +3,7 @@
 // without requiring auth.
 
 import { AssistantBubble } from "./AssistantBubble";
+import { RealtimeNotifications } from "./RealtimeNotifications";
 
 export const dynamic = "force-dynamic";
 
@@ -15,6 +16,7 @@ export default function SuperadminLayout({
     <>
       {children}
       <AssistantBubble />
+      <RealtimeNotifications />
     </>
   );
 }

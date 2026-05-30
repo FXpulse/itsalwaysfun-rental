@@ -78,6 +78,37 @@ export const TOOL_DEFINITIONS = [
       parameters: { type: "object", properties: {}, required: [] },
     },
   },
+  {
+    type: "function" as const,
+    function: {
+      name: "mark_ticket_resolved",
+      description: "Mark a support ticket as resolved. Use only when the user explicitly asks to close/resolve a specific ticket.",
+      parameters: {
+        type: "object",
+        properties: {
+          ticket_id: { type: "string", description: "UUID of the ticket" },
+          resolution_note: { type: "string", description: "One-line note for the audit log" },
+        },
+        required: ["ticket_id"],
+      },
+    },
+  },
+  {
+    type: "function" as const,
+    function: {
+      name: "draft_email_to_tenant",
+      description: "Draft an email to a tenant. Does NOT send — returns a pre-filled compose URL the operator can review and send. Use for re-engagement, follow-ups, or specific replies.",
+      parameters: {
+        type: "object",
+        properties: {
+          tenant_id: { type: "string", description: "UUID of the tenant — get it via get_tenant first if you only have name/slug" },
+          subject: { type: "string" },
+          body: { type: "string", description: "Plain text body — use line breaks for paragraphs" },
+        },
+        required: ["tenant_id", "subject", "body"],
+      },
+    },
+  },
 ];
 
 export async function executeTool(
@@ -171,6 +202,51 @@ export async function executeTool(
         active_tenants: active.length,
         plans: planBreakdown,
         last_30d: { new_signups: newCount, churned },
+      });
+    }
+
+    case "mark_ticket_resolved": {
+      const id = (args.ticket_id || "").toString();
+      if (!id) return JSON.stringify({ error: "ticket_id required" });
+      const note = (args.resolution_note || "Resolved by AI assistant").toString();
+      const { data, error } = await supabase
+        .from("support_tickets")
+        .update({
+          status: "resolved",
+          resolved_at: new Date().toISOString(),
+          resolved_by_email: "ai-assistant@rentalflow.internal",
+          resolution_note: note,
+        })
+        .eq("id", id)
+        .select("subject")
+        .maybeSingle();
+      if (error) return JSON.stringify({ error: error.message });
+      if (!data) return JSON.stringify({ error: "ticket not found" });
+      return JSON.stringify({ ok: true, subject: data.subject, resolved: true });
+    }
+
+    case "draft_email_to_tenant": {
+      const tenantId = (args.tenant_id || "").toString();
+      const subject = (args.subject || "").toString();
+      const body = (args.body || "").toString();
+      if (!tenantId || !subject || !body) return JSON.stringify({ error: "tenant_id, subject, body required" });
+      const { data: tenant } = await supabase
+        .from("tenants")
+        .select("owner_email, business_name")
+        .eq("id", tenantId)
+        .maybeSingle();
+      if (!tenant) return JSON.stringify({ error: "tenant not found" });
+      const params = new URLSearchParams({
+        to: tenant.owner_email,
+        subject,
+        body,
+      });
+      return JSON.stringify({
+        ok: true,
+        drafted: true,
+        tenant: tenant.business_name,
+        recipient: tenant.owner_email,
+        review_url: `/superadmin/email/compose?${params.toString()}`,
       });
     }
 

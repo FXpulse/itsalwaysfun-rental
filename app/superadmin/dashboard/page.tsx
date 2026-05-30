@@ -12,6 +12,7 @@ import {
 import { getSuperadminUser } from "@/lib/auth/superadmin";
 import { fetchDashboardData } from "@/lib/superadmin/dashboard-data";
 import { fetchSystemHealth } from "@/lib/superadmin/system-health";
+import { getOrGenerateTodayInsight } from "@/lib/superadmin/daily-insight";
 import { Sparkline } from "./Sparkline";
 
 export const dynamic = "force-dynamic";
@@ -38,7 +39,11 @@ export default async function DashboardPage() {
   const me = await getSuperadminUser();
   if (!me) redirect("/superadmin/login?error=not_superadmin");
 
-  const [data, sysHealth] = await Promise.all([fetchDashboardData(), fetchSystemHealth()]);
+  const [data, sysHealth, insight] = await Promise.all([
+    fetchDashboardData(),
+    fetchSystemHealth(),
+    getOrGenerateTodayInsight(),
+  ]);
   const healthScore = computeHealthScore(data);
 
   return (
@@ -55,6 +60,36 @@ export default async function DashboardPage() {
         </div>
         <HealthPulse score={healthScore} />
       </header>
+
+      {/* AI Daily Insight panel — generated 1× per day */}
+      {insight && (
+        <section className="rounded-2xl bg-gradient-to-br from-violet-50 via-fuchsia-50 to-rose-50 ring-1 ring-violet-200 p-5 shadow-sm">
+          <div className="flex items-center gap-2 text-xs uppercase tracking-wider text-violet-700 font-bold mb-3">
+            <Sparkles className="h-3.5 w-3.5 text-violet-500" />
+            AI Daily Brief · {new Date(insight.insight_date).toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" })}
+          </div>
+          <div className="grid md:grid-cols-3 gap-4">
+            <InsightCard
+              label="What's working"
+              icon="✅"
+              text={insight.whats_working}
+              accent="emerald"
+            />
+            <InsightCard
+              label="Needs attention"
+              icon="⚠️"
+              text={insight.needs_attention}
+              accent="amber"
+            />
+            <InsightCard
+              label="Today's focus"
+              icon="🎯"
+              text={insight.today_focus}
+              accent="violet"
+            />
+          </div>
+        </section>
+      )}
 
       {/* Hero MRR card — the most important number */}
       <section className="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -432,6 +467,29 @@ function HealthPulse({ score }: { score: number }) {
       <span className="text-xs font-semibold text-slate-700">
         {score >= 80 ? "All systems go" : score >= 60 ? "Mostly OK" : "Needs attention"}
       </span>
+    </div>
+  );
+}
+
+function InsightCard({
+  label, icon, text, accent,
+}: {
+  label: string;
+  icon: string;
+  text: string;
+  accent: "emerald" | "amber" | "violet";
+}) {
+  const cls = {
+    emerald: "bg-emerald-100 text-emerald-800 ring-emerald-200",
+    amber: "bg-amber-100 text-amber-800 ring-amber-200",
+    violet: "bg-violet-100 text-violet-800 ring-violet-200",
+  }[accent];
+  return (
+    <div className="bg-white rounded-xl p-4 shadow-sm ring-1 ring-slate-100">
+      <div className={`inline-flex items-center gap-1.5 text-[10px] uppercase tracking-wider font-bold ring-1 rounded-full px-2 py-0.5 mb-2 ${cls}`}>
+        <span>{icon}</span> {label}
+      </div>
+      <p className="text-sm text-slate-700 leading-relaxed">{text || "(no data yet)"}</p>
     </div>
   );
 }

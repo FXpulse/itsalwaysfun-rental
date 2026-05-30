@@ -8,7 +8,11 @@ import type { EmailAccount } from "@/lib/email/types";
 
 export const dynamic = "force-dynamic";
 
-export default async function ComposePage() {
+export default async function ComposePage({
+  searchParams,
+}: {
+  searchParams: { to?: string; subject?: string; body?: string; cc?: string };
+}) {
   const me = await getSuperadminUser();
   if (!me) redirect("/superadmin/login?error=not_superadmin");
 
@@ -34,7 +38,13 @@ export default async function ComposePage() {
           No active email accounts. Add one first at <Link href="/superadmin/email/accounts/new" className="underline">/superadmin/email/accounts/new</Link>.
         </p>
       ) : (
-        <ComposeForm accounts={list} />
+        <ComposeForm
+          accounts={list}
+          initialTo={searchParams.to || ""}
+          initialCc={searchParams.cc || ""}
+          initialSubject={searchParams.subject || ""}
+          initialBody={searchParams.body || ""}
+        />
       )}
     </div>
   );
