@@ -5,6 +5,7 @@ import { formatCurrency } from "@/lib/utils";
 import { getTenantBusinessName } from "@/lib/tenant/business";
 import { ReferralBox } from "./ReferralBox";
 import { PayoutSection } from "./PayoutSection";
+import { AssignedCoupons } from "./AssignedCoupons";
 import { Gift, Users, DollarSign } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -78,6 +79,47 @@ export default async function PortalReferralsPage() {
     .order("created_at", { ascending: false })
     .limit(20);
 
+  // Coupons admin has assigned to this customer (they earn commission when used)
+  const { data: assignedCoupons } = await admin
+    .from("coupons")
+    .select("id, code, description, discount_type, discount_value, current_uses, is_active")
+    .eq("referrer_user_id", user.id)
+    .eq("is_active", true)
+    .order("created_at", { ascending: false });
+
+  // For each coupon, sum commission earned from loyalty_transactions where the
+  // booking used this coupon code. Cheap query — most users have 1-2 coupons.
+  type AssignedCoupon = {
+    code: string; description: string | null;
+    discount_type: "percent" | "fixed" | "overnight_free";
+    discount_value: number; current_uses: number;
+    commission_earned_cents: number;
+  };
+  const couponsWithEarnings: AssignedCoupon[] = [];
+  for (const c of (assignedCoupons as any[]) || []) {
+    const { data: bookingsWithCoupon } = await admin
+      .from("bookings").select("id").eq("coupon_code", c.code);
+    const bookingIds = ((bookingsWithCoupon as any[]) || []).map((b) => b.id);
+    let earned = 0;
+    if (bookingIds.length > 0) {
+      const { data: tx } = await admin
+        .from("loyalty_transactions")
+        .select("commission_cents")
+        .eq("user_id", user.id)
+        .eq("type", "referral_commission")
+        .in("booking_id", bookingIds);
+      earned = ((tx as any[]) || []).reduce((s, t) => s + (t.commission_cents || 0), 0);
+    }
+    couponsWithEarnings.push({
+      code: c.code,
+      description: c.description,
+      discount_type: c.discount_type,
+      discount_value: c.discount_value,
+      current_uses: c.current_uses || 0,
+      commission_earned_cents: earned,
+    });
+  }
+
   const settings = await getLoyaltySettings();
   const businessName = await getTenantBusinessName();
 
@@ -113,6 +155,10 @@ export default async function PortalReferralsPage() {
 
       {/* Referral code/link box */}
       <ReferralBox code={profile?.referral_code || ""} businessName={businessName} />
+
+      {/* Personal coupons assigned by admin (alternative attribution path
+          — earns commission even if friend opens site directly without cookie) */}
+      <AssignedCoupons coupons={couponsWithEarnings} businessName={businessName} />
 
       {/* Payout request section */}
       <PayoutSection
