@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { usePathname } from "next/navigation";
-import { Sparkles, Send, X, Loader2 } from "lucide-react";
+import { Sparkles, Send, X, Loader2, Mic, MicOff } from "lucide-react";
 
 interface Msg {
   role: "user" | "assistant";
@@ -16,7 +16,9 @@ export function AssistantBubble() {
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
+  const [listening, setListening] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const recognitionRef = useRef<any>(null);
 
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
@@ -46,6 +48,31 @@ export function AssistantBubble() {
     } finally {
       setBusy(false);
     }
+  }
+
+  function toggleVoice() {
+    if (listening) {
+      recognitionRef.current?.stop();
+      return;
+    }
+    const SpeechRec = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRec) {
+      alert("Tu navegador no soporta voice input. Usá Chrome/Edge.");
+      return;
+    }
+    const rec = new SpeechRec();
+    rec.lang = navigator.language?.startsWith("es") ? "es-ES" : "en-US";
+    rec.interimResults = true;
+    rec.continuous = false;
+    rec.onstart = () => setListening(true);
+    rec.onresult = (e: any) => {
+      const transcript = Array.from(e.results).map((r: any) => r[0].transcript).join("");
+      setInput(transcript);
+    };
+    rec.onend = () => setListening(false);
+    rec.onerror = () => setListening(false);
+    recognitionRef.current = rec;
+    rec.start();
   }
 
   // Hide on login page — no auth context there.
@@ -157,10 +184,24 @@ export function AssistantBubble() {
             onSubmit={(e) => { e.preventDefault(); send(); }}
             className="border-t border-slate-200 bg-white p-2 flex items-center gap-2"
           >
+            <button
+              type="button"
+              onClick={toggleVoice}
+              disabled={busy}
+              className={`rounded-full p-2 transition ${
+                listening
+                  ? "bg-rose-500 text-white animate-pulse"
+                  : "bg-slate-100 text-slate-500 hover:bg-violet-50 hover:text-violet-600"
+              }`}
+              aria-label={listening ? "Stop listening" : "Speak"}
+              title={listening ? "Stop" : "Hablar / Speak"}
+            >
+              {listening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+            </button>
             <input
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="Ask anything about the platform…"
+              placeholder={listening ? "Listening…" : "Ask anything about the platform…"}
               className="flex-1 text-sm border border-slate-200 rounded-full px-3 py-2 focus:outline-none focus:border-violet-400"
               disabled={busy}
             />

@@ -148,10 +148,31 @@ function ActionCard({ row }: { row: TenantHealthRow }) {
             ))}
           </div>
           <p className="text-xs text-slate-600 italic">→ {row.health.hint}</p>
+          {row.health.predicted_churn_at && (
+            <ChurnPrediction
+              date={row.health.predicted_churn_at}
+              confidence={row.health.churn_confidence!}
+            />
+          )}
         </div>
         <ChevronRight className="h-4 w-4 text-slate-300 mt-1 shrink-0" />
       </div>
     </Link>
+  );
+}
+
+function ChurnPrediction({ date, confidence }: { date: string; confidence: "low" | "medium" | "high" }) {
+  const d = new Date(date);
+  const daysOut = Math.round((d.getTime() - Date.now()) / 86_400_000);
+  const cls = {
+    high: "bg-rose-100 text-rose-800 ring-rose-200",
+    medium: "bg-amber-100 text-amber-800 ring-amber-200",
+    low: "bg-slate-100 text-slate-700 ring-slate-200",
+  }[confidence];
+  return (
+    <div className={`mt-2 inline-flex items-center gap-1.5 text-[11px] font-semibold ring-1 rounded-full px-2 py-0.5 ${cls}`}>
+      🔮 Predicted churn: {d.toLocaleDateString(undefined, { month: "short", day: "numeric" })} ({daysOut > 0 ? `in ${daysOut}d` : "overdue"}) · {confidence} conf
+    </div>
   );
 }
 

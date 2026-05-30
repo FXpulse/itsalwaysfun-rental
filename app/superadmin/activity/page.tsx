@@ -11,6 +11,7 @@ import {
   XCircle,
   Sparkles,
   LayoutDashboard,
+  Download,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -53,12 +54,22 @@ export default async function SuperadminActivityPage() {
           <span className="text-violet-300">›</span>
           <span>Activity</span>
         </div>
-        <h1 className="text-3xl font-bold flex items-center gap-2">
-          <Activity className="h-7 w-7" /> Activity Stream
-        </h1>
-        <p className="text-sm text-violet-100 mt-1">
-          Live feed across the entire platform — {events.length} events in last 14 days.
-        </p>
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div>
+            <h1 className="text-3xl font-bold flex items-center gap-2">
+              <Activity className="h-7 w-7" /> Activity Stream
+            </h1>
+            <p className="text-sm text-violet-100 mt-1">
+              Live feed across the entire platform — {events.length} events in last 14 days.
+            </p>
+          </div>
+          <a
+            href="/api/superadmin/activity/export"
+            className="bg-white/20 hover:bg-white/30 text-white text-sm font-semibold rounded-lg px-3 py-2 inline-flex items-center gap-1.5 transition backdrop-blur"
+          >
+            <Download className="h-4 w-4" /> Export CSV
+          </a>
+        </div>
       </div>
 
       {/* Timeline grouped by day */}

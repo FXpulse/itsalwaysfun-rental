@@ -33,6 +33,8 @@ export interface TenantHealthResult {
   band_color: "emerald" | "blue" | "amber" | "rose" | "slate";
   signals: TenantHealthSignal[];           // top 3 contributors
   hint: string;                            // 1-line operator action
+  predicted_churn_at: string | null;       // ISO date or null if not predicted to churn
+  churn_confidence: "low" | "medium" | "high" | null;
 }
 
 export interface TenantHealthSignal {
@@ -82,6 +84,8 @@ export function scoreTenant(i: TenantHealthInputs): TenantHealthResult {
       band_color: "emerald",
       signals: [{ label: "Founder plan", delta: 100, color: "positive" }],
       hint: "Founder plan — always healthy",
+      predicted_churn_at: null,
+      churn_confidence: null,
     };
   }
 
@@ -145,7 +149,39 @@ export function scoreTenant(i: TenantHealthInputs): TenantHealthResult {
   // Operator hint
   const hint = computeHint({ band, signals, inputs: i });
 
-  return { score, band, band_color, signals: topSignals, hint };
+  // Predict churn date — based on band + specific signals.
+  // The model is intentionally simple (deterministic, no training data needed):
+  // - cancel_at_period_end → current_period_end is the churn date (high conf)
+  // - past_due → ~8 days from current_period_end (dunning auto-cancels at day 8)
+  // - at_risk band → 60 days
+  // - churning band → 30 days
+  // - watch + zero-bookings warning → 90 days
+  const { predicted_churn_at, churn_confidence } = predictChurn({ band, inputs: i });
+
+  return { score, band, band_color, signals: topSignals, hint, predicted_churn_at, churn_confidence };
+}
+
+function predictChurn({
+  band, inputs,
+}: {
+  band: TenantHealthResult["band"];
+  inputs: TenantHealthInputs;
+}): { predicted_churn_at: string | null; churn_confidence: "low" | "medium" | "high" | null } {
+  const cpe = inputs.current_period_end ? new Date(inputs.current_period_end) : null;
+  if (inputs.cancel_at_period_end && cpe) {
+    return { predicted_churn_at: cpe.toISOString(), churn_confidence: "high" };
+  }
+  if (inputs.subscription_status === "past_due" && cpe) {
+    const churn = new Date(cpe.getTime() + 8 * 86_400_000);
+    return { predicted_churn_at: churn.toISOString(), churn_confidence: "high" };
+  }
+  if (band === "churning") {
+    return { predicted_churn_at: new Date(Date.now() + 30 * 86_400_000).toISOString(), churn_confidence: "medium" };
+  }
+  if (band === "at_risk") {
+    return { predicted_churn_at: new Date(Date.now() + 60 * 86_400_000).toISOString(), churn_confidence: "low" };
+  }
+  return { predicted_churn_at: null, churn_confidence: null };
 }
 
 function computeHint({
