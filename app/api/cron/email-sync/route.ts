@@ -70,16 +70,14 @@ async function runHandler() {
         Sentry.captureException(e, {
           tags: { account_id: account.id, stage: "email_sync" },
         });
-        const detailParts: string[] = [];
-        if (e?.code) detailParts.push(`code=${e.code}`);
-        if (e?.authenticationFailed) detailParts.push("auth_failed=true");
-        if (e?.serverResponseCode) detailParts.push(`server_code=${e.serverResponseCode}`);
-        if (e?.response) detailParts.push(`response=${String(e.response).slice(0, 200)}`);
-        if (e?.responseText) detailParts.push(`response_text=${String(e.responseText).slice(0, 200)}`);
-        if (e?.command) detailParts.push(`command=${e.command}`);
-        if (e?.mailboxPath) detailParts.push(`mailbox=${e.mailboxPath}`);
-        detailParts.push(`msg=${String(e?.message || e)}`);
-        const fullError = detailParts.join(" | ");
+        // Dump ALL properties of the error (including non-enumerable). imapflow
+        // sometimes attaches the details to keys we don't anticipate.
+        let dump = "";
+        try {
+          dump = JSON.stringify(e, Object.getOwnPropertyNames(e)).slice(0, 800);
+        } catch { dump = "(dump_failed)"; }
+        const stackHead = String(e?.stack || "").split("\n").slice(0, 4).join(" / ").slice(0, 400);
+        const fullError = `msg=${String(e?.message || e)} | name=${e?.name} | dump=${dump} | stack=${stackHead}`;
 
         const failures = (account.consecutive_failures || 0) + 1;
         await supabase.from("email_accounts").update({
