@@ -7,7 +7,7 @@ import Link from "next/link";
 import {
   TrendingUp, Users, Sparkles, AlertTriangle, Activity,
   ArrowUpRight, DollarSign, Mail, CheckCircle2, Clock,
-  Zap, Crown, BarChart3, Inbox, Wrench, Database, Ticket, BookOpen, Heart,
+  Zap, Crown, BarChart3, Inbox, Wrench, Database, Ticket, BookOpen, Heart, Rocket,
 } from "lucide-react";
 import { getSuperadminUser } from "@/lib/auth/superadmin";
 import { fetchDashboardData } from "@/lib/superadmin/dashboard-data";
@@ -269,14 +269,15 @@ export default async function DashboardPage() {
         <h2 className="font-bold text-brand-navy mb-3 flex items-center gap-2">
           <Zap className="h-4 w-4 text-amber-500" /> Quick actions
         </h2>
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
           <QuickAction href="/superadmin/tenants" icon={<Users className="h-4 w-4" />} label="Tenants" color="indigo" />
           <QuickAction href="/superadmin/health" icon={<Heart className="h-4 w-4" />} label="Health" color="pink" />
+          <QuickAction href="/superadmin/onboarding" icon={<Rocket className="h-4 w-4" />} label="Onboarding" color="cyan" />
           <QuickAction href="/superadmin/support" icon={<Ticket className="h-4 w-4" />} label="Support" color="violet" />
-          <QuickAction href="/superadmin/email" icon={<Mail className="h-4 w-4" />} label="Email" color="emerald" />
-          <QuickAction href="/superadmin/email/compose" icon={<Sparkles className="h-4 w-4" />} label="New email" color="amber" />
-          <QuickAction href="/superadmin/email/accounts" icon={<Wrench className="h-4 w-4" />} label="Accounts" color="rose" />
           <QuickAction href="/superadmin/kb" icon={<BookOpen className="h-4 w-4" />} label="KB" color="blue" />
+          <QuickAction href="/superadmin/email" icon={<Mail className="h-4 w-4" />} label="Email" color="emerald" />
+          <QuickAction href="/superadmin/email/compose" icon={<Sparkles className="h-4 w-4" />} label="Compose" color="amber" />
+          <QuickAction href="/superadmin/email/accounts" icon={<Wrench className="h-4 w-4" />} label="Accounts" color="rose" />
         </div>
       </section>
 
@@ -360,7 +361,7 @@ function QuickAction({
   href: string;
   icon: React.ReactNode;
   label: string;
-  color: "indigo" | "emerald" | "amber" | "violet" | "rose" | "blue" | "pink";
+  color: "indigo" | "emerald" | "amber" | "violet" | "rose" | "blue" | "pink" | "cyan";
 }) {
   const colors = {
     indigo: "bg-indigo-600 hover:bg-indigo-700",
@@ -370,6 +371,7 @@ function QuickAction({
     rose: "bg-rose-600 hover:bg-rose-700",
     blue: "bg-blue-600 hover:bg-blue-700",
     pink: "bg-gradient-to-br from-pink-500 to-rose-600 hover:from-pink-600 hover:to-rose-700",
+    cyan: "bg-gradient-to-br from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700",
   };
   return (
     <Link
