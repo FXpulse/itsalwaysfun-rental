@@ -2329,6 +2329,62 @@ on conflict (slug) do update set
   updated_at = now();
 
 insert into kb_articles (slug, title, body_md, category, tags, is_published) values
+  ($kbf$help-custom-reports$kbf$, $kbf$Custom Report Builder — build any report you want$kbf$, $kbf$At `/admin/reports` click the violet **"✨ Custom
+report builder"** button to open `/admin/reports/custom`.
+Build, save, and revisit any report combining dimensions + metrics
++ filters.
+
+How it works:
+
+- **Name** the report (e.g. "Monthly revenue by product")
+
+- **Group by** 1-2 dimensions: day/week/month, product, status, surface, customer
+
+- **Show me** 1-3 metrics: count of bookings, sum revenue, sum paid, avg booking value, unique customers, count cancelled
+
+- **Filter** by date range, status, payment, product
+
+- **Display as** Bar / Line / Table
+
+- Click **Preview** to see results without saving
+
+- Click **Save** to keep it forever — find it again at `/admin/reports/custom`
+
+Common reports to try:
+
+- **Monthly revenue trend**: dim=Month, metric=Sum paid, filter=status ≠ cancelled, chart=Line
+
+- **Top products**: dim=Product, metric=Count bookings + Sum revenue, chart=Bar
+
+- **Busiest days of week**: dim=Day, metric=Count, sort by metric desc, chart=Bar
+
+- **Cancellation rate by product**: dim=Product, metric=Count + Count cancelled, chart=Table
+
+- **Customer concentration**: dim=Customer, metric=Sum revenue, sort desc, chart=Table
+
+Tips:
+
+- Add a date range filter (event_date ≥ X and ≤ Y) to narrow what's pulled — faster + cleaner
+
+- Sort by metric desc to find top performers
+
+- Use 2 dimensions for a pivot effect (e.g. Month × Product)
+
+- Saved reports remember everything — name, filters, chart type
+
+- Star a report (⭐) to pin it to the top of the list
+
+⚠️ Engine reads up to 5000 bookings per query. If you have more,
+tighten the date range filter. Bookings older than the filter
+range aren't included.$kbf$, $kbf$Operations$kbf$, array[$kbf$help$kbf$, $kbf$imported$kbf$], true)
+on conflict (slug) do update set
+  title = excluded.title,
+  body_md = excluded.body_md,
+  category = excluded.category,
+  tags = excluded.tags,
+  updated_at = now();
+
+insert into kb_articles (slug, title, body_md, category, tags, is_published) values
   ($kbf$help-tests$kbf$, $kbf$Testing checklist$kbf$, $kbf$Before going live, test these end-to-end:
 
 - ☐ Public booking → Stripe test card `4242 4242 4242 4242` → check email + SMS arrive

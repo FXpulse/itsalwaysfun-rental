@@ -72,10 +72,10 @@ export function AdminAssistantBubble() {
   }
 
   const examples = [
-    "¿Cuántas reservas tengo este mes?",
+    "How many bookings did I have this month?",
     "What's my busiest day in the last 90 days?",
     "Top 3 products by bookings",
-    "¿Cuánto facturé en los últimos 30 días?",
+    "How much revenue in the last 30 days?",
   ];
 
   return (
@@ -110,7 +110,7 @@ export function AdminAssistantBubble() {
           <div ref={scrollRef} className="flex-1 overflow-y-auto p-3 space-y-3 bg-slate-50">
             {messages.length === 0 && (
               <div className="text-center pt-6">
-                <div className="text-xs text-slate-500 mb-3">Probá preguntando…</div>
+                <div className="text-xs text-slate-500 mb-3">Try asking…</div>
                 <div className="space-y-2">
                   {examples.map((ex) => (
                     <button
@@ -166,7 +166,7 @@ export function AdminAssistantBubble() {
             <input
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder={listening ? "Listening…" : "Pregúntale sobre tu negocio…"}
+              placeholder={listening ? "Listening…" : "Ask anything about your business…"}
               className="flex-1 text-sm border border-slate-200 rounded-full px-3 py-2 focus:outline-none focus:border-emerald-400"
               disabled={busy}
             />

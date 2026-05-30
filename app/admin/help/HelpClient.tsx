@@ -32,6 +32,7 @@ import {
   Calendar as CalendarIcon,
   Webhook,
   Sparkles as SparklesIcon,
+  BarChart3,
 } from "lucide-react";
 
 interface Section {
@@ -2454,6 +2455,52 @@ X-RentalFlow-Signature: sha256=<hex>
           <p className="bg-amber-50 border border-amber-200 rounded p-2 text-xs">
             ⚠️ The new <code>bookings:write</code> scope must be selected when
             creating the API key. Existing read-only keys can't POST.
+          </p>
+        </div>
+      ),
+    },
+    {
+      id: "custom-reports",
+      title: "Custom Report Builder — build any report you want",
+      icon: BarChart3,
+      content: (
+        <div className="space-y-3 text-sm">
+          <p>
+            At <code>/admin/reports</code> click the violet <strong>"✨ Custom
+            report builder"</strong> button to open <code>/admin/reports/custom</code>.
+            Build, save, and revisit any report combining dimensions + metrics
+            + filters.
+          </p>
+          <p className="font-semibold">How it works:</p>
+          <ol className="list-decimal pl-5 text-xs space-y-1">
+            <li><strong>Name</strong> the report (e.g. "Monthly revenue by product")</li>
+            <li><strong>Group by</strong> 1-2 dimensions: day/week/month, product, status, surface, customer</li>
+            <li><strong>Show me</strong> 1-3 metrics: count of bookings, sum revenue, sum paid, avg booking value, unique customers, count cancelled</li>
+            <li><strong>Filter</strong> by date range, status, payment, product</li>
+            <li><strong>Display as</strong> Bar / Line / Table</li>
+            <li>Click <strong>Preview</strong> to see results without saving</li>
+            <li>Click <strong>Save</strong> to keep it forever — find it again at <code>/admin/reports/custom</code></li>
+          </ol>
+          <p className="font-semibold">Common reports to try:</p>
+          <ul className="list-disc pl-5 text-xs space-y-1">
+            <li><strong>Monthly revenue trend</strong>: dim=Month, metric=Sum paid, filter=status ≠ cancelled, chart=Line</li>
+            <li><strong>Top products</strong>: dim=Product, metric=Count bookings + Sum revenue, chart=Bar</li>
+            <li><strong>Busiest days of week</strong>: dim=Day, metric=Count, sort by metric desc, chart=Bar</li>
+            <li><strong>Cancellation rate by product</strong>: dim=Product, metric=Count + Count cancelled, chart=Table</li>
+            <li><strong>Customer concentration</strong>: dim=Customer, metric=Sum revenue, sort desc, chart=Table</li>
+          </ul>
+          <p className="font-semibold">Tips:</p>
+          <ul className="list-disc pl-5 text-xs space-y-1">
+            <li>Add a date range filter (event_date ≥ X and ≤ Y) to narrow what's pulled — faster + cleaner</li>
+            <li>Sort by metric desc to find top performers</li>
+            <li>Use 2 dimensions for a pivot effect (e.g. Month × Product)</li>
+            <li>Saved reports remember everything — name, filters, chart type</li>
+            <li>Star a report (⭐) to pin it to the top of the list</li>
+          </ul>
+          <p className="bg-amber-50 border border-amber-200 rounded p-2 text-xs">
+            ⚠️ Engine reads up to 5000 bookings per query. If you have more,
+            tighten the date range filter. Bookings older than the filter
+            range aren't included.
           </p>
         </div>
       ),
