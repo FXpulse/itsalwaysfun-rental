@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { Mail, Plus, AlertTriangle, CheckCircle2 } from "lucide-react";
 import { getSuperadminUser } from "@/lib/auth/superadmin";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { SyncNowButton } from "./SyncNowButton";
 import type { EmailAccount } from "@/lib/email/types";
 
 export const dynamic = "force-dynamic";
@@ -23,9 +24,12 @@ export default async function AccountsPage() {
         <h1 className="text-2xl font-bold text-brand-navy flex items-center gap-2">
           <Mail className="h-6 w-6" /> Email accounts
         </h1>
-        <Link href="/superadmin/email/accounts/new" className="btn-primary inline-flex items-center gap-2">
-          <Plus className="h-4 w-4" /> Add account
-        </Link>
+        <div className="flex items-center gap-2">
+          <SyncNowButton />
+          <Link href="/superadmin/email/accounts/new" className="btn-primary inline-flex items-center gap-2">
+            <Plus className="h-4 w-4" /> Add account
+          </Link>
+        </div>
       </div>
 
       {list.length === 0 ? (
