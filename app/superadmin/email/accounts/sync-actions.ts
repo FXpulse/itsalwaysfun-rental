@@ -2,16 +2,28 @@
 
 import { revalidatePath } from "next/cache";
 import { getSuperadminUser } from "@/lib/auth/superadmin";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 /** Operator-facing manual sync trigger.
  *
  *  Calls the cron endpoint internally using CRON_SECRET from env. Lets the
- *  superadmin force a sync without having to copy CRON_SECRET out of Vercel. */
+ *  superadmin force a sync without having to copy CRON_SECRET out of Vercel.
+ *  Also reactivates any accounts that auto-disabled after consecutive failures,
+ *  since a manual trigger means the operator is debugging. */
 export async function manualSync(): Promise<
   { ok: true; results: any } | { ok: false; error: string }
 > {
   const user = await getSuperadminUser();
   if (!user) return { ok: false, error: "unauthorized" };
+
+  // Reactivate any auto-disabled accounts + clear failure counter so the
+  // operator gets a fresh attempt + new error message.
+  const supabase = createAdminClient({ unscoped: true });
+  await supabase.from("email_accounts").update({
+    is_active: true,
+    consecutive_failures: 0,
+    last_sync_error: null,
+  }).eq("is_active", false);
 
   const baseUrl =
     process.env.NEXT_PUBLIC_APP_URL || "https://getrentalflow.com";
