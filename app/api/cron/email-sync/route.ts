@@ -100,7 +100,7 @@ async function syncOneAccount(supabase: any, account: EmailAccount) {
   const imap = new ImapClient(account);
   let foldersSynced = 0;
   let messagesFetched = 0;
-  const folderDetails: Array<{ path: string; exists: number; sinceUid: number; fetched: number }> = [];
+  const folderDetails: Array<{ path: string; exists: number; sinceUid: number; fetched: number; inserted?: number; errors?: string[] }> = [];
   try {
     await imap.connect();
 
@@ -127,12 +127,15 @@ async function syncOneAccount(supabase: any, account: EmailAccount) {
       const exists = await imap.folderMessageCount(folder.path);
       const newMessages = await imap.fetchSinceUid(folder.path, sinceUid);
       foldersSynced++;
-      folderDetails.push({
+      const detail = {
         path: folder.path,
         exists,
         sinceUid,
         fetched: newMessages.length,
-      });
+        inserted: 0,
+        errors: [] as string[],
+      };
+      folderDetails.push(detail);
       if (newMessages.length === 0) continue;
 
       let maxUid = sinceUid;
@@ -171,6 +174,8 @@ async function syncOneAccount(supabase: any, account: EmailAccount) {
             })
             .select("*").single();
           if (msgErr || !msg) {
+            const errMsg = msgErr?.message || msgErr?.details || msgErr?.hint || "insert returned no row";
+            detail.errors.push(`uid=${uid} insert: ${String(errMsg).slice(0, 200)}`);
             Sentry.captureException(msgErr || new Error("insert returned no row"), {
               tags: { stage: "insert_message", uid: String(uid) },
             });
@@ -178,6 +183,7 @@ async function syncOneAccount(supabase: any, account: EmailAccount) {
             continue;
           }
           messagesFetched++;
+          detail.inserted++;
 
           // update thread counters
           await supabase.from("email_threads").update({
@@ -190,7 +196,9 @@ async function syncOneAccount(supabase: any, account: EmailAccount) {
           await applyRulesToMessage(supabase, account.id, msg as EmailMessage);
 
           maxUid = Math.max(maxUid, uid);
-        } catch (perMsg) {
+        } catch (perMsg: any) {
+          const errStr = `${perMsg?.name}: ${perMsg?.message || perMsg}`.slice(0, 200);
+          detail.errors.push(`uid=${uid} parse_or_thread: ${errStr}`);
           Sentry.captureException(perMsg, {
             tags: { stage: "per_message", uid: String(uid) },
           });
