@@ -70,15 +70,26 @@ async function runHandler() {
         Sentry.captureException(e, {
           tags: { account_id: account.id, stage: "email_sync" },
         });
+        const detailParts: string[] = [];
+        if (e?.code) detailParts.push(`code=${e.code}`);
+        if (e?.authenticationFailed) detailParts.push("auth_failed=true");
+        if (e?.serverResponseCode) detailParts.push(`server_code=${e.serverResponseCode}`);
+        if (e?.response) detailParts.push(`response=${String(e.response).slice(0, 200)}`);
+        if (e?.responseText) detailParts.push(`response_text=${String(e.responseText).slice(0, 200)}`);
+        if (e?.command) detailParts.push(`command=${e.command}`);
+        if (e?.mailboxPath) detailParts.push(`mailbox=${e.mailboxPath}`);
+        detailParts.push(`msg=${String(e?.message || e)}`);
+        const fullError = detailParts.join(" | ");
+
         const failures = (account.consecutive_failures || 0) + 1;
         await supabase.from("email_accounts").update({
           consecutive_failures: failures,
-          last_sync_error: String(e?.message || e),
+          last_sync_error: fullError,
           last_sync_error_at: new Date().toISOString(),
           is_active: failures >= 3 ? false : account.is_active,
         }).eq("id", account.id);
         results.push({
-          account: account.email_address, error: String(e?.message || e),
+          account: account.email_address, error: fullError,
         });
       }
     }
