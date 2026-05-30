@@ -17,13 +17,15 @@ export default async function KbArticlePage({ params }: { params: { slug: string
     .maybeSingle();
   if (!article) notFound();
 
-  // bump view count
-  await supabase.rpc("kb_increment_view", { p_slug: params.slug }).single().then(() => null).catch(() => {
-    // no rpc — fall back to direct update
-    return supabase.from("kb_articles")
+  // bump view count (no rpc defined — direct update)
+  try {
+    await supabase
+      .from("kb_articles")
       .update({ view_count: (article.view_count || 0) + 1 })
       .eq("slug", params.slug);
-  });
+  } catch {
+    // non-fatal — page still renders
+  }
 
   return (
     <div className="max-w-3xl mx-auto py-6 px-4">

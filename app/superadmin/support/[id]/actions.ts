@@ -46,17 +46,23 @@ export async function sendReply(
   }
   await supabase.from("support_tickets").update(updates).eq("id", ticketId);
 
-  // Bump KB article counters if the AI suggestion was the reply
+  // Bump KB article counter if the AI suggestion was the reply
   if (ticket.ai_suggested_article_id && markResolved && body === ticket.ai_suggested_response) {
-    await supabase.rpc("kb_increment_resolved", { p_article_id: ticket.ai_suggested_article_id }).single()
-      .then(() => null)
-      .catch(async () => {
-        // fallback to direct increment
-        const { data: art } = await supabase.from("kb_articles").select("ai_resolved_count").eq("id", ticket.ai_suggested_article_id).single();
-        if (art) {
-          await supabase.from("kb_articles").update({ ai_resolved_count: (art.ai_resolved_count || 0) + 1 }).eq("id", ticket.ai_suggested_article_id);
-        }
-      });
+    try {
+      const { data: art } = await supabase
+        .from("kb_articles")
+        .select("ai_resolved_count")
+        .eq("id", ticket.ai_suggested_article_id)
+        .single();
+      if (art) {
+        await supabase
+          .from("kb_articles")
+          .update({ ai_resolved_count: (art.ai_resolved_count || 0) + 1 })
+          .eq("id", ticket.ai_suggested_article_id);
+      }
+    } catch {
+      // non-fatal
+    }
   }
 
   // Email the tenant (best-effort)
