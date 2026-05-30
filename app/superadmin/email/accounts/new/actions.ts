@@ -60,7 +60,13 @@ export async function testConnections(input: WizardInput): Promise<
 }
 
 export async function createAccount(input: WizardInput) {
-  const encrypted = encryptPassword(input.password);
+  let encrypted: string;
+  try {
+    encrypted = encryptPassword(input.password);
+  } catch (e: any) {
+    return { error: `encryption_failed: ${String(e?.message || e)}` };
+  }
+
   const supabase = createAdminClient({ unscoped: true });
   const { error } = await supabase.from("email_accounts").insert({
     brand: input.brand, label: input.label,
@@ -70,6 +76,9 @@ export async function createAccount(input: WizardInput) {
     username: input.username, encrypted_password: encrypted,
     is_active: true,
   });
-  if (error) return { error: error.message };
+  if (error) return { error: `db_insert_failed: ${error.message}` };
+
+  // redirect throws a NEXT_REDIRECT internally — must be the LAST statement,
+  // not wrapped in try/catch (catching it cancels the redirect).
   redirect("/superadmin/email/accounts");
 }
