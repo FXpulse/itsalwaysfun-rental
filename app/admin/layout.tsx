@@ -86,6 +86,7 @@ const ALL_NAV: NavItem[] = [
   { href: "/admin/audit-log", label: "Audit log", icon: History, minRole: "staff" },
   { href: "/admin/diagnostics", label: "Diagnostics", icon: Activity, minRole: "admin" },
   { href: "/admin/help", label: "Help & Setup", icon: HelpCircle, minRole: "staff" },
+  { href: "/admin/support", label: "Support — get help", icon: HelpCircle, minRole: "staff" },
 ];
 
 function visibleNav(role: Role): NavItem[] {
