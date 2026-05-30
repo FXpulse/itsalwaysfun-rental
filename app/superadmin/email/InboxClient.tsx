@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { RefreshCw, Inbox, Send, FileText, Trash2, Archive } from "lucide-react";
+import { RefreshCw, Inbox, Send, FileText, Trash2, Archive, PenSquare } from "lucide-react";
 import type { EmailAccount, EmailFolder, EmailThread, EmailLabel } from "@/lib/email/types";
 import { bulkArchive, bulkMarkRead } from "./actions";
 
@@ -68,9 +68,14 @@ export function InboxClient({
       <main className="col-span-9">
         <div className="flex items-center justify-between mb-3">
           <h1 className="text-xl font-bold text-brand-navy">Inbox</h1>
-          <button onClick={() => router.refresh()} className="text-sm inline-flex items-center gap-1 hover:underline">
-            <RefreshCw className="h-3 w-3" /> Refresh
-          </button>
+          <div className="flex items-center gap-3">
+            <Link href="/superadmin/email/compose" className="btn-primary text-sm inline-flex items-center gap-1">
+              <PenSquare className="h-3 w-3" /> Compose
+            </Link>
+            <button onClick={() => router.refresh()} className="text-sm inline-flex items-center gap-1 hover:underline">
+              <RefreshCw className="h-3 w-3" /> Refresh
+            </button>
+          </div>
         </div>
 
         {selected.size > 0 && (

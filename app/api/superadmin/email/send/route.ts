@@ -13,12 +13,16 @@ import { ImapClient } from "@/lib/email/imap-client";
 import type { EmailAccount, EmailThread } from "@/lib/email/types";
 
 const Body = z.object({
-  thread_id: z.string().uuid(),
+  // Reply: thread_id required. Compose new: account_id required + thread_id omitted.
+  thread_id: z.string().uuid().optional(),
+  account_id: z.string().uuid().optional(),
   to: z.array(z.string().email()).min(1).max(20),
   cc: z.array(z.string().email()).max(20).optional(),
   subject: z.string().min(1).max(998),
   body_text: z.string().min(1).max(50_000),
   body_html: z.string().max(200_000).optional(),
+}).refine((d) => d.thread_id || d.account_id, {
+  message: "Either thread_id (reply) or account_id (compose new) is required",
 });
 
 export const dynamic = "force-dynamic";
@@ -48,21 +52,44 @@ export async function POST(req: Request) {
 
   const supabase = createAdminClient({ unscoped: true });
 
-  // Load thread + account
-  const { data: thread } = await supabase
-    .from("email_threads").select("*").eq("id", parsed.data.thread_id).single();
-  if (!thread) return NextResponse.json({ error: "thread_not_found" }, { status: 404 });
-  const th = thread as EmailThread;
-  const { data: account } = await supabase
-    .from("email_accounts").select("*").eq("id", th.account_id).single();
-  if (!account) return NextResponse.json({ error: "account_not_found" }, { status: 404 });
-  const acct = account as EmailAccount;
+  // Resolve account + thread (reply path) OR create new thread (compose path)
+  let th: EmailThread;
+  let acct: EmailAccount;
+  let lastIncomingMessageId: string | null = null;
 
-  // Find original message_id_header to thread the reply
-  const { data: lastIncoming } = await supabase
-    .from("email_messages").select("message_id_header")
-    .eq("thread_id", th.id).eq("direction", "incoming")
-    .order("received_at", { ascending: false }).limit(1).maybeSingle();
+  if (parsed.data.thread_id) {
+    const { data: thread } = await supabase
+      .from("email_threads").select("*").eq("id", parsed.data.thread_id).single();
+    if (!thread) return NextResponse.json({ error: "thread_not_found" }, { status: 404 });
+    th = thread as EmailThread;
+    const { data: account } = await supabase
+      .from("email_accounts").select("*").eq("id", th.account_id).single();
+    if (!account) return NextResponse.json({ error: "account_not_found" }, { status: 404 });
+    acct = account as EmailAccount;
+    const { data: lastIncoming } = await supabase
+      .from("email_messages").select("message_id_header")
+      .eq("thread_id", th.id).eq("direction", "incoming")
+      .order("received_at", { ascending: false }).limit(1).maybeSingle();
+    lastIncomingMessageId = lastIncoming?.message_id_header || null;
+  } else {
+    const { data: account } = await supabase
+      .from("email_accounts").select("*").eq("id", parsed.data.account_id!).single();
+    if (!account) return NextResponse.json({ error: "account_not_found" }, { status: 404 });
+    acct = account as EmailAccount;
+
+    const participants = [acct.email_address, ...parsed.data.to].map((e) => e.toLowerCase()).sort();
+    const { data: created } = await supabase.from("email_threads").insert({
+      account_id: acct.id,
+      folder_id: null,
+      subject: parsed.data.subject,
+      participants,
+      message_count: 0,
+      unread_count: 0,
+      last_message_at: new Date().toISOString(),
+    }).select("*").single();
+    if (!created) return NextResponse.json({ error: "thread_create_failed" }, { status: 500 });
+    th = created as EmailThread;
+  }
 
   try {
     const sent = await smtpSend(acct, {
@@ -72,8 +99,8 @@ export async function POST(req: Request) {
       subject: parsed.data.subject,
       text: parsed.data.body_text,
       html: parsed.data.body_html,
-      inReplyTo: lastIncoming?.message_id_header || null,
-      references: lastIncoming?.message_id_header ? [lastIncoming.message_id_header] : [],
+      inReplyTo: lastIncomingMessageId,
+      references: lastIncomingMessageId ? [lastIncomingMessageId] : [],
     });
 
     // APPEND to Sent folder (best-effort)
@@ -95,7 +122,7 @@ export async function POST(req: Request) {
     await supabase.from("email_messages").insert({
       thread_id: th.id, account_id: acct.id, folder_id: th.folder_id,
       direction: "outgoing", message_id_header: sent.messageId,
-      in_reply_to: lastIncoming?.message_id_header || null,
+      in_reply_to: lastIncomingMessageId,
       from_address: acct.email_address,
       to_addresses: parsed.data.to,
       cc_addresses: parsed.data.cc || [],
