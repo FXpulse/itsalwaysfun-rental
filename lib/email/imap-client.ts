@@ -67,8 +67,18 @@ export class ImapClient {
         return [];
       }
       const out: { uid: number; raw: Buffer }[] = [];
+      // imapflow API: flow.fetch(range, query, [options]).
+      // To treat `range` as UID-based (so `1:*` means UID 1 to highest UID,
+      // not sequence number 1 to last), pass `{ uid: true }` as the OPTIONS
+      // arg, NOT as part of the query. Previously we passed it inside the
+      // query which left the range interpreted as sequence numbers — fetch
+      // sometimes returned zero results.
       const range = `${sinceUid + 1}:*`;
-      for await (const msg of this.flow.fetch(range, { uid: true, source: true })) {
+      for await (const msg of this.flow.fetch(
+        range,
+        { uid: true, source: true } as any,
+        { uid: true } as any,
+      )) {
         const m = msg as FetchMessageObject;
         if (typeof m.uid === "number" && m.uid > sinceUid && m.source) {
           out.push({ uid: m.uid, raw: m.source });
