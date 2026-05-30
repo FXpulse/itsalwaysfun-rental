@@ -51,13 +51,21 @@ export class ImapClient {
     }));
   }
 
-  /** Fetch new UIDs in a folder strictly greater than `sinceUid`. */
+  /** Fetch new UIDs in a folder strictly greater than `sinceUid`.
+   *
+   *  Returns empty array if the folder is empty (the IMAP FETCH command
+   *  rejects `1:*` ranges on a 0-message folder with "Invalid messageset"). */
   async fetchSinceUid(
     folderPath: string,
     sinceUid: number,
   ): Promise<{ uid: number; raw: Buffer }[]> {
     const lock = await this.flow.getMailboxLock(folderPath);
     try {
+      const mailbox: any = (this.flow as any).mailbox;
+      const exists = typeof mailbox?.exists === "number" ? mailbox.exists : -1;
+      if (exists === 0) {
+        return [];
+      }
       const out: { uid: number; raw: Buffer }[] = [];
       const range = `${sinceUid + 1}:*`;
       for await (const msg of this.flow.fetch(range, { uid: true, source: true })) {
@@ -67,6 +75,15 @@ export class ImapClient {
         }
       }
       return out;
+    } catch (e: any) {
+      // Some servers reject the messageset even when exists > 0 if sinceUid
+      // is past the last UID. Treat that as "no new messages" rather than
+      // a fatal error.
+      const txt = String(e?.responseText || e?.message || "");
+      if (/invalid messageset/i.test(txt)) {
+        return [];
+      }
+      throw e;
     } finally {
       lock.release();
     }
