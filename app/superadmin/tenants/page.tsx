@@ -9,6 +9,7 @@ import {
   Pause,
   ExternalLink,
   Mail,
+  LayoutDashboard,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -103,6 +104,12 @@ export default async function SuperadminTenantsPage() {
           </p>
         </div>
         <div className="flex items-center gap-3">
+          <Link
+            href="/superadmin/dashboard"
+            className="text-sm bg-brand-navy text-white px-3 py-1.5 rounded-md hover:bg-brand-navy-dark inline-flex items-center gap-1 shadow-sm"
+          >
+            <LayoutDashboard className="h-4 w-4" /> Dashboard
+          </Link>
           <Link
             href="/superadmin/email"
             className="text-sm text-slate-600 hover:text-brand-navy inline-flex items-center gap-1"
