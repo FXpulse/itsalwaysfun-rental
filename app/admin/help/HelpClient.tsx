@@ -2506,6 +2506,48 @@ X-RentalFlow-Signature: sha256=<hex>
       ),
     },
     {
+      id: "home-sections",
+      title: "Home page extra sections — Stats, Why us, CTA, Custom HTML",
+      icon: SparklesIcon,
+      content: (
+        <div className="space-y-3 text-sm">
+          <p>
+            At <code>/admin/site/sections</code> you can turn on/off 4 extra
+            sections for your public home page. Each section has a simple
+            form — fill it in, toggle it on, it appears on your site
+            automatically.
+          </p>
+          <p className="font-semibold">The 4 sections:</p>
+          <ul className="list-disc pl-5 text-xs space-y-1">
+            <li><strong>📊 Stats banner</strong> — 3 numbers + labels (e.g. "10+ years experience"). Goes right after your hero.</li>
+            <li><strong>✨ Why choose us</strong> — 3 feature cards explaining why customers should book with you.</li>
+            <li><strong>🎯 Call-to-action banner</strong> — big banner before the footer with one button (e.g. "Ready to book?").</li>
+            <li><strong>🧩 Custom HTML block</strong> — for power users. Paste your own HTML. Auto-sanitized for safety.</li>
+          </ul>
+          <p className="font-semibold">How to use:</p>
+          <ol className="list-decimal pl-5 text-xs space-y-1">
+            <li>Go to <code>/admin/site/sections</code></li>
+            <li>Toggle "Shown" on the section you want</li>
+            <li>Fill in the fields (defaults are pre-filled — you can use them as-is)</li>
+            <li>Click <strong>Save</strong></li>
+            <li>Open your public site in a new tab — refresh — see the section live</li>
+          </ol>
+          <p className="font-semibold">Display order:</p>
+          <p className="text-xs">
+            Each section has a number (lower = higher on the page). Sections
+            with order &lt; 50 appear after the hero. Sections with order ≥ 50
+            appear before the footer. Adjust the number to move them around.
+          </p>
+          <p className="bg-amber-50 border border-amber-200 rounded p-2 text-xs">
+            ⚠️ Custom HTML: <code>&lt;script&gt;</code>, <code>&lt;iframe&gt;</code>,
+            inline event handlers, and <code>javascript:</code> URLs are
+            automatically stripped for security. Use it for layout HTML +
+            inline styles only.
+          </p>
+        </div>
+      ),
+    },
+    {
       id: "tests",
       title: "Testing checklist",
       icon: HelpCircle,

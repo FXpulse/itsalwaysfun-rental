@@ -8,6 +8,7 @@ import { formatCurrency } from "@/lib/utils";
 import { Calendar, Sparkles, ArrowRight } from "lucide-react";
 import { HomeBanners } from "@/components/public/HomeBanners";
 import { ReviewsCarousel } from "@/components/public/ReviewsCarousel";
+import { HomeSections } from "./HomeSections";
 import { localBusinessJsonLd } from "@/lib/seo/json-ld";
 import type { Product } from "@/types/database";
 
@@ -63,7 +64,7 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function HomePage() {
   const supabase = createAdminClient();
 
-  const [productsResult, categoriesResult, settings, bannersResult, reviewsResult, reviewSettingsResult] = await Promise.all([
+  const [productsResult, categoriesResult, settings, bannersResult, reviewsResult, reviewSettingsResult, sectionsResult] = await Promise.all([
     supabase
       .from("products")
       .select("id, name, slug, category, price_per_day, image_url, description")
@@ -93,9 +94,15 @@ export default async function HomePage() {
       .from("site_settings")
       .select("key, value")
       .in("key", ["google_review_url", "reviews_carousel_enabled", "reviews_section_title"]),
+    supabase
+      .from("tenant_home_sections")
+      .select("section_type, display_order, content")
+      .eq("is_enabled", true)
+      .order("display_order"),
   ]);
 
   const banners = bannersResult.data || [];
+  const homeSections = (sectionsResult?.data as any[]) || [];
   const featuredReviews = reviewsResult.data || [];
   const reviewSettingsMap = new Map(
     (reviewSettingsResult.data as any[] || []).map((r) => [r.key, r.value]),
@@ -204,6 +211,9 @@ export default async function HomePage() {
           </Link>
         </div>
       </section>
+
+      {/* Tenant-configured home sections (display_order < 50 render here) */}
+      <HomeSections sections={homeSections.filter((s) => (s.display_order ?? 100) < 50)} />
 
       {/* Categories grid */}
       <section style={categoriesStyle}>
@@ -316,6 +326,9 @@ export default async function HomePage() {
           googleReviewUrl={googleReviewUrl}
         />
       )}
+
+      {/* Tenant-configured home sections (display_order >= 50 render at the bottom) */}
+      <HomeSections sections={homeSections.filter((s) => (s.display_order ?? 100) >= 50)} />
     </div>
   );
 }

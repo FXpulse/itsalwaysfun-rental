@@ -16,14 +16,15 @@ export const TENANT_TOOL_DEFINITIONS = [
   {
     type: "function" as const,
     function: {
-      name: "get_bookings_for_date",
-      description: "List bookings on a specific date.",
+      name: "get_bookings_for_date_range",
+      description: "List bookings between two dates (inclusive). Use this for ANY range of more than 1 day — do NOT call this once per day. For a single day, set start_date == end_date.",
       parameters: {
         type: "object",
         properties: {
-          date: { type: "string", description: "ISO date YYYY-MM-DD" },
+          start_date: { type: "string", description: "ISO date YYYY-MM-DD (inclusive)" },
+          end_date: { type: "string", description: "ISO date YYYY-MM-DD (inclusive). If omitted, returns just that single day." },
         },
-        required: ["date"],
+        required: ["start_date"],
       },
     },
   },
@@ -115,16 +116,38 @@ export async function executeTenantTool(
       });
     }
 
-    case "get_bookings_for_date": {
-      const date = (args.date || "").toString();
-      if (!date) return JSON.stringify({ error: "date required" });
+    case "get_bookings_for_date_range": {
+      const start = (args.start_date || "").toString();
+      const end = (args.end_date || args.start_date || "").toString();
+      if (!start) return JSON.stringify({ error: "start_date required" });
       const { data } = await supabase
         .from("bookings")
-        .select("id, customer_first_name, customer_last_name, product_name, total_amount, booking_status, delivery_time, pickup_time, address")
+        .select("id, customer_first_name, customer_last_name, product_name, total_amount, booking_status, event_date, delivery_time, pickup_time, address")
         .eq("tenant_id", tenantId)
-        .eq("event_date", date)
-        .order("delivery_time", { nullsFirst: false });
-      return JSON.stringify({ date, count: data?.length || 0, bookings: data || [] });
+        .gte("event_date", start)
+        .lte("event_date", end)
+        .order("event_date")
+        .order("delivery_time", { nullsFirst: false })
+        .limit(200);
+      const list = (data as any[]) || [];
+      // Compress: if many, return summary by day instead of full rows
+      if (list.length > 50) {
+        const byDay = new Map<string, number>();
+        for (const b of list) byDay.set(b.event_date, (byDay.get(b.event_date) || 0) + 1);
+        return JSON.stringify({
+          range: { start, end },
+          total_count: list.length,
+          summary: "too many to list — showing count per day",
+          by_day: Array.from(byDay.entries()).map(([date, count]) => ({ date, count })),
+        });
+      }
+      return JSON.stringify({ range: { start, end }, count: list.length, bookings: list });
+    }
+
+    // Backwards-compat alias so the model doesn't fail if it still tries the old name
+    case "get_bookings_for_date": {
+      const date = (args.date || "").toString();
+      return executeTenantTool("get_bookings_for_date_range", { start_date: date, end_date: date }, tenantId);
     }
 
     case "get_busiest_days": {

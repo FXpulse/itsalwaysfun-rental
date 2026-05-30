@@ -1,3 +1,5 @@
+import Link from "next/link";
+import { Sparkles, ArrowRight } from "lucide-react";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { SiteSettingsForm } from "./SiteSettingsForm";
 
@@ -34,6 +36,27 @@ export default async function AdminSitePage() {
         Edit logo, business info, and all text shown on the public website.
         Changes apply immediately (no redeploy needed).
       </p>
+
+      {/* Mini-builder shortcut */}
+      <Link
+        href="/admin/site/sections"
+        className="block mb-6 rounded-2xl bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50 ring-1 ring-emerald-200 p-4 hover:shadow-md transition group"
+      >
+        <div className="flex items-center gap-3">
+          <div className="bg-gradient-to-br from-emerald-500 to-teal-500 text-white rounded-xl p-2.5">
+            <Sparkles className="h-5 w-5" />
+          </div>
+          <div className="flex-1">
+            <h3 className="font-bold text-slate-800 group-hover:text-emerald-700">
+              Add extra sections to your home page
+            </h3>
+            <p className="text-xs text-slate-600">
+              Stats banner, "Why choose us", custom CTA banner, custom HTML — turn them on/off with one click.
+            </p>
+          </div>
+          <ArrowRight className="h-5 w-5 text-emerald-600 group-hover:translate-x-1 transition-transform" />
+        </div>
+      </Link>
 
       <SiteSettingsForm groupedSettings={grouped} />
     </div>

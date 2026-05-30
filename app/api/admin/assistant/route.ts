@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
 
 const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
 const MODEL = "gpt-4o-mini";
-const MAX_TOOL_ROUNDS = 4;
+const MAX_TOOL_ROUNDS = 6;
 
 export async function POST(req: NextRequest) {
   try {
@@ -46,7 +46,9 @@ RULES:
 - Call tools to get exact numbers — NEVER invent.
 - For "how do I X?" questions, search the knowledge base first.
 - For action requests (book, cancel, refund), say "you can do that from <link>" and link the right /admin page.
-- Keep answers business-focused (revenue, bookings, customers, products, operations).`;
+- Keep answers business-focused (revenue, bookings, customers, products, operations).
+- BE EFFICIENT: prefer ONE broad query (e.g. get_bookings_for_date_range covering a whole week) over many narrow ones (don't loop through each day).
+- You have a budget of ${MAX_TOOL_ROUNDS} tool calls. If you need more, give a partial answer instead.`;
 
     const messages: any[] = [
       { role: "system", content: systemPrompt },
@@ -93,8 +95,33 @@ RULES:
       }
     }
 
+    // Force a final answer after MAX_TOOL_ROUNDS. tool_choice: "none" forbids
+    // further tools so the model MUST return text.
+    const finalRes = await fetch(OPENAI_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+      body: JSON.stringify({
+        model: MODEL,
+        temperature: 0.3,
+        tool_choice: "none",
+        messages: [
+          ...messages,
+          {
+            role: "user",
+            content: "Based on the data you already pulled, give your best answer now. No more lookups.",
+          },
+        ],
+      }),
+    });
+    if (finalRes.ok) {
+      const finalData: any = await finalRes.json();
+      const finalAnswer = finalData.choices?.[0]?.message?.content;
+      if (finalAnswer) {
+        return NextResponse.json({ answer: finalAnswer, tools_called: toolsCalled });
+      }
+    }
     return NextResponse.json({
-      answer: "(stopped after max tool rounds)",
+      answer: "I tried looking this up but kept needing more queries. Try a more specific question.",
       tools_called: toolsCalled,
     });
   } catch (e: any) {

@@ -9,6 +9,29 @@ import {
 } from "lucide-react";
 import { bulkSendEmail, bulkPause, bulkUnpause, bulkExportCsv } from "./bulk-actions";
 
+const QUICK_TEMPLATES = [
+  {
+    label: "Check-in",
+    subject: "Quick check-in from RentalFlow",
+    body: "Hi {first_name},\n\nJust checking in to see how things are going with RentalFlow. Anything we can help with this week?\n\nReply directly to this email and I'll get back to you.\n\nBest,\nLudmila",
+  },
+  {
+    label: "New feature",
+    subject: "Something new in RentalFlow",
+    body: "Hi {first_name},\n\nWe just shipped a new feature you might find useful:\n\n[describe feature here]\n\nLogin at https://getrentalflow.com/admin to try it.\n\nLet me know what you think!\n\nLudmila",
+  },
+  {
+    label: "Payment reminder",
+    subject: "Your RentalFlow payment",
+    body: "Hi {first_name},\n\nQuick reminder: your subscription payment for {business_name} is past due. To keep your account active, please update your payment method at https://getrentalflow.com/admin/settings/billing\n\nIf you're having trouble, reply to this email and I'll help personally.\n\nLudmila",
+  },
+  {
+    label: "Cancellation save",
+    subject: "Before you go — can we help?",
+    body: "Hi {first_name},\n\nI noticed {business_name} is considering cancelling. Before you do, I'd love to understand what's not working.\n\nWould a 15-minute call help? Or if there's a specific feature gap, let me know — I can prioritize it.\n\nReply with what's on your mind.\n\nLudmila",
+  },
+];
+
 interface Tenant {
   id: string;
   slug: string;
@@ -215,26 +238,64 @@ export function TenantsTable({ tenants }: { tenants: Tenant[] }) {
         </div>
       )}
 
-      {/* Email modal */}
+      {/* Email modal with recipient preview */}
       {showEmail && (
         <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
           <form
             action={handleSendEmail}
-            className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-2xl space-y-4"
+            className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto space-y-4"
           >
             <h2 className="font-bold text-brand-navy text-lg flex items-center gap-2">
               <Mail className="h-5 w-5" /> Email {selected.size} tenants
             </h2>
+
+            {/* Recipient preview */}
+            <details className="bg-slate-50 border border-slate-200 rounded-lg p-3">
+              <summary className="cursor-pointer text-xs font-semibold text-slate-600">
+                Recipients ({selected.size}) — click to preview
+              </summary>
+              <div className="mt-2 max-h-40 overflow-y-auto space-y-1">
+                {tenants.filter((t) => selected.has(t.id)).map((t) => (
+                  <div key={t.id} className="text-xs text-slate-700 flex items-center justify-between">
+                    <span className="truncate">{t.business_name}</span>
+                    <span className="text-slate-500 font-mono">{t.owner_email}</span>
+                  </div>
+                ))}
+              </div>
+            </details>
+
             <div>
               <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Subject</label>
               <input name="subject" required className="input" autoFocus />
             </div>
             <div>
               <label className="block text-xs font-bold uppercase text-slate-500 mb-1">
-                Body (use {`{business_name}`} or {`{first_name}`} for personalization)
+                Body — use {`{business_name}`} or {`{first_name}`} for personalization
               </label>
               <textarea name="body" required rows={10} className="input font-mono text-sm" />
             </div>
+
+            {/* Template shortcuts */}
+            <div className="bg-violet-50 border border-violet-200 rounded-lg p-3">
+              <div className="text-[10px] uppercase font-bold tracking-wider text-violet-700 mb-2">Quick templates</div>
+              <div className="flex flex-wrap gap-1">
+                {QUICK_TEMPLATES.map((t) => (
+                  <button
+                    key={t.label}
+                    type="button"
+                    onClick={(e) => {
+                      const form = (e.target as HTMLElement).closest("form")!;
+                      (form.querySelector('[name="subject"]') as HTMLInputElement).value = t.subject;
+                      (form.querySelector('[name="body"]') as HTMLTextAreaElement).value = t.body;
+                    }}
+                    className="text-[10px] bg-white hover:bg-violet-100 text-violet-700 ring-1 ring-violet-200 rounded-full px-2 py-0.5"
+                  >
+                    {t.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <p className="text-xs text-slate-500">
               Sent from your configured EMAIL_FROM. Each tenant gets a personalized copy.
             </p>

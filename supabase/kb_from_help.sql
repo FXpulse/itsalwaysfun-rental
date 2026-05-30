@@ -2385,6 +2385,51 @@ on conflict (slug) do update set
   updated_at = now();
 
 insert into kb_articles (slug, title, body_md, category, tags, is_published) values
+  ($kbf$help-home-sections$kbf$, $kbf$Home page extra sections — Stats, Why us, CTA, Custom HTML$kbf$, $kbf$At `/admin/site/sections` you can turn on/off 4 extra
+sections for your public home page. Each section has a simple
+form — fill it in, toggle it on, it appears on your site
+automatically.
+
+The 4 sections:
+
+- **📊 Stats banner** — 3 numbers + labels (e.g. "10+ years experience"). Goes right after your hero.
+
+- **✨ Why choose us** — 3 feature cards explaining why customers should book with you.
+
+- **🎯 Call-to-action banner** — big banner before the footer with one button (e.g. "Ready to book?").
+
+- **🧩 Custom HTML block** — for power users. Paste your own HTML. Auto-sanitized for safety.
+
+How to use:
+
+- Go to `/admin/site/sections`
+
+- Toggle "Shown" on the section you want
+
+- Fill in the fields (defaults are pre-filled — you can use them as-is)
+
+- Click **Save**
+
+- Open your public site in a new tab — refresh — see the section live
+
+Display order:
+
+Each section has a number (lower = higher on the page). Sections
+with order < 50 appear after the hero. Sections with order ≥ 50
+appear before the footer. Adjust the number to move them around.
+
+⚠️ Custom HTML: `<script>`, `<iframe>`,
+inline event handlers, and `javascript:` URLs are
+automatically stripped for security. Use it for layout HTML +
+inline styles only.$kbf$, $kbf$Setup$kbf$, array[$kbf$help$kbf$, $kbf$imported$kbf$], true)
+on conflict (slug) do update set
+  title = excluded.title,
+  body_md = excluded.body_md,
+  category = excluded.category,
+  tags = excluded.tags,
+  updated_at = now();
+
+insert into kb_articles (slug, title, body_md, category, tags, is_published) values
   ($kbf$help-tests$kbf$, $kbf$Testing checklist$kbf$, $kbf$Before going live, test these end-to-end:
 
 - ☐ Public booking → Stripe test card `4242 4242 4242 4242` → check email + SMS arrive

@@ -16,7 +16,7 @@ export const dynamic = "force-dynamic";
 
 const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
 const MODEL = "gpt-4o-mini";
-const MAX_TOOL_ROUNDS = 4;
+const MAX_TOOL_ROUNDS = 6;
 
 export async function POST(req: NextRequest) {
   try {
@@ -78,7 +78,9 @@ Rules:
 - Speak directly to Ludmila in her language (English or Spanish — match what she uses).
 - Never invent numbers. If you don't know, call a tool.
 - If a tool returns 0 results, say so clearly.
-- For action requests (suspend, refund, send email), say "I can't take that action yet — try <link>" and link the appropriate /superadmin page.${pageContext}`;
+- For action requests (suspend, refund, send email), say "I can't take that action yet — try <link>" and link the appropriate /superadmin page.
+- BE EFFICIENT with tool calls. Prefer ONE broad query over many narrow ones (e.g. fetch the past_due list once, then summarize — don't call get_tenant for each one).
+- You have a budget of ${MAX_TOOL_ROUNDS} tool calls. If you need more, instead give a partial answer with what you have.${pageContext}`;
 
     const messages: any[] = [
       { role: "system", content: systemPrompt },
@@ -133,8 +135,34 @@ Rules:
       }
     }
 
+    // Hit MAX_TOOL_ROUNDS without a final answer — force the model to wrap
+    // up. tool_choice: "none" is the strict signal that tools are forbidden,
+    // so the model MUST produce a text answer with what it already has.
+    const finalRes = await fetch(OPENAI_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+      body: JSON.stringify({
+        model: MODEL,
+        temperature: 0.3,
+        tool_choice: "none",
+        messages: [
+          ...messages,
+          {
+            role: "user",
+            content: "Based on the data you already pulled, give your best answer now. No more lookups.",
+          },
+        ],
+      }),
+    });
+    if (finalRes.ok) {
+      const finalData: any = await finalRes.json();
+      const finalAnswer = finalData.choices?.[0]?.message?.content;
+      if (finalAnswer) {
+        return NextResponse.json({ answer: finalAnswer, tools_called: toolsCalled });
+      }
+    }
     return NextResponse.json({
-      answer: "(stopped after max tool rounds — your question may need to be broken into smaller pieces)",
+      answer: "I gathered some info but couldn't finalize an answer. Try rephrasing more specifically.",
       tools_called: toolsCalled,
     });
   } catch (e: any) {
