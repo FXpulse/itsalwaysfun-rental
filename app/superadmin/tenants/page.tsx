@@ -14,6 +14,8 @@ import {
   Heart,
   Rocket,
   CreditCard,
+  TrendingUp,
+  Activity,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -131,6 +133,18 @@ export default async function SuperadminTenantsPage() {
             className="text-sm text-slate-600 hover:text-brand-navy inline-flex items-center gap-1"
           >
             <CreditCard className="h-4 w-4" /> Billing
+          </Link>
+          <Link
+            href="/superadmin/revenue"
+            className="text-sm text-slate-600 hover:text-brand-navy inline-flex items-center gap-1"
+          >
+            <TrendingUp className="h-4 w-4" /> Revenue
+          </Link>
+          <Link
+            href="/superadmin/activity"
+            className="text-sm text-slate-600 hover:text-brand-navy inline-flex items-center gap-1"
+          >
+            <Activity className="h-4 w-4" /> Activity
           </Link>
           <Link
             href="/superadmin/support"

@@ -2,6 +2,8 @@
 // Auth check is per-page (not in layout) so /superadmin/login can render
 // without requiring auth.
 
+import { AssistantBubble } from "./AssistantBubble";
+
 export const dynamic = "force-dynamic";
 
 export default function SuperadminLayout({
@@ -9,5 +11,10 @@ export default function SuperadminLayout({
 }: {
   children: React.ReactNode;
 }) {
-  return <>{children}</>;
+  return (
+    <>
+      {children}
+      <AssistantBubble />
+    </>
+  );
 }

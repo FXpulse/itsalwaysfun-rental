@@ -348,15 +348,17 @@ export default async function DashboardPage() {
         <h2 className="font-bold text-brand-navy mb-3 flex items-center gap-2">
           <Zap className="h-4 w-4 text-amber-500" /> Quick actions
         </h2>
-        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-3">
           <QuickAction href="/superadmin/tenants" icon={<Users className="h-4 w-4" />} label="Tenants" color="indigo" />
           <QuickAction href="/superadmin/health" icon={<Heart className="h-4 w-4" />} label="Health" color="pink" />
           <QuickAction href="/superadmin/onboarding" icon={<Rocket className="h-4 w-4" />} label="Onboarding" color="cyan" />
+          <QuickAction href="/superadmin/revenue" icon={<TrendingUp className="h-4 w-4" />} label="Revenue" color="emerald" />
+          <QuickAction href="/superadmin/billing" icon={<CreditCard className="h-4 w-4" />} label="Billing" color="emerald" />
+          <QuickAction href="/superadmin/activity" icon={<Activity className="h-4 w-4" />} label="Activity" color="violet" />
           <QuickAction href="/superadmin/support" icon={<Ticket className="h-4 w-4" />} label="Support" color="violet" />
           <QuickAction href="/superadmin/kb" icon={<BookOpen className="h-4 w-4" />} label="KB" color="blue" />
           <QuickAction href="/superadmin/email" icon={<Mail className="h-4 w-4" />} label="Email" color="emerald" />
           <QuickAction href="/superadmin/email/compose" icon={<Sparkles className="h-4 w-4" />} label="Compose" color="amber" />
-          <QuickAction href="/superadmin/email/accounts" icon={<Wrench className="h-4 w-4" />} label="Accounts" color="rose" />
         </div>
       </section>
 
