@@ -11,6 +11,10 @@ export function SyncNowButton() {
   function trigger() {
     startTransition(async () => {
       const r = await manualSync();
+      // Log full payload so operator can inspect per-folder details in DevTools
+      // console when diagnosing "Synced N folders, 0 messages".
+      // eslint-disable-next-line no-console
+      console.log("[Sync now] full result:", r);
       if (!r.ok) {
         toast.error(`Sync failed: ${r.error}`);
         return;
@@ -19,9 +23,19 @@ export function SyncNowButton() {
       if (summary?.error) {
         toast.error(`Sync error: ${summary.error}`);
       } else if (summary) {
-        toast.success(
-          `Synced: ${summary.foldersSynced ?? 0} folders, ${summary.messagesFetched ?? 0} new messages`,
-        );
+        const details = summary.folderDetails as
+          | Array<{ path: string; exists: number; sinceUid: number; fetched: number }>
+          | undefined;
+        const summaryText = `Synced: ${summary.foldersSynced ?? 0} folders, ${summary.messagesFetched ?? 0} new messages`;
+        if (summary.messagesFetched === 0 && details && details.length > 0) {
+          const richest = [...details].sort((a, b) => b.exists - a.exists)[0];
+          toast.message(summaryText, {
+            description: `Largest folder: ${richest.path} (${richest.exists} msgs, sinceUid=${richest.sinceUid}). Open DevTools console for full breakdown.`,
+            duration: 12000,
+          });
+        } else {
+          toast.success(summaryText);
+        }
       } else {
         toast.success("Sync triggered");
       }
