@@ -16,22 +16,22 @@ import type {
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
-export const maxDuration = 60;
 
 export async function GET() {
   try {
     return await runHandler();
   } catch (e: any) {
-    // Top-level catch so the operator-facing sync-now button gets a useful
-    // JSON error instead of a Next.js 500 HTML page.
-    Sentry.captureException(e, { tags: { stage: "email_sync_route" } });
+    // Defense-in-depth try/catch. Do NOT call Sentry here — if Sentry itself
+    // throws, the outer Next.js fallback renders an HTML 500 page that the
+    // sync-now UI can't parse.
+    try {
+      console.error("[email-sync route] top-level error:", e);
+    } catch {}
     return NextResponse.json(
       {
         error: "internal_error",
         message: String(e?.message || e),
-        stack: process.env.NODE_ENV === "production"
-          ? String(e?.stack || "").slice(0, 1500)
-          : undefined,
+        stack: String(e?.stack || "").slice(0, 1500),
       },
       { status: 500 },
     );
