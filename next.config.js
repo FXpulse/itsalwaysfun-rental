@@ -42,6 +42,18 @@ const SECURITY_HEADERS = [
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  // Mark Node-only modules as external so webpack does NOT bundle them and
+  // they're loaded with require() at runtime instead. Critical for libraries
+  // that depend on native modules or Node built-ins (mailparser, imapflow,
+  // nodemailer have transitive deps that break when bundled).
+  experimental: {
+    serverComponentsExternalPackages: [
+      "mailparser",
+      "imapflow",
+      "nodemailer",
+      "isomorphic-dompurify",
+    ],
+  },
   images: {
     remotePatterns: [
       { protocol: "https", hostname: "**.supabase.co" },
