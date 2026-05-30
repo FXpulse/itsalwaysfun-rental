@@ -72,6 +72,9 @@ export async function POST(req: Request) {
   return NextResponse.json({ success: true, ticket_id: created.id });
 }
 
+const AUTO_RESOLVE_THRESHOLD = parseFloat(process.env.AI_AUTO_RESOLVE_THRESHOLD || "0.85");
+const AUTO_RESOLVE_ENABLED = process.env.AI_AUTO_RESOLVE_ENABLED !== "false";
+
 async function triageAndPatch(
   ticketId: string,
   input: { subject: string; body: string },
@@ -84,15 +87,62 @@ async function triageAndPatch(
   });
   if (!result) return;
   const supabase = createAdminClient({ unscoped: true });
-  await supabase.from("support_tickets").update({
+
+  // Determine if we should auto-resolve this ticket. Conditions:
+  // - Auto-resolve feature flag on (default ON)
+  // - AI confidence >= threshold (default 0.85)
+  // - Category is one the AI can handle solo (skip "cancel" — needs human)
+  // - Response is non-empty
+  const canAutoResolve =
+    AUTO_RESOLVE_ENABLED &&
+    result.confidence >= AUTO_RESOLVE_THRESHOLD &&
+    result.category !== "cancel" &&
+    result.priority !== "urgent" &&
+    result.suggested_response.trim().length > 20;
+
+  const updates: Record<string, any> = {
     ai_category: result.category,
     ai_priority: result.priority,
     ai_suggested_article_id: result.suggested_article_id,
     ai_suggested_response: result.suggested_response,
     ai_confidence: result.confidence,
     ai_processed_at: new Date().toISOString(),
-    // Adopt AI's category/priority as our defaults if operator hasn't overridden
     category: result.category,
     priority: result.priority as any,
-  }).eq("id", ticketId);
+  };
+
+  if (canAutoResolve) {
+    updates.status = "resolved";
+    updates.resolved_at = new Date().toISOString();
+    updates.resolved_by_email = "ai-auto-resolve@rentalflow.internal";
+    updates.resolution_note = `Auto-resolved by AI (confidence ${result.confidence.toFixed(2)})`;
+  }
+
+  await supabase.from("support_tickets").update(updates).eq("id", ticketId);
+
+  // Post the AI response as a reply visible to the tenant when auto-resolving.
+  if (canAutoResolve) {
+    await supabase.from("support_ticket_replies").insert({
+      ticket_id: ticketId,
+      author_email: "ai-auto-resolve@rentalflow.internal",
+      author_kind: "ai",
+      body: result.suggested_response,
+      is_internal: false,
+    });
+    // Increment KB analytics if we cited an article
+    if (result.suggested_article_id) {
+      // RPC-less increment: read-modify-write is racy but OK for analytics
+      const { data: kb } = await supabase
+        .from("kb_articles")
+        .select("ai_resolved_count")
+        .eq("id", result.suggested_article_id)
+        .maybeSingle();
+      if (kb) {
+        await supabase
+          .from("kb_articles")
+          .update({ ai_resolved_count: (kb.ai_resolved_count || 0) + 1 })
+          .eq("id", result.suggested_article_id);
+      }
+    }
+  }
 }

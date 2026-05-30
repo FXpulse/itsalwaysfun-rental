@@ -30,6 +30,8 @@ import {
   Receipt,
   Key,
   Calendar as CalendarIcon,
+  Webhook,
+  Sparkles as SparklesIcon,
 } from "lucide-react";
 
 interface Section {
@@ -2253,6 +2255,116 @@ export function HelpClient() {
           <p className="bg-amber-50 border border-amber-200 rounded p-2 text-xs">
             ⚠️ The URL contains a secret token. Anyone with the URL can view
             your bookings. Don't share it publicly. Regenerate if exposed.
+          </p>
+        </div>
+      ),
+    },
+    {
+      id: "webhooks",
+      title: "Webhooks — get notified the instant something happens",
+      icon: Webhook,
+      content: (
+        <div className="space-y-3 text-sm">
+          <p>
+            Subscribe to events in your business via HTTP POST. Manage at{" "}
+            <code>/admin/webhooks</code>. Perfect for Zapier, Make, custom apps.
+          </p>
+          <p className="font-semibold">Available events:</p>
+          <ul className="list-disc pl-5 text-xs space-y-1">
+            <li><code>booking.created</code> — new booking submitted</li>
+            <li><code>booking.confirmed</code> — payment received, slot locked in</li>
+            <li><code>booking.paid</code> — fully paid</li>
+            <li><code>booking.cancelled</code> — booking cancelled</li>
+            <li><code>customer.created</code> — new customer profile</li>
+            <li><code>quote.sent</code>, <code>quote.approved</code></li>
+            <li><code>*</code> — wildcard, subscribe to ALL events</li>
+          </ul>
+          <p className="font-semibold">Payload format:</p>
+          <pre className="bg-slate-900 text-emerald-300 text-xs p-3 rounded overflow-x-auto">
+{`POST <your URL>
+Content-Type: application/json
+X-RentalFlow-Event: booking.created
+X-RentalFlow-Signature: sha256=<hex>
+
+{
+  "event": "booking.created",
+  "tenant_id": "uuid",
+  "timestamp": "2026-05-30T12:34:56Z",
+  "data": {
+    "booking_id": "...",
+    "customer_email": "...",
+    "event_date": "2026-06-15",
+    "total_amount": 25000
+  }
+}`}
+          </pre>
+          <p className="font-semibold">Signature verification (recommended):</p>
+          <p className="text-xs">
+            Compute <code>HMAC-SHA256(secret, body)</code> and compare with the{" "}
+            <code>X-RentalFlow-Signature</code> header. The secret is shown ONCE
+            when you create the webhook — store it safely. If the signatures
+            match, the request came from us.
+          </p>
+          <p className="font-semibold">Connecting to Zapier:</p>
+          <ol className="list-decimal pl-5 text-xs space-y-1">
+            <li>In Zapier, create a "Webhook by Zapier" → "Catch Hook" zap</li>
+            <li>Copy the Zapier hook URL</li>
+            <li>In RentalFlow <code>/admin/webhooks</code>, click <strong>New webhook</strong></li>
+            <li>Paste URL, name "Zapier", check <code>booking.created</code></li>
+            <li>Click <strong>Send test event</strong> (button on the webhook row)</li>
+            <li>Back in Zapier, test should appear → continue building automation</li>
+          </ol>
+          <p className="font-semibold">Delivery details:</p>
+          <ul className="list-disc pl-5 text-xs space-y-1">
+            <li>10-second timeout per delivery — your endpoint should respond quickly</li>
+            <li>Return HTTP 2xx for success. Anything else = failure</li>
+            <li>No automatic retries in MVP (will be added) — failed deliveries are logged but not retried</li>
+            <li>Pause/resume any webhook with the power button</li>
+            <li>Send a test event anytime to verify your endpoint</li>
+          </ul>
+          <p className="bg-amber-50 border border-amber-200 rounded p-2 text-xs">
+            ⚠️ The signing secret <code>whsec_…</code> is shown ONLY at creation.
+            Lost it? Delete the webhook and create a new one.
+          </p>
+        </div>
+      ),
+    },
+    {
+      id: "ai-business-assistant",
+      title: "AI business assistant — ask questions about your business",
+      icon: SparklesIcon,
+      content: (
+        <div className="space-y-3 text-sm">
+          <p>
+            Click the <strong>emerald sparkles button</strong> at the bottom-right
+            of any /admin page. A chat panel opens where you can ask anything
+            about your rental business state.
+          </p>
+          <p className="font-semibold">Example questions:</p>
+          <ul className="list-disc pl-5 text-xs space-y-1">
+            <li>¿Cuántas reservas tengo este mes?</li>
+            <li>What's my busiest day in the last 90 days?</li>
+            <li>Top 3 products by bookings</li>
+            <li>How much revenue last 30 days?</li>
+            <li>How many customers signed up this month?</li>
+            <li>How do I issue a refund? (it'll search your knowledge base)</li>
+          </ul>
+          <p className="font-semibold">Features:</p>
+          <ul className="list-disc pl-5 text-xs space-y-1">
+            <li><strong>Voice input</strong> — mic button (Chrome/Edge). Auto-detects Spanish or English.</li>
+            <li><strong>Live data</strong> — answers are pulled from YOUR live business state, never invented.</li>
+            <li><strong>Tool transparency</strong> — under each AI reply, you see which database queries it ran.</li>
+            <li><strong>Privacy</strong> — sees ONLY your business. No cross-tenant data.</li>
+          </ul>
+          <p className="font-semibold">Limitations:</p>
+          <ul className="list-disc pl-5 text-xs space-y-1">
+            <li>Can't take actions (refunds, edits, sends) — read-only by design</li>
+            <li>For actions, it'll point you to the right /admin page</li>
+            <li>Doesn't have memory between sessions (each conversation starts fresh)</li>
+          </ul>
+          <p className="text-xs text-slate-500 bg-emerald-50 border border-emerald-200 rounded p-2">
+            💡 Use it to quickly check stats without clicking through pages.
+            Replaces the question "where do I see X?" with "just ask".
           </p>
         </div>
       ),

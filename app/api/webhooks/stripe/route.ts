@@ -111,6 +111,25 @@ export async function POST(request: Request) {
       );
     }
 
+    // Fire booking.paid + booking.confirmed webhooks (fire-and-forget)
+    if (booking.tenant_id) {
+      const { dispatchWebhookEvent } = await import("@/lib/webhooks/dispatch");
+      const payload = {
+        booking_id: booking.id,
+        customer_first_name: booking.customer_first_name,
+        customer_last_name: booking.customer_last_name,
+        customer_email: booking.customer_email,
+        event_date: booking.event_date,
+        product_name: booking.product_name,
+        total_amount: booking.total_amount,
+        amount_paid: pi.amount,
+      };
+      dispatchWebhookEvent({ tenant_id: booking.tenant_id, event: "booking.paid", payload })
+        .catch((e) => console.error("[webhook booking.paid failed]", e?.message));
+      dispatchWebhookEvent({ tenant_id: booking.tenant_id, event: "booking.confirmed", payload })
+        .catch((e) => console.error("[webhook booking.confirmed failed]", e?.message));
+    }
+
     // Best-effort GHL sync (don't fail the webhook if GHL fails)
     try {
       const { contact } = await upsertContact({

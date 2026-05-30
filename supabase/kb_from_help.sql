@@ -2130,6 +2130,128 @@ on conflict (slug) do update set
   updated_at = now();
 
 insert into kb_articles (slug, title, body_md, category, tags, is_published) values
+  ($kbf$help-webhooks$kbf$, $kbf$Webhooks — get notified the instant something happens$kbf$, $kbf$Subscribe to events in your business via HTTP POST. Manage at
+`/admin/webhooks`. Perfect for Zapier, Make, custom apps.
+
+Available events:
+
+- `booking.created` — new booking submitted
+
+- `booking.confirmed` — payment received, slot locked in
+
+- `booking.paid` — fully paid
+
+- `booking.cancelled` — booking cancelled
+
+- `customer.created` — new customer profile
+
+- `quote.sent`, `quote.approved`
+
+- `*` — wildcard, subscribe to ALL events
+
+Payload format:
+
+POST <your URL>
+Content-Type: application/json
+X-RentalFlow-Event: booking.created
+X-RentalFlow-Signature: sha256=<hex>
+
+{
+"event": "booking.created",
+"tenant_id": "uuid",
+"timestamp": "2026-05-30T12:34:56Z",
+"data":
+}
+</pre>
+<p>Signature verification (recommended):
+
+Compute `HMAC-SHA256(secret, body)` and compare with the
+`X-RentalFlow-Signature` header. The secret is shown ONCE
+when you create the webhook — store it safely. If the signatures
+match, the request came from us.
+
+Connecting to Zapier:
+
+- In Zapier, create a "Webhook by Zapier" → "Catch Hook" zap
+
+- Copy the Zapier hook URL
+
+- In RentalFlow `/admin/webhooks`, click **New webhook**
+
+- Paste URL, name "Zapier", check `booking.created`
+
+- Click **Send test event** (button on the webhook row)
+
+- Back in Zapier, test should appear → continue building automation
+
+Delivery details:
+
+- 10-second timeout per delivery — your endpoint should respond quickly
+
+- Return HTTP 2xx for success. Anything else = failure
+
+- No automatic retries in MVP (will be added) — failed deliveries are logged but not retried
+
+- Pause/resume any webhook with the power button
+
+- Send a test event anytime to verify your endpoint
+
+⚠️ The signing secret `whsec_…` is shown ONLY at creation.
+Lost it? Delete the webhook and create a new one.$kbf$, $kbf$Setup$kbf$, array[$kbf$help$kbf$, $kbf$imported$kbf$], true)
+on conflict (slug) do update set
+  title = excluded.title,
+  body_md = excluded.body_md,
+  category = excluded.category,
+  tags = excluded.tags,
+  updated_at = now();
+
+insert into kb_articles (slug, title, body_md, category, tags, is_published) values
+  ($kbf$help-ai-business-assistant$kbf$, $kbf$AI business assistant — ask questions about your business$kbf$, $kbf$Click the **emerald sparkles button** at the bottom-right
+of any /admin page. A chat panel opens where you can ask anything
+about your rental business state.
+
+Example questions:
+
+- ¿Cuántas reservas tengo este mes?
+
+- What's my busiest day in the last 90 days?
+
+- Top 3 products by bookings
+
+- How much revenue last 30 days?
+
+- How many customers signed up this month?
+
+- How do I issue a refund? (it'll search your knowledge base)
+
+Features:
+
+- **Voice input** — mic button (Chrome/Edge). Auto-detects Spanish or English.
+
+- **Live data** — answers are pulled from YOUR live business state, never invented.
+
+- **Tool transparency** — under each AI reply, you see which database queries it ran.
+
+- **Privacy** — sees ONLY your business. No cross-tenant data.
+
+Limitations:
+
+- Can't take actions (refunds, edits, sends) — read-only by design
+
+- For actions, it'll point you to the right /admin page
+
+- Doesn't have memory between sessions (each conversation starts fresh)
+
+💡 Use it to quickly check stats without clicking through pages.
+Replaces the question "where do I see X?" with "just ask".$kbf$, $kbf$Setup$kbf$, array[$kbf$help$kbf$, $kbf$imported$kbf$], true)
+on conflict (slug) do update set
+  title = excluded.title,
+  body_md = excluded.body_md,
+  category = excluded.category,
+  tags = excluded.tags,
+  updated_at = now();
+
+insert into kb_articles (slug, title, body_md, category, tags, is_published) values
   ($kbf$help-tests$kbf$, $kbf$Testing checklist$kbf$, $kbf$Before going live, test these end-to-end:
 
 - ☐ Public booking → Stripe test card `4242 4242 4242 4242` → check email + SMS arrive

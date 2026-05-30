@@ -7,6 +7,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUserRole } from "@/lib/auth/roles";
 import { RealtimeNotifications } from "@/components/admin/RealtimeNotifications";
+import { AdminAssistantBubble } from "@/components/admin/AssistantBubble";
 import {
   LogOut,
   Calendar,
@@ -39,6 +40,7 @@ import {
   Palette,
   Receipt,
   Key,
+  Webhook,
 } from "lucide-react";
 
 type Role = "admin" | "staff";
@@ -82,6 +84,7 @@ const ALL_NAV: NavItem[] = [
   { href: "/admin/settings/billing", label: "Billing", icon: Receipt, minRole: "admin" },
   { href: "/admin/settings/damage-protection", label: "Damage protection", icon: ShieldCheck, minRole: "admin" },
   { href: "/admin/api-keys", label: "API keys", icon: Key, minRole: "admin" },
+  { href: "/admin/webhooks", label: "Webhooks", icon: Webhook, minRole: "admin" },
   { href: "/admin/settings", label: "Settings", icon: Settings, minRole: "admin" },
   { href: "/admin/audit-log", label: "Audit log", icon: History, minRole: "staff" },
   { href: "/admin/diagnostics", label: "Diagnostics", icon: Activity, minRole: "admin" },
@@ -272,6 +275,7 @@ export default async function AdminLayout({
         <div className="p-8">{children}</div>
       </main>
       <RealtimeNotifications />
+      <AdminAssistantBubble />
     </div>
   );
 }

@@ -1,0 +1,99 @@
+// Tenant-side AI assistant. Same pattern as superadmin assistant but
+// scoped to the calling tenant's data only.
+
+import { NextRequest, NextResponse } from "next/server";
+import { getCurrentUserRole } from "@/lib/auth/roles";
+import { getCurrentTenantId } from "@/lib/tenant/server";
+import { TENANT_TOOL_DEFINITIONS, executeTenantTool } from "@/lib/admin/assistant-tools";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
+const MODEL = "gpt-4o-mini";
+const MAX_TOOL_ROUNDS = 4;
+
+export async function POST(req: NextRequest) {
+  try {
+    const me = await getCurrentUserRole();
+    if (!me) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+    const tenantId = getCurrentTenantId();
+    if (!tenantId || tenantId === "__marketing__") {
+      return NextResponse.json({ error: "no_tenant" }, { status: 400 });
+    }
+
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) {
+      return NextResponse.json({ answer: "AI assistant is not configured.", tools_called: [] });
+    }
+
+    const body = await req.json().catch(() => ({}));
+    const question: string = (body.question || "").toString().slice(0, 2000);
+    const history: Array<{ role: "user" | "assistant"; content: string }> =
+      Array.isArray(body.history) ? body.history.slice(-6) : [];
+    if (!question) return NextResponse.json({ error: "missing_question" }, { status: 400 });
+
+    const systemPrompt = `You are a business operations assistant inside RentalFlow — a rental business management SaaS. The user is a business owner managing their rental company through the /admin panel. Help them understand their business state using the tools below.
+
+Be concise (2-4 sentences). Use markdown sparingly. Match the user's language (English or Spanish).
+
+RULES:
+- You can ONLY see this tenant's data. Don't reference other businesses.
+- Call tools to get exact numbers — NEVER invent.
+- For "how do I X?" questions, search the knowledge base first.
+- For action requests (book, cancel, refund), say "you can do that from <link>" and link the right /admin page.
+- Keep answers business-focused (revenue, bookings, customers, products, operations).`;
+
+    const messages: any[] = [
+      { role: "system", content: systemPrompt },
+      ...history,
+      { role: "user", content: question },
+    ];
+
+    const toolsCalled: Array<{ name: string; args: any }> = [];
+
+    for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
+      const res = await fetch(OPENAI_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+        body: JSON.stringify({
+          model: MODEL,
+          temperature: 0.3,
+          messages,
+          tools: TENANT_TOOL_DEFINITIONS,
+        }),
+      });
+      if (!res.ok) {
+        const txt = await res.text();
+        return NextResponse.json({ error: "openai_error", detail: txt.slice(0, 500) }, { status: 502 });
+      }
+      const data: any = await res.json();
+      const msg = data.choices?.[0]?.message;
+      if (!msg) return NextResponse.json({ error: "no_message" }, { status: 502 });
+      messages.push(msg);
+
+      const toolCalls = msg.tool_calls || [];
+      if (toolCalls.length === 0) {
+        return NextResponse.json({
+          answer: msg.content || "(no response)",
+          tools_called: toolsCalled,
+        });
+      }
+      for (const tc of toolCalls) {
+        const name = tc.function?.name;
+        let parsedArgs: any = {};
+        try { parsedArgs = JSON.parse(tc.function?.arguments || "{}"); } catch {}
+        toolsCalled.push({ name, args: parsedArgs });
+        const result = await executeTenantTool(name, parsedArgs, tenantId);
+        messages.push({ role: "tool", tool_call_id: tc.id, content: result });
+      }
+    }
+
+    return NextResponse.json({
+      answer: "(stopped after max tool rounds)",
+      tools_called: toolsCalled,
+    });
+  } catch (e: any) {
+    return NextResponse.json({ error: "internal", detail: e?.message }, { status: 500 });
+  }
+}

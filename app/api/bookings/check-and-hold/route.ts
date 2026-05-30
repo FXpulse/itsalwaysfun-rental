@@ -526,6 +526,29 @@ export async function POST(request: Request) {
     );
   }
 
+  // 5a1. Fire webhook event — fire-and-forget, doesn't block booking response.
+  // Tenants can subscribe to booking.created at /admin/webhooks.
+  if (booking.tenant_id) {
+    const { dispatchWebhookEvent } = await import("@/lib/webhooks/dispatch");
+    dispatchWebhookEvent({
+      tenant_id: booking.tenant_id,
+      event: "booking.created",
+      payload: {
+        booking_id: booking.id,
+        customer_first_name: parsed.data.customer.first_name,
+        customer_last_name: parsed.data.customer.last_name,
+        customer_email: parsed.data.customer.email,
+        customer_phone: parsed.data.customer.phone || null,
+        event_date: startDate,
+        event_end_date: endDate,
+        product_id: product.id,
+        product_name: product.name,
+        total_amount: totalAmount,
+        booking_status: "pending_payment",
+      },
+    }).catch((e) => console.error("[webhook dispatch failed, non-fatal]", e?.message));
+  }
+
   // 5b1. Persist COI request if customer asked for one
   if (parsed.data.coi_request && parsed.data.coi_request.venue_name) {
     const coi = parsed.data.coi_request;
