@@ -1,12 +1,8 @@
 // lib/email/parser.ts
 //
 // Parse a raw RFC822 message buffer into the fields we store.
-// Dynamic-imports `mailparser` because the package fails Vercel's webpack
-// bundling at module load — loading it lazily inside the function defers
-// the failure (if any) to runtime where our top-level try/catch can convert
-// it into a JSON error.
-
-import { sanitizeEmailHtml } from "./sanitize";
+// Everything heavy (mailparser, dompurify) is lazy-loaded inside the
+// function to avoid Vercel webpack bundling failures at module load.
 
 export interface ParsedEmailMessage {
   message_id_header: string | null;
@@ -23,8 +19,11 @@ export interface ParsedEmailMessage {
 }
 
 export async function parseRawMessage(raw: Buffer): Promise<ParsedEmailMessage> {
-  // Lazy import — see note at top of file.
-  const { simpleParser } = await import("mailparser");
+  // Lazy imports so the route module loads even if either package fails.
+  const [{ simpleParser }, { sanitizeEmailHtml }] = await Promise.all([
+    import("mailparser"),
+    import("./sanitize"),
+  ]);
   const parsed: any = await simpleParser(raw);
 
   const toAddrs = addrList(parsed.to);
