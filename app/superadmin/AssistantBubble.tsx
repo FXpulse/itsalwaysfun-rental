@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { usePathname } from "next/navigation";
-import { Sparkles, Send, X, Loader2, Mic, MicOff } from "lucide-react";
+import { Sparkles, Send, X, Loader2, Mic, MicOff, Volume2, VolumeX } from "lucide-react";
 
 interface Msg {
   role: "user" | "assistant";
@@ -17,8 +17,20 @@ export function AssistantBubble() {
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [listening, setListening] = useState(false);
+  const [speakReplies, setSpeakReplies] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
+
+  function speak(text: string) {
+    if (!speakReplies || typeof window === "undefined") return;
+    const synth = (window as any).speechSynthesis;
+    if (!synth) return;
+    synth.cancel();
+    const utter = new (window as any).SpeechSynthesisUtterance(text);
+    utter.lang = navigator.language?.startsWith("es") ? "es-ES" : "en-US";
+    utter.rate = 1.05;
+    synth.speak(utter);
+  }
 
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
@@ -38,11 +50,13 @@ export function AssistantBubble() {
         body: JSON.stringify({ question: q, history: messages }),
       });
       const data = await res.json();
+      const answer = data.answer || data.error || "(empty)";
       setMessages([...next, {
         role: "assistant",
-        content: data.answer || data.error || "(empty)",
+        content: answer,
         tools_called: data.tools_called,
       }]);
+      speak(answer);
     } catch (e: any) {
       setMessages([...next, { role: "assistant", content: `Error: ${e?.message || "unknown"}` }]);
     } finally {
@@ -114,13 +128,28 @@ export function AssistantBubble() {
                 <div className="text-[10px] text-fuchsia-100">Knows your live platform state</div>
               </div>
             </div>
-            <button
-              onClick={() => setOpen(false)}
-              className="hover:bg-white/20 rounded p-1"
-              aria-label="Close"
-            >
-              <X className="h-4 w-4" />
-            </button>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => {
+                  setSpeakReplies(!speakReplies);
+                  if (speakReplies && typeof window !== "undefined") {
+                    (window as any).speechSynthesis?.cancel();
+                  }
+                }}
+                className="hover:bg-white/20 rounded p-1"
+                aria-label={speakReplies ? "Mute voice replies" : "Enable voice replies"}
+                title={speakReplies ? "Mute voice replies" : "Enable voice replies"}
+              >
+                {speakReplies ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
+              </button>
+              <button
+                onClick={() => setOpen(false)}
+                className="hover:bg-white/20 rounded p-1"
+                aria-label="Close"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
           </div>
 
           {/* Messages */}

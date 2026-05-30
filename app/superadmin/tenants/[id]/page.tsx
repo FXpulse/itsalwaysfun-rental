@@ -13,6 +13,7 @@ import {
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { TenantActionsPanel } from "./TenantActionsPanel";
+import { TenantBrief } from "./TenantBrief";
 import { z } from "zod";
 
 export const dynamic = "force-dynamic";
@@ -151,6 +152,11 @@ export default async function TenantDetailPage({
           stripeCustomerId={tenant.stripe_customer_id}
           stripeAccountId={tenant.stripe_account_id}
         />
+      </div>
+
+      {/* AI Brief panel */}
+      <div className="mb-6">
+        <TenantBrief tenantId={tenant.id} />
       </div>
 
       {/* Stats grid */}
