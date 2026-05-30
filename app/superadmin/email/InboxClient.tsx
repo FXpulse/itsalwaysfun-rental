@@ -66,20 +66,36 @@ export function InboxClient({
 
       {/* Main */}
       <main className="col-span-9">
-        <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
-          <div className="flex items-center gap-3">
-            <Link href="/superadmin/dashboard" className="text-sm text-slate-500 hover:text-brand-navy inline-flex items-center gap-1">
-              <LayoutDashboard className="h-3 w-3" /> Dashboard
-            </Link>
-            <span className="text-slate-300">/</span>
-            <h1 className="text-xl font-bold text-brand-navy">Inbox</h1>
+        {/* Hero strip — colorful header with stats */}
+        <div className="rounded-2xl bg-gradient-to-r from-indigo-600 via-violet-600 to-purple-700 text-white p-4 mb-4 shadow-lg flex items-center justify-between flex-wrap gap-3">
+          <div>
+            <div className="flex items-center gap-2 text-xs uppercase tracking-wider text-violet-100 mb-1">
+              <LayoutDashboard className="h-3 w-3" />
+              <Link href="/superadmin/dashboard" className="hover:text-white underline-offset-2 hover:underline">
+                Dashboard
+              </Link>
+              <span className="text-violet-300">›</span>
+              <span>Inbox</span>
+            </div>
+            <h1 className="text-xl font-bold flex items-center gap-2">
+              <Inbox className="h-5 w-5" /> {threads.length} threads
+              <span className="text-xs font-normal text-violet-200">
+                · {accounts.length} account{accounts.length !== 1 ? "s" : ""}
+              </span>
+            </h1>
           </div>
-          <div className="flex items-center gap-3">
-            <Link href="/superadmin/email/compose" className="btn-primary text-sm inline-flex items-center gap-1">
-              <PenSquare className="h-3 w-3" /> Compose
+          <div className="flex items-center gap-2">
+            <Link
+              href="/superadmin/email/compose"
+              className="bg-white hover:bg-violet-50 text-violet-700 font-bold text-sm rounded-lg px-4 py-2 inline-flex items-center gap-1 shadow"
+            >
+              <PenSquare className="h-4 w-4" /> Compose
             </Link>
-            <button onClick={() => router.refresh()} className="text-sm inline-flex items-center gap-1 hover:underline">
-              <RefreshCw className="h-3 w-3" /> Refresh
+            <button
+              onClick={() => router.refresh()}
+              className="bg-white/20 hover:bg-white/30 text-white text-sm rounded-lg px-3 py-2 inline-flex items-center gap-1 transition"
+            >
+              <RefreshCw className="h-3.5 w-3.5" /> Refresh
             </button>
           </div>
         </div>

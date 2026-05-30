@@ -12,6 +12,8 @@ import {
   LayoutDashboard,
   Ticket,
   Heart,
+  Rocket,
+  CreditCard,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -117,6 +119,18 @@ export default async function SuperadminTenantsPage() {
             className="text-sm text-slate-600 hover:text-brand-navy inline-flex items-center gap-1"
           >
             <Heart className="h-4 w-4" /> Health
+          </Link>
+          <Link
+            href="/superadmin/onboarding"
+            className="text-sm text-slate-600 hover:text-brand-navy inline-flex items-center gap-1"
+          >
+            <Rocket className="h-4 w-4" /> Onboarding
+          </Link>
+          <Link
+            href="/superadmin/billing"
+            className="text-sm text-slate-600 hover:text-brand-navy inline-flex items-center gap-1"
+          >
+            <CreditCard className="h-4 w-4" /> Billing
           </Link>
           <Link
             href="/superadmin/support"

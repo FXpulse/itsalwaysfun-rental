@@ -7,10 +7,11 @@ import Link from "next/link";
 import {
   TrendingUp, Users, Sparkles, AlertTriangle, Activity,
   ArrowUpRight, DollarSign, Mail, CheckCircle2, Clock,
-  Zap, Crown, BarChart3, Inbox, Wrench, Database, Ticket, BookOpen, Heart, Rocket,
+  Zap, Crown, BarChart3, Inbox, Wrench, Database, Ticket, BookOpen, Heart, Rocket, CreditCard, Server, ShieldCheck,
 } from "lucide-react";
 import { getSuperadminUser } from "@/lib/auth/superadmin";
 import { fetchDashboardData } from "@/lib/superadmin/dashboard-data";
+import { fetchSystemHealth } from "@/lib/superadmin/system-health";
 import { Sparkline } from "./Sparkline";
 
 export const dynamic = "force-dynamic";
@@ -37,7 +38,7 @@ export default async function DashboardPage() {
   const me = await getSuperadminUser();
   if (!me) redirect("/superadmin/login?error=not_superadmin");
 
-  const data = await fetchDashboardData();
+  const [data, sysHealth] = await Promise.all([fetchDashboardData(), fetchSystemHealth()]);
   const healthScore = computeHealthScore(data);
 
   return (
@@ -262,6 +263,84 @@ export default async function DashboardPage() {
             <ArrowUpRight className="h-3 w-3" />
           </Link>
         </div>
+      </section>
+
+      {/* System Health widget */}
+      <section className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div className={`rounded-xl shadow-sm border p-4 ${
+          sysHealth.overall_status === "healthy" ? "bg-gradient-to-br from-emerald-50 to-teal-50 border-emerald-200" :
+          sysHealth.overall_status === "warning" ? "bg-gradient-to-br from-amber-50 to-orange-50 border-amber-200" :
+          "bg-gradient-to-br from-rose-50 to-pink-50 border-rose-200"
+        }`}>
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="font-bold text-brand-navy flex items-center gap-2 text-sm">
+              <ShieldCheck className="h-4 w-4" /> System Health
+            </h3>
+            <span className={`text-[10px] font-bold uppercase rounded-full px-2 py-0.5 ${
+              sysHealth.overall_status === "healthy" ? "bg-emerald-500 text-white" :
+              sysHealth.overall_status === "warning" ? "bg-amber-500 text-white" :
+              "bg-rose-500 text-white"
+            }`}>
+              {sysHealth.overall_status}
+            </span>
+          </div>
+          <div className="grid grid-cols-3 gap-2 text-xs">
+            <div>
+              <div className="text-slate-500 text-[10px] uppercase tracking-wider">DB</div>
+              <div className="font-bold text-brand-navy">{sysHealth.db_response_ms}ms</div>
+            </div>
+            <div>
+              <div className="text-slate-500 text-[10px] uppercase tracking-wider">Errors 24h</div>
+              <div className={`font-bold ${sysHealth.recent_errors_24h > 5 ? "text-rose-700" : "text-brand-navy"}`}>
+                {sysHealth.recent_errors_24h}
+              </div>
+            </div>
+            <div>
+              <div className="text-slate-500 text-[10px] uppercase tracking-wider">Email</div>
+              <div className={`font-bold ${sysHealth.email_send_ok ? "text-emerald-700" : "text-rose-700"}`}>
+                {sysHealth.email_send_ok ? "OK" : "OFF"}
+              </div>
+            </div>
+          </div>
+          <div className="mt-3 pt-3 border-t border-slate-200/50">
+            <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-1.5">Crons</div>
+            <div className="flex flex-wrap gap-1">
+              {sysHealth.crons.slice(0, 8).map((c) => (
+                <span key={c.name}
+                  className={`text-[9px] font-semibold px-1.5 py-0.5 rounded ${
+                    c.status === "healthy" ? "bg-emerald-200 text-emerald-900" :
+                    c.status === "warning" ? "bg-amber-200 text-amber-900" :
+                    c.status === "stale" ? "bg-rose-200 text-rose-900" :
+                    "bg-slate-100 text-slate-500"
+                  }`}>
+                  {c.name}
+                </span>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <Link href="/superadmin/billing" className="rounded-xl bg-gradient-to-br from-emerald-500 to-teal-700 text-white p-4 shadow-sm hover:shadow-md transition relative overflow-hidden">
+          <div className="absolute -right-4 -bottom-4 w-24 h-24 bg-white/10 rounded-full blur-xl" />
+          <div className="relative">
+            <h3 className="font-bold flex items-center gap-2 text-sm">
+              <CreditCard className="h-4 w-4" /> Stripe billing
+            </h3>
+            <div className="text-3xl font-bold mt-2">${(data.mrr.current_cents / 100).toLocaleString()}</div>
+            <div className="text-xs text-teal-100 mt-1">MRR · click for invoices + failed payments</div>
+          </div>
+        </Link>
+
+        <Link href="/superadmin/onboarding" className="rounded-xl bg-gradient-to-br from-cyan-500 to-blue-700 text-white p-4 shadow-sm hover:shadow-md transition relative overflow-hidden">
+          <div className="absolute -right-4 -bottom-4 w-24 h-24 bg-white/10 rounded-full blur-xl" />
+          <div className="relative">
+            <h3 className="font-bold flex items-center gap-2 text-sm">
+              <Rocket className="h-4 w-4" /> Activation
+            </h3>
+            <div className="text-3xl font-bold mt-2">{data.tenants.trialing + data.tenants.new_this_month}</div>
+            <div className="text-xs text-cyan-100 mt-1">tenants activating · auto-nudges running</div>
+          </div>
+        </Link>
       </section>
 
       {/* Quick actions */}
