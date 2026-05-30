@@ -4,7 +4,11 @@ import { useState, useRef, useEffect } from "react";
 import { usePathname } from "next/navigation";
 import { Sparkles, Send, X, Loader2 } from "lucide-react";
 
-interface Msg { role: "user" | "assistant"; content: string; }
+interface Msg {
+  role: "user" | "assistant";
+  content: string;
+  tools_called?: Array<{ name: string; args: any }>;
+}
 
 export function AssistantBubble() {
   const pathname = usePathname();
@@ -32,7 +36,11 @@ export function AssistantBubble() {
         body: JSON.stringify({ question: q, history: messages }),
       });
       const data = await res.json();
-      setMessages([...next, { role: "assistant", content: data.answer || data.error || "(empty)" }]);
+      setMessages([...next, {
+        role: "assistant",
+        content: data.answer || data.error || "(empty)",
+        tools_called: data.tools_called,
+      }]);
     } catch (e: any) {
       setMessages([...next, { role: "assistant", content: `Error: ${e?.message || "unknown"}` }]);
     } finally {
@@ -109,7 +117,7 @@ export function AssistantBubble() {
             {messages.map((m, i) => (
               <div
                 key={i}
-                className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}
+                className={`flex flex-col ${m.role === "user" ? "items-end" : "items-start"}`}
               >
                 <div
                   className={`max-w-[85%] rounded-2xl px-3 py-2 text-sm whitespace-pre-wrap ${
@@ -120,6 +128,19 @@ export function AssistantBubble() {
                 >
                   {m.content}
                 </div>
+                {m.tools_called && m.tools_called.length > 0 && (
+                  <div className="mt-1 flex flex-wrap gap-1 max-w-[85%]">
+                    {m.tools_called.map((tc, j) => (
+                      <span
+                        key={j}
+                        className="text-[10px] bg-violet-50 text-violet-700 border border-violet-200 rounded-full px-2 py-0.5 inline-flex items-center gap-1"
+                        title={JSON.stringify(tc.args)}
+                      >
+                        🔍 {tc.name}
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
             ))}
             {busy && (

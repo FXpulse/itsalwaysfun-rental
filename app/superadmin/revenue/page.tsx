@@ -168,13 +168,15 @@ export default async function SuperadminRevenuePage() {
               <th className="px-3 py-2 text-right">Signed up</th>
               <th className="px-3 py-2 text-right">Still active</th>
               <th className="px-3 py-2 text-right">Retention</th>
+              <th className="px-3 py-2 text-right">MRR now</th>
+              <th className="px-3 py-2 text-right">ARPU</th>
               <th className="px-3 py-2 text-left">Visual</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {revenue.cohort_table.length === 0 ? (
               <tr>
-                <td colSpan={5} className="px-3 py-6 text-center text-slate-400">
+                <td colSpan={7} className="px-3 py-6 text-center text-slate-400">
                   No cohorts yet.
                 </td>
               </tr>
@@ -188,6 +190,12 @@ export default async function SuperadminRevenuePage() {
                   c.retention_pct >= 50 ? "text-amber-600" :
                   "text-rose-600"
                 }`}>{c.retention_pct}%</td>
+                <td className="px-3 py-2 text-right font-mono text-emerald-700">
+                  ${(c.mrr_now_cents / 100).toLocaleString()}
+                </td>
+                <td className="px-3 py-2 text-right font-mono text-slate-600 text-xs">
+                  ${(c.arpu_cents / 100).toLocaleString()}
+                </td>
                 <td className="px-3 py-2">
                   <div className="h-2 bg-slate-100 rounded-full w-32 overflow-hidden">
                     <div
