@@ -64,7 +64,12 @@ export default async function AccountsPage() {
                     <>Never synced</>
                   )}
                   {a.last_sync_error && (
-                    <div className="text-red-600 mt-1">Error: {a.last_sync_error.slice(0, 60)}</div>
+                    <details className="text-red-600 mt-1 max-w-md">
+                      <summary className="cursor-pointer">Error: {a.last_sync_error.slice(0, 60)}…</summary>
+                      <pre className="text-[10px] whitespace-pre-wrap mt-1 font-mono bg-red-50 p-2 rounded">
+                        {a.last_sync_error}
+                      </pre>
+                    </details>
                   )}
                 </div>
               </div>
