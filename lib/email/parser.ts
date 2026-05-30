@@ -1,9 +1,11 @@
 // lib/email/parser.ts
 //
 // Parse a raw RFC822 message buffer into the fields we store.
-// Wraps `mailparser` with a tight interface.
+// Dynamic-imports `mailparser` because the package fails Vercel's webpack
+// bundling at module load — loading it lazily inside the function defers
+// the failure (if any) to runtime where our top-level try/catch can convert
+// it into a JSON error.
 
-import { simpleParser, type ParsedMail, type AddressObject } from "mailparser";
 import { sanitizeEmailHtml } from "./sanitize";
 
 export interface ParsedEmailMessage {
@@ -21,7 +23,9 @@ export interface ParsedEmailMessage {
 }
 
 export async function parseRawMessage(raw: Buffer): Promise<ParsedEmailMessage> {
-  const parsed: ParsedMail = await simpleParser(raw);
+  // Lazy import — see note at top of file.
+  const { simpleParser } = await import("mailparser");
+  const parsed: any = await simpleParser(raw);
 
   const toAddrs = addrList(parsed.to);
   const ccAddrs = addrList(parsed.cc);
@@ -41,13 +45,13 @@ export async function parseRawMessage(raw: Buffer): Promise<ParsedEmailMessage> 
   };
 }
 
-function addrList(field: AddressObject | AddressObject[] | undefined): string[] {
+function addrList(field: any): string[] {
   if (!field) return [];
   const list = Array.isArray(field) ? field : [field];
   const out: string[] = [];
   for (const obj of list) {
     for (const v of obj.value || []) {
-      if (v.address) out.push(v.address.toLowerCase());
+      if (v.address) out.push(String(v.address).toLowerCase());
     }
   }
   return out;
