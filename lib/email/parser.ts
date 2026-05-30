@@ -7,8 +7,9 @@
 // Covers the subset we need: headers, plain text body, and HTML body from
 // multipart messages. Attachments are not extracted — we only flag their
 // presence.
-
-import { sanitizeEmailHtml } from "./sanitize";
+//
+// sanitize is dynamically imported because isomorphic-dompurify has the same
+// ESM/CJS issue on Node 22 + Vercel webpack.
 
 export interface ParsedEmailMessage {
   message_id_header: string | null;
@@ -48,6 +49,18 @@ export async function parseRawMessage(raw: Buffer): Promise<ParsedEmailMessage> 
   const contentType = headers["content-type"] || "text/plain";
   const { text, html, hasAttachments } = extractBodies(body, contentType, headers["content-transfer-encoding"]);
 
+  // Lazy import sanitize (DOMPurify ESM/CJS issue on Node 22).
+  let sanitizedHtml: string | null = null;
+  if (html) {
+    try {
+      const { sanitizeEmailHtml } = await import("./sanitize");
+      sanitizedHtml = sanitizeEmailHtml(html);
+    } catch {
+      // If sanitizer fails to load, drop the HTML rather than render unsafe markup.
+      sanitizedHtml = null;
+    }
+  }
+
   return {
     message_id_header: (headers["message-id"] || "").trim() || null,
     in_reply_to: (headers["in-reply-to"] || "").trim() || null,
@@ -56,7 +69,7 @@ export async function parseRawMessage(raw: Buffer): Promise<ParsedEmailMessage> 
     cc_addresses: cc,
     subject,
     body_text: text,
-    body_html: html ? sanitizeEmailHtml(html) : null,
+    body_html: sanitizedHtml,
     received_at: date ? date.toISOString() : null,
     has_attachments: hasAttachments,
     raw_size_bytes: raw.length,
