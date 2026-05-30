@@ -7,7 +7,7 @@ import Link from "next/link";
 import {
   TrendingUp, Users, Sparkles, AlertTriangle, Activity,
   ArrowUpRight, DollarSign, Mail, CheckCircle2, Clock,
-  Zap, Crown, BarChart3, Inbox, Wrench, Database,
+  Zap, Crown, BarChart3, Inbox, Wrench, Database, Ticket, BookOpen,
 } from "lucide-react";
 import { getSuperadminUser } from "@/lib/auth/superadmin";
 import { fetchDashboardData } from "@/lib/superadmin/dashboard-data";
@@ -269,11 +269,13 @@ export default async function DashboardPage() {
         <h2 className="font-bold text-brand-navy mb-3 flex items-center gap-2">
           <Zap className="h-4 w-4 text-amber-500" /> Quick actions
         </h2>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <QuickAction href="/superadmin/tenants" icon={<Users className="h-4 w-4" />} label="Manage tenants" color="indigo" />
-          <QuickAction href="/superadmin/email" icon={<Mail className="h-4 w-4" />} label="Email inbox" color="emerald" />
-          <QuickAction href="/superadmin/email/compose" icon={<Sparkles className="h-4 w-4" />} label="New message" color="amber" />
-          <QuickAction href="/superadmin/email/accounts" icon={<Wrench className="h-4 w-4" />} label="Email accounts" color="violet" />
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+          <QuickAction href="/superadmin/tenants" icon={<Users className="h-4 w-4" />} label="Tenants" color="indigo" />
+          <QuickAction href="/superadmin/support" icon={<Ticket className="h-4 w-4" />} label="Support" color="violet" />
+          <QuickAction href="/superadmin/email" icon={<Mail className="h-4 w-4" />} label="Email" color="emerald" />
+          <QuickAction href="/superadmin/email/compose" icon={<Sparkles className="h-4 w-4" />} label="New email" color="amber" />
+          <QuickAction href="/superadmin/email/accounts" icon={<Wrench className="h-4 w-4" />} label="Accounts" color="rose" />
+          <QuickAction href="/superadmin/kb" icon={<BookOpen className="h-4 w-4" />} label="KB" color="blue" />
         </div>
       </section>
 
@@ -357,13 +359,15 @@ function QuickAction({
   href: string;
   icon: React.ReactNode;
   label: string;
-  color: "indigo" | "emerald" | "amber" | "violet";
+  color: "indigo" | "emerald" | "amber" | "violet" | "rose" | "blue";
 }) {
   const colors = {
     indigo: "bg-indigo-600 hover:bg-indigo-700",
     emerald: "bg-emerald-600 hover:bg-emerald-700",
     amber: "bg-amber-500 hover:bg-amber-600",
     violet: "bg-violet-600 hover:bg-violet-700",
+    rose: "bg-rose-600 hover:bg-rose-700",
+    blue: "bg-blue-600 hover:bg-blue-700",
   };
   return (
     <Link
