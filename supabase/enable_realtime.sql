@@ -3,11 +3,33 @@
 -- Enable Supabase Realtime replication on the tables the operator panel
 -- subscribes to. Run once in Supabase SQL Editor.
 --
--- After this runs, the /superadmin dashboard + activity stream get
--- toasts + auto-refresh when these tables change.
+-- IDEMPOTENT: safe to re-run. Each ADD TABLE is guarded against the
+-- "already member of publication" error (42710) so partial prior runs
+-- don't break.
 
-alter publication supabase_realtime add table public.tenants;
-alter publication supabase_realtime add table public.support_tickets;
-alter publication supabase_realtime add table public.lead_magnet_signups;
-alter publication supabase_realtime add table public.email_threads;
-alter publication supabase_realtime add table public.contact_messages;
+do $$
+declare
+  t text;
+  pub_tables text[] := array[
+    'tenants',
+    'support_tickets',
+    'lead_magnet_signups',
+    'email_threads',
+    'contact_messages'
+  ];
+begin
+  foreach t in array pub_tables loop
+    -- Skip if already member
+    if not exists (
+      select 1 from pg_publication_tables
+      where pubname = 'supabase_realtime'
+        and schemaname = 'public'
+        and tablename = t
+    ) then
+      execute format('alter publication supabase_realtime add table public.%I', t);
+      raise notice 'Added % to supabase_realtime', t;
+    else
+      raise notice 'Skipping % (already in publication)', t;
+    end if;
+  end loop;
+end $$;
