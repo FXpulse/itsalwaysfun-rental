@@ -45,9 +45,21 @@ export async function dispatchWebhookEvent(input: DispatchInput): Promise<void> 
   }
 }
 
+// Exponential backoff schedule per attempt number.
+// attempt 1 = immediate (real-time), then retries at +5m, +30m, +2h, then give up.
+const RETRY_DELAYS_MS = [0, 5 * 60_000, 30 * 60_000, 2 * 3_600_000];
+const MAX_ATTEMPTS = RETRY_DELAYS_MS.length;
+
+export function nextRetryAt(attemptNumber: number): Date | null {
+  if (attemptNumber >= MAX_ATTEMPTS) return null;
+  return new Date(Date.now() + RETRY_DELAYS_MS[attemptNumber]);
+}
+
 async function deliver(
   hook: { id: string; url: string; secret: string },
   input: DispatchInput,
+  existingDeliveryId?: string,
+  attemptCount: number = 1,
 ): Promise<void> {
   const supabase = createAdminClient({ unscoped: true });
   const body = {
@@ -69,10 +81,10 @@ async function deliver(
         "Content-Type": "application/json",
         "X-RentalFlow-Event": input.event,
         "X-RentalFlow-Signature": `sha256=${sig}`,
+        "X-RentalFlow-Attempt": String(attemptCount),
         "User-Agent": "RentalFlow-Webhooks/1.0",
       },
       body: bodyJson,
-      // 10s timeout — abort if receiver is slow
       signal: AbortSignal.timeout(10_000),
     });
     status = res.status;
@@ -83,24 +95,70 @@ async function deliver(
     respText = `request_failed: ${e?.message || e}`;
   }
 
-  // Log delivery + update hook stats (best effort, don't fail caller)
-  await Promise.allSettled([
-    supabase.from("webhook_deliveries").insert({
+  // Schedule a retry on failure if attempts remain
+  const next = succeeded ? null : nextRetryAt(attemptCount);
+
+  if (existingDeliveryId) {
+    // Update existing delivery row (retry path)
+    await supabase.from("webhook_deliveries").update({
+      response_status: status,
+      response_body: respText,
+      succeeded,
+      attempt_count: attemptCount,
+      next_retry_at: next ? next.toISOString() : null,
+    }).eq("id", existingDeliveryId);
+  } else {
+    // First attempt — insert new row
+    await supabase.from("webhook_deliveries").insert({
       webhook_id: hook.id,
       event: input.event,
       payload: body,
       response_status: status,
       response_body: respText,
       succeeded,
-    }),
-    supabase.from("tenant_webhooks")
-      .update({
-        last_delivery_at: new Date().toISOString(),
-        last_delivery_status: status,
-        total_deliveries: 1 as any, // increment via RPC ideally; for MVP we just stamp last
-      })
-      .eq("id", hook.id),
-  ]);
+      attempt_count: attemptCount,
+      next_retry_at: next ? next.toISOString() : null,
+      max_attempts: MAX_ATTEMPTS,
+    });
+  }
+
+  await supabase.from("tenant_webhooks")
+    .update({
+      last_delivery_at: new Date().toISOString(),
+      last_delivery_status: status,
+    })
+    .eq("id", hook.id);
+}
+
+/**
+ * Re-attempt a previously-failed delivery. Used by the retry cron.
+ */
+export async function retryDelivery(deliveryId: string): Promise<void> {
+  const supabase = createAdminClient({ unscoped: true });
+  const { data: delivery } = await supabase
+    .from("webhook_deliveries")
+    .select("id, webhook_id, event, payload, attempt_count")
+    .eq("id", deliveryId)
+    .maybeSingle();
+  if (!delivery) return;
+  const { data: hook } = await supabase
+    .from("tenant_webhooks")
+    .select("id, url, secret, is_active")
+    .eq("id", (delivery as any).webhook_id)
+    .maybeSingle();
+  if (!hook || !(hook as any).is_active) return;
+
+  const payload = (delivery as any).payload || {};
+  await deliver(
+    { id: (hook as any).id, url: (hook as any).url, secret: (hook as any).secret },
+    {
+      tenant_id: payload.tenant_id,
+      event: payload.event,
+      payload: payload.data || {},
+    },
+    deliveryId,
+    ((delivery as any).attempt_count || 0) + 1,
+  );
 }
 
 export function generateWebhookSecret(): string {

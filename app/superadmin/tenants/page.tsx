@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { TenantsTable } from "./TenantsTable";
 
 export const dynamic = "force-dynamic";
 
@@ -199,91 +200,13 @@ export default async function SuperadminTenantsPage() {
         />
       </div>
 
-      {/* Tenants table */}
-      <div className="card p-0 overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead className="bg-slate-50 text-xs uppercase text-slate-600">
-            <tr>
-              <th className="px-3 py-2 text-left">Tenant</th>
-              <th className="px-3 py-2 text-left">Plan</th>
-              <th className="px-3 py-2 text-left">Status</th>
-              <th className="px-3 py-2 text-left">Owner</th>
-              <th className="px-3 py-2 text-left">Created</th>
-              <th className="px-3 py-2 text-right">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {list.map((t) => {
-              const url = t.custom_domain
-                ? `https://${t.custom_domain}`
-                : `https://${t.slug}.getrentalflow.com`;
-              return (
-                <tr key={t.id} className={t.suspended_at ? "bg-red-50" : ""}>
-                  <td className="px-3 py-2">
-                    <Link
-                      href={`/superadmin/tenants/${t.id}`}
-                      className="font-medium text-brand-navy hover:underline"
-                    >
-                      {t.business_name}
-                    </Link>
-                    <div className="text-[11px] text-slate-500 font-mono">{t.slug}</div>
-                  </td>
-                  <td className="px-3 py-2 text-xs">
-                    {t.plan === "founder" ? (
-                      <span className="inline-flex items-center gap-1 bg-amber-100 text-amber-800 px-2 py-0.5 rounded">
-                        <Crown className="h-3 w-3" /> Founder
-                      </span>
-                    ) : (
-                      <span className="capitalize bg-slate-100 px-2 py-0.5 rounded">
-                        {t.plan}
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-3 py-2">
-                    <StatusBadge
-                      status={t.subscription_status}
-                      suspended={!!t.suspended_at}
-                    />
-                  </td>
-                  <td className="px-3 py-2 text-xs text-slate-600">
-                    <a
-                      href={`mailto:${t.owner_email}`}
-                      className="hover:text-brand-navy hover:underline"
-                    >
-                      {t.owner_email}
-                    </a>
-                  </td>
-                  <td className="px-3 py-2 text-xs text-slate-500">
-                    {new Date(t.created_at).toLocaleDateString()}
-                  </td>
-                  <td className="px-3 py-2 text-right">
-                    <a
-                      href={url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-xs text-brand-navy hover:underline inline-flex items-center gap-1"
-                      title="Open tenant site"
-                    >
-                      Visit <ExternalLink className="h-3 w-3" />
-                    </a>
-                  </td>
-                </tr>
-              );
-            })}
-            {list.length === 0 && (
-              <tr>
-                <td colSpan={6} className="px-3 py-8 text-center text-slate-400">
-                  No tenants yet. The first signup will appear here.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+      {/* Tenants table — interactive client component with bulk actions */}
+      <TenantsTable tenants={list} />
 
       <p className="text-xs text-slate-400 mt-4">
         💡 Tenants signup at <code>getrentalflow.com/signup</code>. Each gets
         a 14-day trial. Stripe webhook keeps subscription_status in sync.
+        Select multiple rows above to bulk email / pause / export.
       </p>
     </div>
   );

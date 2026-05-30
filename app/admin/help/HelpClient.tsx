@@ -2370,6 +2370,95 @@ X-RentalFlow-Signature: sha256=<hex>
       ),
     },
     {
+      id: "goals",
+      title: "Goals tracker — set targets, watch progress live",
+      icon: Tag,
+      content: (
+        <div className="space-y-3 text-sm">
+          <p>
+            Set business goals at <code>/admin/goals</code>. The page shows
+            live progress + a projected hit date based on your current
+            velocity.
+          </p>
+          <p className="font-semibold">Metrics you can track:</p>
+          <ul className="list-disc pl-5 text-xs space-y-1">
+            <li><strong>Bookings in last 30 days</strong> — counts non-cancelled bookings</li>
+            <li><strong>Revenue in last 30 days</strong> — sums paid total_amount</li>
+            <li><strong>New customers in last 30 days</strong> — from customer_profiles</li>
+            <li><strong>Repeat customer rate (%)</strong> — customers with 2+ bookings ÷ total customers</li>
+          </ul>
+          <p className="font-semibold">Status colors:</p>
+          <ul className="list-disc pl-5 text-xs space-y-1">
+            <li>🟢 <strong>Ahead</strong> — projected to hit target 7+ days early</li>
+            <li>🔵 <strong>On track</strong> — projected to hit target on time</li>
+            <li>🟡 <strong>Behind</strong> — projected to miss by up to 7 days</li>
+            <li>🔴 <strong>Missed</strong> — past target date without hitting</li>
+            <li>✅ <strong>Achieved</strong> — current value ≥ target</li>
+          </ul>
+          <p className="text-xs text-slate-500">
+            💡 Projection assumes constant velocity. If you set a goal early
+            in the month, the projection adjusts as more data accumulates.
+            Delete + re-create if your strategy changes.
+          </p>
+        </div>
+      ),
+    },
+    {
+      id: "api-v1-write",
+      title: "API v1 — create bookings + check availability programmatically",
+      icon: Key,
+      content: (
+        <div className="space-y-3 text-sm">
+          <p>
+            In addition to read endpoints (see "API keys" above), the v1 API
+            now supports creating bookings and checking availability from
+            external systems.
+          </p>
+          <p className="font-semibold"><code>POST /api/v1/bookings</code> — create a booking draft</p>
+          <p className="text-xs">Scope required: <code>bookings:write</code></p>
+          <pre className="bg-slate-900 text-emerald-300 text-xs p-3 rounded overflow-x-auto">
+{`curl -X POST https://getrentalflow.com/api/v1/bookings \\
+  -H "Authorization: Bearer rfk_..." \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "customer_first_name": "Jane",
+    "customer_last_name": "Doe",
+    "customer_email": "jane@example.com",
+    "customer_phone": "555-1234",
+    "event_date": "2026-07-15",
+    "product_id": "uuid-of-product",
+    "total_amount": 25000,
+    "address": "123 Main St",
+    "city": "Jacksonville",
+    "state": "FL",
+    "zip": "32256",
+    "external_ref": "your-system-id"
+  }'`}
+          </pre>
+          <p className="text-xs">
+            Returns the new booking with status <code>pending_payment</code>.
+            Customer still needs to be invoiced/paid through your normal flow.
+            Fires <code>booking.created</code> webhook (source: "api").
+          </p>
+          <p className="font-semibold mt-3"><code>GET /api/v1/availability</code> — what dates are open</p>
+          <p className="text-xs">Scope required: <code>bookings:read</code></p>
+          <pre className="bg-slate-900 text-emerald-300 text-xs p-3 rounded overflow-x-auto">
+{`curl "https://getrentalflow.com/api/v1/availability?product_id=PRODUCT_UUID&start=2026-07-01&end=2026-07-31" \\
+  -H "Authorization: Bearer rfk_..."`}
+          </pre>
+          <p className="text-xs">
+            Returns day-by-day: <code>booked</code> count, <code>available</code>{" "}
+            (stock − booked), <code>sold_out</code> boolean. Perfect for
+            building a custom checkout / Zapier branching.
+          </p>
+          <p className="bg-amber-50 border border-amber-200 rounded p-2 text-xs">
+            ⚠️ The new <code>bookings:write</code> scope must be selected when
+            creating the API key. Existing read-only keys can't POST.
+          </p>
+        </div>
+      ),
+    },
+    {
       id: "tests",
       title: "Testing checklist",
       icon: HelpCircle,

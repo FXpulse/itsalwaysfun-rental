@@ -20,9 +20,10 @@ interface ApiKey {
 
 const SCOPE_OPTIONS = [
   { value: "bookings:read", label: "Read bookings" },
+  { value: "bookings:write", label: "Create bookings (POST /v1/bookings)" },
   { value: "customers:read", label: "Read customers" },
   { value: "products:read", label: "Read products" },
-  { value: "*", label: "All read (current + future)" },
+  { value: "*", label: "All scopes (current + future)" },
 ];
 
 export function ApiKeysClient({ keys }: { keys: ApiKey[] }) {

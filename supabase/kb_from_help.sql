@@ -2252,6 +2252,83 @@ on conflict (slug) do update set
   updated_at = now();
 
 insert into kb_articles (slug, title, body_md, category, tags, is_published) values
+  ($kbf$help-goals$kbf$, $kbf$Goals tracker — set targets, watch progress live$kbf$, $kbf$Set business goals at `/admin/goals`. The page shows
+live progress + a projected hit date based on your current
+velocity.
+
+Metrics you can track:
+
+- **Bookings in last 30 days** — counts non-cancelled bookings
+
+- **Revenue in last 30 days** — sums paid total_amount
+
+- **New customers in last 30 days** — from customer_profiles
+
+- **Repeat customer rate (%)** — customers with 2+ bookings ÷ total customers
+
+Status colors:
+
+- 🟢 **Ahead** — projected to hit target 7+ days early
+
+- 🔵 **On track** — projected to hit target on time
+
+- 🟡 **Behind** — projected to miss by up to 7 days
+
+- 🔴 **Missed** — past target date without hitting
+
+- ✅ **Achieved** — current value ≥ target
+
+💡 Projection assumes constant velocity. If you set a goal early
+in the month, the projection adjusts as more data accumulates.
+Delete + re-create if your strategy changes.$kbf$, $kbf$Setup$kbf$, array[$kbf$help$kbf$, $kbf$imported$kbf$], true)
+on conflict (slug) do update set
+  title = excluded.title,
+  body_md = excluded.body_md,
+  category = excluded.category,
+  tags = excluded.tags,
+  updated_at = now();
+
+insert into kb_articles (slug, title, body_md, category, tags, is_published) values
+  ($kbf$help-api-v1-write$kbf$, $kbf$API v1 — create bookings + check availability programmatically$kbf$, $kbf$In addition to read endpoints (see "API keys" above), the v1 API
+now supports creating bookings and checking availability from
+external systems.
+
+`POST /api/v1/bookings` — create a booking draft
+
+Scope required: `bookings:write`
+
+curl -X POST https://getrentalflow.com/api/v1/bookings \\
+-H "Authorization: Bearer rfk_..." \\
+-H "Content-Type: application/json" \\
+-d ''
+</pre>
+<p>
+Returns the new booking with status `pending_payment`.
+Customer still needs to be invoiced/paid through your normal flow.
+Fires `booking.created` webhook (source: "api").
+
+`GET /api/v1/availability` — what dates are open
+
+Scope required: `bookings:read`
+
+curl "https://getrentalflow.com/api/v1/availability?product_id=PRODUCT_UUID&start=2026-07-01&end=2026-07-31" \\
+-H "Authorization: Bearer rfk_..."
+</pre>
+<p>
+Returns day-by-day: `booked` count, `available`
+(stock − booked), `sold_out` boolean. Perfect for
+building a custom checkout / Zapier branching.
+
+⚠️ The new `bookings:write` scope must be selected when
+creating the API key. Existing read-only keys can't POST.$kbf$, $kbf$Setup$kbf$, array[$kbf$help$kbf$, $kbf$imported$kbf$], true)
+on conflict (slug) do update set
+  title = excluded.title,
+  body_md = excluded.body_md,
+  category = excluded.category,
+  tags = excluded.tags,
+  updated_at = now();
+
+insert into kb_articles (slug, title, body_md, category, tags, is_published) values
   ($kbf$help-tests$kbf$, $kbf$Testing checklist$kbf$, $kbf$Before going live, test these end-to-end:
 
 - ☐ Public booking → Stripe test card `4242 4242 4242 4242` → check email + SMS arrive

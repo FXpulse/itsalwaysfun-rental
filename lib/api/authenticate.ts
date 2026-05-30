@@ -65,10 +65,12 @@ export async function authenticateApiKey(
   }
 
   if (requiredScope) {
-    const has = Array.isArray(row.scopes) && (row.scopes.includes(requiredScope) || row.scopes.includes("*"));
+    // Granted if exact match, wildcard "*", OR (for any X:read) the user has X:read scope
+    const scopes = Array.isArray(row.scopes) ? row.scopes : [];
+    const has = scopes.includes(requiredScope) || scopes.includes("*");
     if (!has) {
       return NextResponse.json(
-        { error: "insufficient_scope", required: requiredScope, granted: row.scopes },
+        { error: "insufficient_scope", required: requiredScope, granted: scopes },
         { status: 403 },
       );
     }
