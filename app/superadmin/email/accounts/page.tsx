@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { Mail, Plus, AlertTriangle, CheckCircle2 } from "lucide-react";
 import { getSuperadminUser } from "@/lib/auth/superadmin";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { Crumbs } from "../../Crumbs";
 import { SyncNowButton } from "./SyncNowButton";
 import type { EmailAccount } from "@/lib/email/types";
 
@@ -20,6 +21,7 @@ export default async function AccountsPage() {
 
   return (
     <div className="max-w-4xl">
+      <Crumbs trail={[{ label: "Email", href: "/superadmin/email" }, { label: "Accounts" }]} />
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-2xl font-bold text-brand-navy flex items-center gap-2">
           <Mail className="h-6 w-6" /> Email accounts

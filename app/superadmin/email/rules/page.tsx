@@ -2,6 +2,7 @@
 import { redirect } from "next/navigation";
 import { getSuperadminUser } from "@/lib/auth/superadmin";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { Crumbs } from "../../Crumbs";
 import { RulesClient } from "./RulesClient";
 import type { EmailAccount, EmailLabel, EmailRule } from "@/lib/email/types";
 
@@ -18,6 +19,7 @@ export default async function RulesPage() {
   ]);
   return (
     <div className="max-w-2xl">
+      <Crumbs trail={[{ label: "Email", href: "/superadmin/email" }, { label: "Rules" }]} />
       <h1 className="text-2xl font-bold text-brand-navy mb-4">Rules</h1>
       <RulesClient
         accounts={(accounts as EmailAccount[]) || []}

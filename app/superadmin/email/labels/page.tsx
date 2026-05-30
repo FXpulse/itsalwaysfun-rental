@@ -2,6 +2,7 @@
 import { redirect } from "next/navigation";
 import { getSuperadminUser } from "@/lib/auth/superadmin";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { Crumbs } from "../../Crumbs";
 import { LabelsClient } from "./LabelsClient";
 import type { EmailAccount, EmailLabel } from "@/lib/email/types";
 
@@ -17,6 +18,7 @@ export default async function LabelsPage() {
   ]);
   return (
     <div className="max-w-2xl">
+      <Crumbs trail={[{ label: "Email", href: "/superadmin/email" }, { label: "Labels" }]} />
       <h1 className="text-2xl font-bold text-brand-navy mb-4">Labels</h1>
       <LabelsClient accounts={(accounts as EmailAccount[]) || []} labels={(labels as EmailLabel[]) || []} />
     </div>
