@@ -19,6 +19,18 @@ export interface WizardInput {
   password: string;
 }
 
+function formatErr(e: any): string {
+  const parts: string[] = [];
+  if (e?.code) parts.push(`code=${e.code}`);
+  if (e?.authenticationFailed) parts.push("auth_failed=true");
+  if (e?.serverResponseCode) parts.push(`server_code=${e.serverResponseCode}`);
+  if (e?.response) parts.push(`response=${String(e.response).slice(0, 200)}`);
+  if (e?.responseText) parts.push(`response_text=${String(e.responseText).slice(0, 200)}`);
+  if (e?.command) parts.push(`command=${e.command}`);
+  parts.push(`msg=${String(e?.message || e)}`);
+  return parts.join(" | ");
+}
+
 export async function testConnections(input: WizardInput): Promise<
   { ok: true } | { ok: false; stage: "imap" | "smtp"; error: string }
 > {
@@ -31,7 +43,7 @@ export async function testConnections(input: WizardInput): Promise<
     await flow.connect();
     await flow.logout();
   } catch (e: any) {
-    return { ok: false, stage: "imap", error: String(e?.message || e) };
+    return { ok: false, stage: "imap", error: formatErr(e) };
   }
   // Test SMTP
   try {
@@ -42,7 +54,7 @@ export async function testConnections(input: WizardInput): Promise<
     await transport.verify();
     transport.close();
   } catch (e: any) {
-    return { ok: false, stage: "smtp", error: String(e?.message || e) };
+    return { ok: false, stage: "smtp", error: formatErr(e) };
   }
   return { ok: true };
 }
