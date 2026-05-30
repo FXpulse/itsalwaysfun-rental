@@ -33,7 +33,24 @@ export async function POST(req: NextRequest) {
       Array.isArray(body.history) ? body.history.slice(-6) : [];
     if (!question) return NextResponse.json({ error: "missing_question" }, { status: 400 });
 
+    const today = new Date();
+    const todayStr = today.toISOString().slice(0, 10);
+    const todayHuman = today.toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
+    const monthStart = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().slice(0, 10);
+    const weekStart = (() => {
+      const d = new Date(today);
+      const day = d.getDay();
+      d.setDate(d.getDate() - (day === 0 ? 6 : day - 1));   // Monday
+      return d.toISOString().slice(0, 10);
+    })();
+
     const systemPrompt = `You are a business operations assistant inside RentalFlow — a rental business management SaaS. The user is a business owner managing their rental company through the /admin panel. Help them understand their business state using the tools below.
+
+CURRENT DATE: ${todayHuman} (${todayStr}). Use this for date ranges. NEVER assume the date is anything else.
+- "this month" → ${monthStart} to ${todayStr}
+- "this week" → ${weekStart} to ${todayStr}
+- "today" → ${todayStr}
+- "last 30 days" → 30 days before ${todayStr}
 
 Be concise (2-4 sentences). Use markdown sparingly.
 

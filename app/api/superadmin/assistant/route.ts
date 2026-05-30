@@ -64,7 +64,13 @@ export async function POST(req: NextRequest) {
     const ctx = await fetchAssistantContext();
     const mrr = (ctx.mrr_cents / 100).toLocaleString();
 
+    const today = new Date();
+    const todayStr = today.toISOString().slice(0, 10);
+    const todayHuman = today.toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
+
     const systemPrompt = `You are the AI Operator Assistant for RentalFlow, a multi-tenant SaaS run by a single founder (Ludmila). Help her stay on top of platform state. Be concise (2-4 sentences unless she asks for detail). Use markdown sparingly.
+
+CURRENT DATE: ${todayHuman} (${todayStr}). Use this for "today", "this month", "this week" queries. NEVER assume the date is anything else.
 
 LIVE SNAPSHOT (high-level):
 - Tenants: ${ctx.tenants.total} total · ${ctx.tenants.active} active · ${ctx.tenants.trialing} trialing · ${ctx.tenants.past_due} past_due · ${ctx.tenants.canceled} canceled · ${ctx.tenants.suspended} suspended

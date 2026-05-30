@@ -2548,6 +2548,58 @@ X-RentalFlow-Signature: sha256=<hex>
       ),
     },
     {
+      id: "referrer-coupons",
+      title: "Referrer-assigned coupons — track referrals via coupon code",
+      icon: Ticket,
+      content: (
+        <div className="space-y-3 text-sm">
+          <p>
+            At <code>/admin/coupons</code> you can <strong>assign a coupon to
+            a specific customer</strong>. When anyone uses that coupon, the
+            assigned customer earns the referral commission automatically —
+            no cookie tracking needed.
+          </p>
+          <p className="font-semibold">How to assign:</p>
+          <ol className="list-decimal pl-5 text-xs space-y-1">
+            <li>Go to <code>/admin/coupons</code></li>
+            <li>Click <strong>+ Add coupon</strong> (or edit existing)</li>
+            <li>Fill in code (e.g. <code>MARIA20</code>), discount, etc.</li>
+            <li>In the violet box <strong>"Assign to a customer"</strong>, search by email</li>
+            <li>Pick the customer → they're linked as referrer</li>
+            <li>Save</li>
+          </ol>
+          <p className="font-semibold">What the customer sees:</p>
+          <ul className="list-disc pl-5 text-xs space-y-1">
+            <li>The coupon appears in their <code>/portal/referrals</code> page</li>
+            <li>They share it via Copy / WhatsApp / Email</li>
+            <li>Each use earns them commission (% of post-discount, pre-tax total)</li>
+          </ul>
+          <p className="font-semibold">Commission rules (anti-double-pay):</p>
+          <ul className="list-disc pl-5 text-xs space-y-1">
+            <li><strong>If buyer was referred via cookie</strong> (the <code>?ref=</code> link), that referrer gets commission — coupon attribution is ignored.</li>
+            <li><strong>If only coupon</strong> is used → the coupon's assigned referrer gets commission.</li>
+            <li><strong>Never both</strong> — exactly one commission per booking.</li>
+            <li><strong>First paid booking only</strong> per customer email — repeat bookings don't pay commission.</li>
+          </ul>
+          <p className="font-semibold">Commission calculation:</p>
+          <p className="text-xs">
+            Commission = <strong>(total_amount − tax)</strong> × <code>referral_commission_pct</code>.
+            Always post-discount, pre-tax. Tax we collect for the state isn't part of the referrer's earnings.
+          </p>
+          <p className="bg-amber-50 border border-amber-200 rounded p-2 text-xs">
+            ⚠️ Customer must have logged into the portal at least once for them
+            to appear in the search. New customers without portal accounts
+            can't be assigned a coupon yet.
+          </p>
+          <p className="bg-emerald-50 border border-emerald-200 rounded p-2 text-xs">
+            💡 <strong>Why this is better than just ref links:</strong> if a friend opens
+            the site directly (no cookie) or shares the coupon code outside
+            the link, you still know who referred them. No attribution lost.
+          </p>
+        </div>
+      ),
+    },
+    {
       id: "tests",
       title: "Testing checklist",
       icon: HelpCircle,

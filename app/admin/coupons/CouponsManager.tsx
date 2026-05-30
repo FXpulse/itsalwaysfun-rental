@@ -9,7 +9,9 @@ import {
   updateCoupon,
   deleteCoupon,
   toggleCouponActive,
+  searchCustomers,
 } from "./actions";
+import { ReferrerPicker } from "./ReferrerPicker";
 
 interface Coupon {
   id: string;
@@ -21,6 +23,8 @@ interface Coupon {
   current_uses: number;
   expires_at: string | null;
   is_active: boolean;
+  referrer_user_id: string | null;
+  referrer_email: string | null;        // resolved at fetch time
 }
 
 export function CouponsManager({ coupons }: { coupons: Coupon[] }) {
@@ -104,6 +108,7 @@ export function CouponsManager({ coupons }: { coupons: Coupon[] }) {
                 <th className="text-left px-4 py-3 font-semibold text-slate-700">Code</th>
                 <th className="text-left px-4 py-3 font-semibold text-slate-700">Discount</th>
                 <th className="text-left px-4 py-3 font-semibold text-slate-700">Uses</th>
+                <th className="text-left px-4 py-3 font-semibold text-slate-700">Referrer</th>
                 <th className="text-left px-4 py-3 font-semibold text-slate-700">Expires</th>
                 <th className="text-left px-4 py-3 font-semibold text-slate-700">Status</th>
                 <th className="text-right px-4 py-3 font-semibold text-slate-700">Actions</th>
@@ -127,6 +132,15 @@ export function CouponsManager({ coupons }: { coupons: Coupon[] }) {
                   </td>
                   <td className="px-4 py-3">
                     {c.max_uses != null ? `${c.current_uses} / ${c.max_uses}` : `${c.current_uses} / ∞`}
+                  </td>
+                  <td className="px-4 py-3 text-xs">
+                    {c.referrer_email ? (
+                      <span className="inline-flex items-center gap-1 bg-violet-50 text-violet-800 rounded-full px-2 py-0.5">
+                        👤 {c.referrer_email}
+                      </span>
+                    ) : (
+                      <span className="text-slate-400">—</span>
+                    )}
                   </td>
                   <td className="px-4 py-3 text-xs">
                     {c.expires_at
@@ -319,6 +333,22 @@ function CouponFormCard({
               disabled={pending}
             />
           </div>
+        </div>
+
+        {/* Referrer assignment — optional. When set, anyone using this coupon
+            attributes the booking commission to that customer in /portal/referrals. */}
+        <div className="bg-violet-50 border border-violet-200 rounded p-3">
+          <label className="block text-sm font-medium text-slate-700 mb-1">
+            Assign to a customer (optional)
+            <span className="text-xs text-slate-500 font-normal ml-1">
+              — they'll see this coupon in /portal/referrals + earn commission when used
+            </span>
+          </label>
+          <ReferrerPicker
+            initialUserId={initial?.referrer_user_id || null}
+            initialEmail={initial?.referrer_email || null}
+            disabled={pending}
+          />
         </div>
 
         <label className="flex items-center gap-2 text-sm">

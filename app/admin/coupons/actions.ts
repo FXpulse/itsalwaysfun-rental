@@ -20,6 +20,7 @@ const CouponInput = z.object({
   max_uses: z.number().int().min(0).optional().nullable(),
   expires_at: z.string().optional().nullable(),
   is_active: z.boolean(),
+  referrer_user_id: z.string().uuid().optional().nullable(),
 });
 
 function parseForm(formData: FormData) {
@@ -42,7 +43,45 @@ function parseForm(formData: FormData) {
     max_uses: maxUsesRaw ? parseInt(maxUsesRaw, 10) : null,
     expires_at: expiresAtRaw ? new Date(expiresAtRaw).toISOString() : null,
     is_active: formData.get("is_active") === "on",
+    referrer_user_id: (String(formData.get("referrer_user_id") || "").trim() || null) as string | null,
   };
+}
+
+/** Search customers by email. Used by admin coupon form to assign a referrer.
+ *  customer_profiles doesn't store email/name — those live in auth.users.
+ *  We list users via admin SDK then filter to those that have a customer_profile. */
+export async function searchCustomers(query: string): Promise<Array<{ user_id: string; email: string; referral_code: string | null }>> {
+  await requireAdmin();
+  const q = query.trim().toLowerCase();
+  if (q.length < 2) return [];
+  const supabase = createAdminClient();
+
+  // Get up to 1000 users (paginate if you ever have more) — RentalFlow tenants
+  // typically have far fewer customers in scope.
+  const { data: usersData } = await supabase.auth.admin.listUsers({ perPage: 1000 });
+  const matchingUsers = (usersData?.users || []).filter((u) =>
+    (u.email || "").toLowerCase().includes(q),
+  );
+  if (matchingUsers.length === 0) return [];
+
+  // Filter to those with a customer_profile (so we only pick actual customers)
+  const userIds = matchingUsers.map((u) => u.id);
+  const { data: profiles } = await supabase
+    .from("customer_profiles")
+    .select("user_id, referral_code")
+    .in("user_id", userIds);
+  const profileMap = new Map<string, string | null>(
+    ((profiles as any[]) || []).map((p) => [p.user_id, p.referral_code]),
+  );
+
+  return matchingUsers
+    .filter((u) => profileMap.has(u.id))
+    .slice(0, 10)
+    .map((u) => ({
+      user_id: u.id,
+      email: u.email || "",
+      referral_code: profileMap.get(u.id) || null,
+    }));
 }
 
 export async function createCoupon(formData: FormData) {

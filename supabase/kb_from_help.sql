@@ -2430,6 +2430,63 @@ on conflict (slug) do update set
   updated_at = now();
 
 insert into kb_articles (slug, title, body_md, category, tags, is_published) values
+  ($kbf$help-referrer-coupons$kbf$, $kbf$Referrer-assigned coupons — track referrals via coupon code$kbf$, $kbf$At `/admin/coupons` you can **assign a coupon to
+a specific customer**. When anyone uses that coupon, the
+assigned customer earns the referral commission automatically —
+no cookie tracking needed.
+
+How to assign:
+
+- Go to `/admin/coupons`
+
+- Click **+ Add coupon** (or edit existing)
+
+- Fill in code (e.g. `MARIA20`), discount, etc.
+
+- In the violet box **"Assign to a customer"**, search by email
+
+- Pick the customer → they're linked as referrer
+
+- Save
+
+What the customer sees:
+
+- The coupon appears in their `/portal/referrals` page
+
+- They share it via Copy / WhatsApp / Email
+
+- Each use earns them commission (% of post-discount, pre-tax total)
+
+Commission rules (anti-double-pay):
+
+- **If buyer was referred via cookie** (the `?ref=` link), that referrer gets commission — coupon attribution is ignored.
+
+- **If only coupon** is used → the coupon's assigned referrer gets commission.
+
+- **Never both** — exactly one commission per booking.
+
+- **First paid booking only** per customer email — repeat bookings don't pay commission.
+
+Commission calculation:
+
+Commission = **(total_amount − tax)** × `referral_commission_pct`.
+Always post-discount, pre-tax. Tax we collect for the state isn't part of the referrer's earnings.
+
+⚠️ Customer must have logged into the portal at least once for them
+to appear in the search. New customers without portal accounts
+can't be assigned a coupon yet.
+
+💡 **Why this is better than just ref links:** if a friend opens
+the site directly (no cookie) or shares the coupon code outside
+the link, you still know who referred them. No attribution lost.$kbf$, $kbf$Promotions$kbf$, array[$kbf$help$kbf$, $kbf$imported$kbf$], true)
+on conflict (slug) do update set
+  title = excluded.title,
+  body_md = excluded.body_md,
+  category = excluded.category,
+  tags = excluded.tags,
+  updated_at = now();
+
+insert into kb_articles (slug, title, body_md, category, tags, is_published) values
   ($kbf$help-tests$kbf$, $kbf$Testing checklist$kbf$, $kbf$Before going live, test these end-to-end:
 
 - ☐ Public booking → Stripe test card `4242 4242 4242 4242` → check email + SMS arrive

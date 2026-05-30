@@ -100,7 +100,7 @@ export async function awardForPaidBooking(bookingId: string): Promise<void> {
 
   const { data: booking } = await supabase
     .from("bookings")
-    .select("id, customer_email, total_amount, stripe_payment_status, booking_status, created_at")
+    .select("id, customer_email, total_amount, tax_cents, coupon_code, stripe_payment_status, booking_status, created_at")
     .eq("id", bookingId)
     .single();
   if (!booking || booking.stripe_payment_status !== "paid") return;
@@ -172,36 +172,61 @@ export async function awardForPaidBooking(bookingId: string): Promise<void> {
 
   if ((priorPaid || []).length > 0) return; // not first paid → no commission
 
-  // Lookup referrer
+  // Resolve effective referrer — priority order:
+  //   1. referred_by_user_id from the customer's profile (set via cookie+auth)
+  //   2. referrer_user_id on the coupon used (if any)
+  // Never both — first match wins. Anti-double-pay.
   const { data: profile } = await supabase
     .from("customer_profiles")
     .select("referred_by_user_id")
     .eq("user_id", customer.id)
     .single();
 
-  if (!profile?.referred_by_user_id) return;
+  let effectiveReferrerId: string | null = profile?.referred_by_user_id || null;
+  let attributionSource: "cookie" | "coupon" = "cookie";
 
-  const commissionCents = Math.round(
-    (booking.total_amount || 0) * (settings.referral_commission_pct / 100),
-  );
+  if (!effectiveReferrerId && booking.coupon_code) {
+    const { data: coupon } = await supabase
+      .from("coupons")
+      .select("referrer_user_id")
+      .eq("code", booking.coupon_code)
+      .maybeSingle();
+    if (coupon?.referrer_user_id) {
+      effectiveReferrerId = coupon.referrer_user_id;
+      attributionSource = "coupon";
+      // Backfill the customer's profile so future queries are consistent
+      await supabase
+        .from("customer_profiles")
+        .update({ referred_by_user_id: effectiveReferrerId })
+        .eq("user_id", customer.id)
+        .is("referred_by_user_id", null);
+    }
+  }
+
+  if (!effectiveReferrerId) return;
+
+  // Commission base: total_amount MINUS taxes — i.e. post-discount, pre-tax.
+  // This matches business intent: the referrer earns on the sale price, not on tax we collect for the state.
+  const commissionBase = Math.max(0, (booking.total_amount || 0) - (booking.tax_cents || 0));
+  const commissionCents = Math.round(commissionBase * (settings.referral_commission_pct / 100));
   if (commissionCents <= 0) return;
 
-  await ensureCustomerProfile(profile.referred_by_user_id);
+  await ensureCustomerProfile(effectiveReferrerId);
 
   await supabase.from("loyalty_transactions").insert({
-    user_id: profile.referred_by_user_id,
+    user_id: effectiveReferrerId,
     type: "referral_commission",
     commission_cents: commissionCents,
     booking_id: bookingId,
     referred_user_id: customer.id,
-    description: `Commission for referred customer's first booking`,
+    description: `Commission via ${attributionSource} — first paid booking`,
   });
 
   // Increment commission_pending
   const { data: refProfile } = await supabase
     .from("customer_profiles")
     .select("commission_pending_cents")
-    .eq("user_id", profile.referred_by_user_id)
+    .eq("user_id", effectiveReferrerId)
     .single();
   let newPendingCents = commissionCents;
   if (refProfile) {
@@ -209,12 +234,12 @@ export async function awardForPaidBooking(bookingId: string): Promise<void> {
     await supabase
       .from("customer_profiles")
       .update({ commission_pending_cents: newPendingCents })
-      .eq("user_id", profile.referred_by_user_id);
+      .eq("user_id", effectiveReferrerId);
   }
 
   // Lookup referrer user + check threshold
   const { data: { user: referrerUser } } = await supabase.auth.admin.getUserById(
-    profile.referred_by_user_id,
+    effectiveReferrerId,
   );
   const referrerMeta = (referrerUser?.user_metadata as any) || {};
 
@@ -289,7 +314,7 @@ export async function awardForPaidBooking(bookingId: string): Promise<void> {
       const customerName =
         `${referrerMeta.first_name || ""} ${referrerMeta.last_name || ""}`.trim() ||
         referrerUser.email;
-      const adminPanelUrl = `${baseUrl}/admin/loyalty/${profile.referred_by_user_id}`;
+      const adminPanelUrl = `${baseUrl}/admin/loyalty/${effectiveReferrerId}`;
 
       await sendTemplated({
         key: "admin_payout_alert",
