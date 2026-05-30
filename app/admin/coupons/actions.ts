@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { sendCouponAssignedEmail } from "@/lib/email/coupon-assigned";
 import { z } from "zod";
 
 async function requireAdmin() {
@@ -101,6 +102,18 @@ export async function createCoupon(formData: FormData) {
     if (error.code === "23505") return { error: "Coupon code already exists" };
     return { error: error.message };
   }
+
+  // If assigned to a customer, notify them (fire-and-forget)
+  if (parsed.data.referrer_user_id) {
+    sendCouponAssignedEmail({
+      coupon_code: parsed.data.code,
+      discount_type: parsed.data.discount_type,
+      discount_value: parsed.data.discount_value,
+      description: parsed.data.description ?? null,
+      customer_user_id: parsed.data.referrer_user_id,
+    }).catch(() => {});
+  }
+
   revalidatePath("/admin/coupons");
   return { success: true };
 }
@@ -114,8 +127,28 @@ export async function updateCoupon(id: string, formData: FormData) {
   }
 
   const supabase = createAdminClient();
+  // Read current referrer to detect if assignment is new
+  const { data: prev } = await supabase
+    .from("coupons").select("referrer_user_id").eq("id", id).maybeSingle();
+  const prevReferrer = (prev as any)?.referrer_user_id || null;
+
   const { error } = await supabase.from("coupons").update(parsed.data).eq("id", id);
   if (error) return { error: error.message };
+
+  // Only notify if assignment is NEW or CHANGED to a different customer
+  if (
+    parsed.data.referrer_user_id &&
+    parsed.data.referrer_user_id !== prevReferrer
+  ) {
+    sendCouponAssignedEmail({
+      coupon_code: parsed.data.code,
+      discount_type: parsed.data.discount_type,
+      discount_value: parsed.data.discount_value,
+      description: parsed.data.description ?? null,
+      customer_user_id: parsed.data.referrer_user_id,
+    }).catch(() => {});
+  }
+
   revalidatePath("/admin/coupons");
   return { success: true };
 }

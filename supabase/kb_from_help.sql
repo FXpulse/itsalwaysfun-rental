@@ -2487,6 +2487,62 @@ on conflict (slug) do update set
   updated_at = now();
 
 insert into kb_articles (slug, title, body_md, category, tags, is_published) values
+  ($kbf$help-bulk-coupon-assign$kbf$, $kbf$Bulk-assign coupons — give codes to many customers at once$kbf$, $kbf$At `/admin/coupons/bulk-assign` you can generate unique
+coupons for up to 100 customers at once. Each customer gets their
+own code + an email notification — perfect for campaigns,
+VIP rewards, or onboarding cohorts.
+
+How it works:
+
+- Click **"Bulk assign to customers"** from `/admin/coupons`
+
+- Search customers by email and add them — chips show who's selected
+
+- (Optional) Enter a **code prefix** like `SUMMER` → codes become `SUMMER-ABC123`
+
+- Set discount type (% or $) + value
+
+- (Optional) Max uses per coupon + expiry
+
+- Click **Create + email N**
+
+- System generates a unique code per customer, assigns it, and emails each one
+
+Code generation:
+
+- 6-char random suffix from a clean alphabet (no 0/O/1/I confusion)
+
+- Auto-retries up to 5 times if the code collides with an existing one
+
+- If admin doesn't set a prefix → just the random part (e.g. `ABC123`)
+
+Each customer receives:
+
+- Email with their unique code + discount
+
+- Card on their `/portal/referrals` page
+
+- Same attribution rules: their friends use the code → they earn commission on first paid booking
+
+Auto-email content:
+
+Subject: "🎟 You've got a personal coupon — XXXX"
+
+Body: Personalized greeting, code in big violet box, instructions on how to share, link to portal.
+
+⚠️ Limit 100 customers per bulk action. For larger campaigns,
+run multiple times. The job is synchronous — give it ~30 seconds
+for 100 customers (DB inserts + email sends).
+
+💡 **Use case:** launch a "Refer a friend" campaign by bulk-assigning a $20 coupon to your top 50 customers. Each gets a personal code + email — they share, you grow.$kbf$, $kbf$Customer$kbf$, array[$kbf$help$kbf$, $kbf$imported$kbf$], true)
+on conflict (slug) do update set
+  title = excluded.title,
+  body_md = excluded.body_md,
+  category = excluded.category,
+  tags = excluded.tags,
+  updated_at = now();
+
+insert into kb_articles (slug, title, body_md, category, tags, is_published) values
   ($kbf$help-tests$kbf$, $kbf$Testing checklist$kbf$, $kbf$Before going live, test these end-to-end:
 
 - ☐ Public booking → Stripe test card `4242 4242 4242 4242` → check email + SMS arrive

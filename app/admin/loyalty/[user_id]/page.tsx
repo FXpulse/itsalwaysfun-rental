@@ -53,6 +53,32 @@ export default async function AdminLoyaltyDetailPage({
     referrerEmail = refUserRes?.user?.email || null;
   }
 
+  // Coupons assigned to THIS customer (admin-attributed referrer flow)
+  const { data: assignedCoupons } = await supabase
+    .from("coupons")
+    .select("id, code, description, discount_type, discount_value, current_uses, max_uses, is_active, expires_at, created_at")
+    .eq("referrer_user_id", params.user_id)
+    .order("created_at", { ascending: false });
+
+  // For each assigned coupon, sum the commission earned via that coupon's bookings
+  const assignedWithEarnings: Array<any> = [];
+  for (const c of (assignedCoupons as any[]) || []) {
+    const { data: bookings } = await supabase
+      .from("bookings").select("id").eq("coupon_code", c.code);
+    const ids = ((bookings as any[]) || []).map((b) => b.id);
+    let earned = 0;
+    if (ids.length > 0) {
+      const { data: tx } = await supabase
+        .from("loyalty_transactions")
+        .select("commission_cents")
+        .eq("user_id", params.user_id)
+        .eq("type", "referral_commission")
+        .in("booking_id", ids);
+      earned = ((tx as any[]) || []).reduce((s, t) => s + (t.commission_cents || 0), 0);
+    }
+    assignedWithEarnings.push({ ...c, commission_earned_cents: earned });
+  }
+
   // List people THEY referred
   const { data: refList } = await supabase
     .from("customer_profiles")
@@ -140,6 +166,62 @@ export default async function AdminLoyaltyDetailPage({
           <AdjustForm userId={params.user_id} />
         </div>
       </div>
+
+      {/* Assigned coupons (admin-attributed referrer flow) */}
+      {assignedWithEarnings.length > 0 && (
+        <div className="mb-6">
+          <h2 className="text-sm font-bold uppercase tracking-wider text-slate-500 mb-2 flex items-center gap-1">
+            🎟 Assigned coupons ({assignedWithEarnings.length})
+            <Link href="/admin/coupons" className="text-xs text-violet-700 hover:underline ml-2 normal-case font-normal">
+              Manage in coupons →
+            </Link>
+          </h2>
+          <div className="card overflow-hidden p-0">
+            <table className="w-full text-sm">
+              <thead className="bg-slate-50 text-slate-600 text-xs uppercase tracking-wide">
+                <tr>
+                  <th className="px-4 py-3 text-left">Code</th>
+                  <th className="px-4 py-3 text-left">Discount</th>
+                  <th className="px-4 py-3 text-right">Uses</th>
+                  <th className="px-4 py-3 text-right">Commission earned</th>
+                  <th className="px-4 py-3 text-left">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {assignedWithEarnings.map((c) => (
+                  <tr key={c.id} className={c.is_active ? "" : "opacity-50"}>
+                    <td className="px-4 py-3 font-mono font-bold text-violet-900">{c.code}</td>
+                    <td className="px-4 py-3 text-xs">
+                      {c.discount_type === "percent"
+                        ? `${c.discount_value}% off`
+                        : c.discount_type === "fixed"
+                          ? `$${(c.discount_value / 100).toFixed(0)} off`
+                          : "Overnight free"}
+                      {c.description && <div className="text-[10px] text-slate-500">{c.description}</div>}
+                    </td>
+                    <td className="px-4 py-3 text-right font-mono text-xs">
+                      {c.max_uses != null ? `${c.current_uses} / ${c.max_uses}` : `${c.current_uses}`}
+                    </td>
+                    <td className="px-4 py-3 text-right font-mono font-semibold text-emerald-700">
+                      {formatCurrency(c.commission_earned_cents)}
+                    </td>
+                    <td className="px-4 py-3">
+                      {c.is_active ? (
+                        <span className="text-[10px] bg-emerald-100 text-emerald-800 rounded px-2 py-0.5">Active</span>
+                      ) : (
+                        <span className="text-[10px] bg-slate-200 text-slate-600 rounded px-2 py-0.5">Inactive</span>
+                      )}
+                      {c.expires_at && new Date(c.expires_at) < new Date() && (
+                        <span className="text-[10px] bg-rose-100 text-rose-700 rounded px-2 py-0.5 ml-1">Expired</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {/* Referred users */}
       {referredEmails.length > 0 && (

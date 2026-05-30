@@ -3,7 +3,8 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Plus, Trash2, Edit, X } from "lucide-react";
+import { Plus, Trash2, Edit, X, Layers } from "lucide-react";
+import Link from "next/link";
 import {
   createCoupon,
   updateCoupon,
@@ -74,7 +75,13 @@ export function CouponsManager({ coupons }: { coupons: Coupon[] }) {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-end">
+      <div className="flex justify-end gap-2">
+        <Link
+          href="/admin/coupons/bulk-assign"
+          className="bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-700 hover:to-fuchsia-700 text-white font-semibold rounded-md px-4 py-2 text-sm inline-flex items-center gap-1 shadow-sm"
+        >
+          <Layers className="h-4 w-4" /> Bulk assign to customers
+        </Link>
         <button
           onClick={() => {
             setShowAdd(true);

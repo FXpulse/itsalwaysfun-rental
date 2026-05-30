@@ -2600,6 +2600,56 @@ X-RentalFlow-Signature: sha256=<hex>
       ),
     },
     {
+      id: "bulk-coupon-assign",
+      title: "Bulk-assign coupons — give codes to many customers at once",
+      icon: Ticket,
+      content: (
+        <div className="space-y-3 text-sm">
+          <p>
+            At <code>/admin/coupons/bulk-assign</code> you can generate unique
+            coupons for up to 100 customers at once. Each customer gets their
+            own code + an email notification — perfect for campaigns,
+            VIP rewards, or onboarding cohorts.
+          </p>
+          <p className="font-semibold">How it works:</p>
+          <ol className="list-decimal pl-5 text-xs space-y-1">
+            <li>Click <strong>"Bulk assign to customers"</strong> from <code>/admin/coupons</code></li>
+            <li>Search customers by email and add them — chips show who's selected</li>
+            <li>(Optional) Enter a <strong>code prefix</strong> like <code>SUMMER</code> → codes become <code>SUMMER-ABC123</code></li>
+            <li>Set discount type (% or $) + value</li>
+            <li>(Optional) Max uses per coupon + expiry</li>
+            <li>Click <strong>Create + email N</strong></li>
+            <li>System generates a unique code per customer, assigns it, and emails each one</li>
+          </ol>
+          <p className="font-semibold">Code generation:</p>
+          <ul className="list-disc pl-5 text-xs space-y-1">
+            <li>6-char random suffix from a clean alphabet (no 0/O/1/I confusion)</li>
+            <li>Auto-retries up to 5 times if the code collides with an existing one</li>
+            <li>If admin doesn't set a prefix → just the random part (e.g. <code>ABC123</code>)</li>
+          </ul>
+          <p className="font-semibold">Each customer receives:</p>
+          <ul className="list-disc pl-5 text-xs space-y-1">
+            <li>Email with their unique code + discount</li>
+            <li>Card on their <code>/portal/referrals</code> page</li>
+            <li>Same attribution rules: their friends use the code → they earn commission on first paid booking</li>
+          </ul>
+          <p className="font-semibold">Auto-email content:</p>
+          <p className="text-xs">
+            Subject: "🎟 You've got a personal coupon — XXXX"<br />
+            Body: Personalized greeting, code in big violet box, instructions on how to share, link to portal.
+          </p>
+          <p className="bg-amber-50 border border-amber-200 rounded p-2 text-xs">
+            ⚠️ Limit 100 customers per bulk action. For larger campaigns,
+            run multiple times. The job is synchronous — give it ~30 seconds
+            for 100 customers (DB inserts + email sends).
+          </p>
+          <p className="bg-emerald-50 border border-emerald-200 rounded p-2 text-xs">
+            💡 <strong>Use case:</strong> launch a "Refer a friend" campaign by bulk-assigning a $20 coupon to your top 50 customers. Each gets a personal code + email — they share, you grow.
+          </p>
+        </div>
+      ),
+    },
+    {
       id: "tests",
       title: "Testing checklist",
       icon: HelpCircle,
