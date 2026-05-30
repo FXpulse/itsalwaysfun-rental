@@ -45,7 +45,10 @@ async function runHandler() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  return await Sentry.withMonitor("email-sync", async () => {
+  // Skip Sentry.withMonitor — it has been throwing on this route. Run the
+  // sync inline; errors still get captured by Sentry via the outer try/catch
+  // in GET().
+  {
     const supabase = createAdminClient({ unscoped: true });
 
     const { data: accounts, error } = await supabase
@@ -81,7 +84,7 @@ async function runHandler() {
     }
 
     return NextResponse.json({ ok: true, results });
-  });
+  }
 }
 
 async function syncOneAccount(supabase: any, account: EmailAccount) {
