@@ -17,6 +17,26 @@ import type {
 export const dynamic = "force-dynamic";
 
 export async function GET() {
+  try {
+    return await runHandler();
+  } catch (e: any) {
+    // Top-level catch so the operator-facing sync-now button gets a useful
+    // JSON error instead of a Next.js 500 HTML page.
+    Sentry.captureException(e, { tags: { stage: "email_sync_route" } });
+    return NextResponse.json(
+      {
+        error: "internal_error",
+        message: String(e?.message || e),
+        stack: process.env.NODE_ENV === "production"
+          ? String(e?.stack || "").slice(0, 1500)
+          : undefined,
+      },
+      { status: 500 },
+    );
+  }
+}
+
+async function runHandler() {
   const auth = headers().get("authorization") || "";
   const expected = `Bearer ${process.env.CRON_SECRET || ""}`;
   if (!process.env.CRON_SECRET || auth !== expected) {
