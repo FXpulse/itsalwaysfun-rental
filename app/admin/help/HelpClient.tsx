@@ -2796,6 +2796,63 @@ sofia@example.com,Sofia,Rivera,`}
       ),
     },
     {
+      id: "public-ai-chat",
+      title: "AI chat on your public site — replaces the GHL chat",
+      icon: Sparkles,
+      content: (
+        <div className="space-y-3 text-sm">
+          <p>
+            Every public page of your site has a chat bubble bottom-right
+            (navy by default, matches your hero color). When a visitor
+            clicks it, they get an AI assistant that knows your products,
+            FAQs, hours, policies, and availability.
+          </p>
+          <p className="font-semibold">What it can do:</p>
+          <ul className="list-disc pl-5 text-xs space-y-1">
+            <li><strong>Answer pricing questions</strong> — pulls live from your products catalog</li>
+            <li><strong>Check availability</strong> — "Is the Game On bouncer free this Saturday?"</li>
+            <li><strong>Search FAQs</strong> — finds answers from <code>/admin/faqs</code></li>
+            <li><strong>Quote business info</strong> — hours, phone, service area, address</li>
+            <li><strong>Explain policies</strong> — pulls from "Important tips" on <code>/admin/site</code></li>
+            <li><strong>Guide to booking</strong> — every answer ends with a link to <code>/order-by-date</code> or a specific product page</li>
+          </ul>
+          <p className="font-semibold">What it CANNOT do (safety guardrails):</p>
+          <ul className="list-disc pl-5 text-xs space-y-1">
+            <li>Make bookings or take payments (it points to <code>/order-by-date</code>)</li>
+            <li>Cancel, refund, or modify anything</li>
+            <li>Invent prices, dates, or policies — if it can't find it via tools, it says so</li>
+            <li>Share other customers' personal data</li>
+          </ul>
+          <p className="font-semibold">Language detection:</p>
+          <p className="text-xs">
+            Defaults to English. Switches to Spanish automatically if the
+            customer writes in Spanish.
+          </p>
+          <p className="font-semibold">Powered by your existing content:</p>
+          <ul className="list-disc pl-5 text-xs space-y-1">
+            <li>Products (active, non-addon) → pricing + availability</li>
+            <li><code>/admin/faqs</code> → FAQ search</li>
+            <li><code>/admin/site</code> → business info + "Important tips" policies</li>
+            <li>Live booking calendar → availability checks</li>
+          </ul>
+          <p className="bg-amber-50 border border-amber-200 rounded p-2 text-xs">
+            ⚠️ <strong>The more FAQs you add at <code>/admin/faqs</code>, the better the AI gets.</strong>
+            Add common questions even if they're on your /info/faqs page — the
+            AI searches them by keyword.
+          </p>
+          <p className="bg-emerald-50 border border-emerald-200 rounded p-2 text-xs">
+            💡 <strong>Color matches your brand:</strong> the chat bubble uses your
+            hero background color (set at <code>/admin/site</code>). Visitors see
+            a cohesive experience.
+          </p>
+          <p className="bg-slate-100 border border-slate-200 rounded p-2 text-xs">
+            🔒 <strong>Rate-limited:</strong> max 10 messages per IP per 5 minutes.
+            Stops abuse + caps your OpenAI cost.
+          </p>
+        </div>
+      ),
+    },
+    {
       id: "tests",
       title: "Testing checklist",
       icon: HelpCircle,

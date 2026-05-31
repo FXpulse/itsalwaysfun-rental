@@ -2695,6 +2695,68 @@ on conflict (slug) do update set
   updated_at = now();
 
 insert into kb_articles (slug, title, body_md, category, tags, is_published) values
+  ($kbf$help-public-ai-chat$kbf$, $kbf$AI chat on your public site — replaces the GHL chat$kbf$, $kbf$Every public page of your site has a chat bubble bottom-right
+(navy by default, matches your hero color). When a visitor
+clicks it, they get an AI assistant that knows your products,
+FAQs, hours, policies, and availability.
+
+What it can do:
+
+- **Answer pricing questions** — pulls live from your products catalog
+
+- **Check availability** — "Is the Game On bouncer free this Saturday?"
+
+- **Search FAQs** — finds answers from `/admin/faqs`
+
+- **Quote business info** — hours, phone, service area, address
+
+- **Explain policies** — pulls from "Important tips" on `/admin/site`
+
+- **Guide to booking** — every answer ends with a link to `/order-by-date` or a specific product page
+
+What it CANNOT do (safety guardrails):
+
+- Make bookings or take payments (it points to `/order-by-date`)
+
+- Cancel, refund, or modify anything
+
+- Invent prices, dates, or policies — if it can't find it via tools, it says so
+
+- Share other customers' personal data
+
+Language detection:
+
+Defaults to English. Switches to Spanish automatically if the
+customer writes in Spanish.
+
+Powered by your existing content:
+
+- Products (active, non-addon) → pricing + availability
+
+- `/admin/faqs` → FAQ search
+
+- `/admin/site` → business info + "Important tips" policies
+
+- Live booking calendar → availability checks
+
+⚠️ **The more FAQs you add at `/admin/faqs`, the better the AI gets.**
+Add common questions even if they're on your /info/faqs page — the
+AI searches them by keyword.
+
+💡 **Color matches your brand:** the chat bubble uses your
+hero background color (set at `/admin/site`). Visitors see
+a cohesive experience.
+
+🔒 **Rate-limited:** max 10 messages per IP per 5 minutes.
+Stops abuse + caps your OpenAI cost.$kbf$, $kbf$Customization$kbf$, array[$kbf$help$kbf$, $kbf$imported$kbf$], true)
+on conflict (slug) do update set
+  title = excluded.title,
+  body_md = excluded.body_md,
+  category = excluded.category,
+  tags = excluded.tags,
+  updated_at = now();
+
+insert into kb_articles (slug, title, body_md, category, tags, is_published) values
   ($kbf$help-tests$kbf$, $kbf$Testing checklist$kbf$, $kbf$Before going live, test these end-to-end:
 
 - ☐ Public booking → Stripe test card `4242 4242 4242 4242` → check email + SMS arrive

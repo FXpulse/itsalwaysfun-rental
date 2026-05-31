@@ -1,8 +1,8 @@
 import { Suspense } from "react";
-import Script from "next/script";
 import { Header } from "@/components/public/Header";
 import { Footer } from "@/components/public/Footer";
 import { ReferralTracker } from "@/components/public/ReferralTracker";
+import { AiChatWidget } from "@/components/public/AiChatWidget";
 import { CartProvider } from "@/lib/cart/context";
 import { getSiteSettings } from "@/lib/site-settings";
 import { isPackagesSectionEnabled } from "@/lib/sections";
@@ -92,13 +92,12 @@ export default async function PublicLayout({
         />
       </div>
 
-      {/* GHL Chat Widget — only on public pages, not admin */}
-      <Script
-        id="ghl-chat-widget"
-        src="https://beta.leadconnectorhq.com/loader.js"
-        data-resources-url="https://beta.leadconnectorhq.com/chat-widget/loader.js"
-        data-widget-id="69eba45b52e615af8a4d80d6"
-        strategy="afterInteractive"
+      {/* RentalFlow AI Chat Widget — replaces GHL widget with a KB-powered
+          assistant that can guide customers to book + answer questions
+          from the knowledge base (products + FAQs + policies). */}
+      <AiChatWidget
+        businessName={settings.business_name}
+        brandColor={settings.hero_bg_color || undefined}
       />
     </CartProvider>
   );
