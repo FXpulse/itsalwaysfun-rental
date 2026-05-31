@@ -2696,6 +2696,53 @@ X-RentalFlow-Signature: sha256=<hex>
       ),
     },
     {
+      id: "bulk-import-customers",
+      title: "Bulk import customers from CSV",
+      icon: Users,
+      content: (
+        <div className="space-y-3 text-sm">
+          <p>
+            At <code>/admin/customers/bulk-import</code> you can upload a CSV
+            with up to 500 customers at once. Useful for migrating from
+            another system, importing a guest list, or onboarding a partner's
+            audience.
+          </p>
+          <p className="font-semibold">CSV format:</p>
+          <ul className="list-disc pl-5 text-xs space-y-1">
+            <li>First row = headers (case-insensitive)</li>
+            <li>Required column: <code>email</code></li>
+            <li>Optional columns: <code>first_name</code> (or <code>firstname</code> / <code>first name</code>), <code>last_name</code>, <code>phone</code> (or <code>mobile</code>)</li>
+            <li>Quoted fields with commas work fine: <code>"Smith, Jr."</code></li>
+            <li>Click the <strong>Download example CSV</strong> button on the page to grab a template</li>
+          </ul>
+          <p className="font-semibold">Flow:</p>
+          <ol className="list-decimal pl-5 text-xs space-y-1">
+            <li>Upload your CSV — drag or click the dashed zone</li>
+            <li>Preview table shows the first 100 rows + validation results (✓ valid / ⚠ invalid email)</li>
+            <li>Invalid rows are skipped automatically (you see why)</li>
+            <li>Toggle <strong>"Send a magic link invite"</strong> — only goes to NEW customers, not existing</li>
+            <li>Click <strong>Import + email N</strong> — confirm dialog</li>
+            <li>Result panel shows: Created · Already existed · Invited · Failed (with per-row errors)</li>
+          </ol>
+          <p className="font-semibold">What happens per row:</p>
+          <ul className="list-disc pl-5 text-xs space-y-1">
+            <li>If email already in auth.users → patch name/phone (no duplicate), counted as <strong>existed</strong></li>
+            <li>If new → create auth.users + customer_profile + (optionally) send invite, counted as <strong>created</strong></li>
+            <li>If invalid email → counted as <strong>failed</strong> with reason</li>
+          </ul>
+          <p className="bg-amber-50 border border-amber-200 rounded p-2 text-xs">
+            ⚠️ For files larger than 500 rows, split into batches. Email
+            sending is sequential — 500 invites takes ~2-3 min.
+          </p>
+          <p className="bg-emerald-50 border border-emerald-200 rounded p-2 text-xs">
+            💡 <strong>Combine with bulk coupon assign:</strong> import 50 customers,
+            then go to <code>/admin/coupons/bulk-assign</code> and add them all to
+            a campaign coupon. Zero manual work.
+          </p>
+        </div>
+      ),
+    },
+    {
       id: "tests",
       title: "Testing checklist",
       icon: HelpCircle,

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { UserPlus } from "lucide-react";
+import { UserPlus, Upload } from "lucide-react";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUserRole } from "@/lib/auth/roles";
 import { formatCurrency } from "@/lib/utils";
@@ -129,12 +129,20 @@ export default async function AdminCustomersPage({
             Aggregated from bookings (grouped by email). Add manually below for portal-only customers.
           </p>
         </div>
-        <Link
-          href="/admin/customers/new"
-          className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg px-4 py-2 text-sm inline-flex items-center gap-1 shadow-sm"
-        >
-          <UserPlus className="h-4 w-4" /> Add customer
-        </Link>
+        <div className="flex gap-2">
+          <Link
+            href="/admin/customers/bulk-import"
+            className="bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white font-semibold rounded-lg px-4 py-2 text-sm inline-flex items-center gap-1 shadow-sm"
+          >
+            <Upload className="h-4 w-4" /> Bulk import
+          </Link>
+          <Link
+            href="/admin/customers/new"
+            className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg px-4 py-2 text-sm inline-flex items-center gap-1 shadow-sm"
+          >
+            <UserPlus className="h-4 w-4" /> Add customer
+          </Link>
+        </div>
       </div>
 
       {/* Summary */}

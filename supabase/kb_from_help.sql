@@ -2597,6 +2597,59 @@ on conflict (slug) do update set
   updated_at = now();
 
 insert into kb_articles (slug, title, body_md, category, tags, is_published) values
+  ($kbf$help-bulk-import-customers$kbf$, $kbf$Bulk import customers from CSV$kbf$, $kbf$At `/admin/customers/bulk-import` you can upload a CSV
+with up to 500 customers at once. Useful for migrating from
+another system, importing a guest list, or onboarding a partner's
+audience.
+
+CSV format:
+
+- First row = headers (case-insensitive)
+
+- Required column: `email`
+
+- Optional columns: `first_name` (or `firstname` / `first name`), `last_name`, `phone` (or `mobile`)
+
+- Quoted fields with commas work fine: `"Smith, Jr."`
+
+- Click the **Download example CSV** button on the page to grab a template
+
+Flow:
+
+- Upload your CSV — drag or click the dashed zone
+
+- Preview table shows the first 100 rows + validation results (✓ valid / ⚠ invalid email)
+
+- Invalid rows are skipped automatically (you see why)
+
+- Toggle **"Send a magic link invite"** — only goes to NEW customers, not existing
+
+- Click **Import + email N** — confirm dialog
+
+- Result panel shows: Created · Already existed · Invited · Failed (with per-row errors)
+
+What happens per row:
+
+- If email already in auth.users → patch name/phone (no duplicate), counted as **existed**
+
+- If new → create auth.users + customer_profile + (optionally) send invite, counted as **created**
+
+- If invalid email → counted as **failed** with reason
+
+⚠️ For files larger than 500 rows, split into batches. Email
+sending is sequential — 500 invites takes ~2-3 min.
+
+💡 **Combine with bulk coupon assign:** import 50 customers,
+then go to `/admin/coupons/bulk-assign` and add them all to
+a campaign coupon. Zero manual work.$kbf$, $kbf$Customer$kbf$, array[$kbf$help$kbf$, $kbf$imported$kbf$], true)
+on conflict (slug) do update set
+  title = excluded.title,
+  body_md = excluded.body_md,
+  category = excluded.category,
+  tags = excluded.tags,
+  updated_at = now();
+
+insert into kb_articles (slug, title, body_md, category, tags, is_published) values
   ($kbf$help-tests$kbf$, $kbf$Testing checklist$kbf$, $kbf$Before going live, test these end-to-end:
 
 - ☐ Public booking → Stripe test card `4242 4242 4242 4242` → check email + SMS arrive
