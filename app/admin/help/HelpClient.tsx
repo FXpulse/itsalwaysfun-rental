@@ -48,6 +48,7 @@ const TEMPLATES = [
   { name: "Categories", url: "/api/templates/categories", icon: Tag, desc: "Product categories" },
   { name: "Vehicles", url: "/api/templates/vehicles", icon: Truck, desc: "Fleet vehicles" },
   { name: "Trailers", url: "/api/templates/trailers", icon: Truck, desc: "Fleet trailers" },
+  { name: "Customers", url: "/api/templates/customers", icon: Users, desc: "Email + name + phone for portal accounts" },
 ];
 
 export function HelpClient() {
@@ -2650,8 +2651,45 @@ X-RentalFlow-Signature: sha256=<hex>
       ),
     },
     {
+      id: "customer-overview",
+      title: "Customer management — overview",
+      icon: Users,
+      content: (
+        <div className="space-y-3 text-sm">
+          <p>
+            Customers exist in 3 places in RentalFlow. All are linked by email:
+          </p>
+          <ul className="list-disc pl-5 text-xs space-y-1">
+            <li>
+              <strong><code>auth.users</code></strong> — auth account (created on signup, manual add, or bulk import).
+              Required to log into <code>/portal</code>.
+            </li>
+            <li>
+              <strong><code>customer_profiles</code></strong> — referral code, points balance, commission balance.
+              Auto-created with each auth user.
+            </li>
+            <li>
+              <strong><code>bookings.customer_email</code></strong> — bookings reference customers by email.
+              You can book without an auth account; customer claims bookings by logging in later with same email.
+            </li>
+          </ul>
+          <p className="font-semibold">3 ways to add a customer:</p>
+          <ul className="list-disc pl-5 text-xs space-y-1">
+            <li><strong>They book online</strong> → row appears in <code>/admin/customers</code> (aggregated from bookings)</li>
+            <li><strong>One at a time</strong> → <code>/admin/customers</code> → <strong>+ Add customer</strong> (see <em>"Add customers manually"</em> section)</li>
+            <li><strong>Bulk from CSV</strong> → <code>/admin/customers/bulk-import</code> (see <em>"Bulk import customers"</em> section, or grab the <strong>Customers</strong> CSV template at the top of this Help page)</li>
+          </ul>
+          <p className="bg-emerald-50 border border-emerald-200 rounded p-2 text-xs">
+            💡 <strong>Why pre-create customers:</strong> assign coupons to them before they book,
+            invite VIPs ahead of an event, migrate from another system, or onboard a partner's audience.
+            Combine with <code>/admin/coupons/bulk-assign</code> for campaigns.
+          </p>
+        </div>
+      ),
+    },
+    {
       id: "manual-customer",
-      title: "Add customers manually (without waiting for them to book)",
+      title: "Add customers manually (one at a time)",
       icon: Users,
       content: (
         <div className="space-y-3 text-sm">
@@ -2662,31 +2700,28 @@ X-RentalFlow-Signature: sha256=<hex>
           <ul className="list-disc pl-5 text-xs space-y-1">
             <li>Assign a coupon to someone who hasn't booked yet</li>
             <li>Invite a friend or partner to be a referrer ahead of time</li>
-            <li>Pre-create accounts for VIP customers from a guest list</li>
-            <li>Import a customer that exists in another system</li>
+            <li>Pre-create an account for a VIP customer or partner</li>
+            <li>Add one customer from another system manually</li>
           </ul>
           <p className="font-semibold">Form fields:</p>
           <ul className="list-disc pl-5 text-xs space-y-1">
             <li><strong>Email</strong> (required) — if it already exists we refresh their info, no duplicate created</li>
-            <li><strong>First name + last name</strong> (optional) — stored in user metadata</li>
+            <li><strong>First name + last name</strong> (optional)</li>
             <li><strong>Phone</strong> (optional)</li>
             <li><strong>Send a magic link invite</strong> (toggle, default ON) — emails them a "Welcome — sign in to your portal" link that expires in 1 hour</li>
           </ul>
           <p className="font-semibold">What happens behind the scenes:</p>
           <ol className="list-decimal pl-5 text-xs space-y-1">
-            <li>If user with this email exists → we just patch their name/phone</li>
-            <li>If not → we create them in <code>auth.users</code> with <code>email_confirm: true</code> (so the email is verified immediately)</li>
-            <li>Their <code>customer_profile</code> row is auto-created with a fresh referral code</li>
-            <li>If you ticked "Send magic link" → an email is sent with a one-tap sign-in button</li>
+            <li>If user with this email exists → we just patch their name/phone (no duplicate)</li>
+            <li>If not → we create them in <code>auth.users</code> with email already verified</li>
+            <li>Their <code>customer_profile</code> is auto-created with a fresh referral code</li>
+            <li>If "Send magic link" is on → invite email is sent</li>
             <li>You're redirected to their customer detail page</li>
           </ol>
-          <p className="font-semibold">Now you can:</p>
-          <ul className="list-disc pl-5 text-xs space-y-1">
-            <li>Assign coupons to them from <code>/admin/coupons</code> (they'll appear in the search)</li>
-            <li>Bulk-assign coupons to them from <code>/admin/coupons/bulk-assign</code></li>
-            <li>They earn referral commission immediately if anyone uses their code</li>
-            <li>When they log in, they'll see the assigned coupons + referral link in their portal</li>
-          </ul>
+          <p className="bg-emerald-50 border border-emerald-200 rounded p-2 text-xs">
+            👉 <strong>For more than 1-2 customers,</strong> use the bulk import below — it's the same flow,
+            just batched. Grab the <strong>Customers</strong> CSV template at the top of this Help page first.
+          </p>
           <p className="bg-amber-50 border border-amber-200 rounded p-2 text-xs">
             ⚠️ Magic link invite emails require <code>RESEND_API_KEY</code> +{" "}
             <code>EMAIL_FROM</code> env vars to be configured. If they're not,
@@ -2707,14 +2742,32 @@ X-RentalFlow-Signature: sha256=<hex>
             another system, importing a guest list, or onboarding a partner's
             audience.
           </p>
+          <p className="bg-amber-50 border border-amber-200 rounded p-3">
+            📥 <strong>Get the template first:</strong> at the top of this Help page,
+            click the <strong>Customers</strong> CSV template in the orange templates
+            box. Fill it in, then upload.
+          </p>
           <p className="font-semibold">CSV format:</p>
           <ul className="list-disc pl-5 text-xs space-y-1">
             <li>First row = headers (case-insensitive)</li>
-            <li>Required column: <code>email</code></li>
-            <li>Optional columns: <code>first_name</code> (or <code>firstname</code> / <code>first name</code>), <code>last_name</code>, <code>phone</code> (or <code>mobile</code>)</li>
+            <li><strong>Required column:</strong> <code>email</code></li>
+            <li><strong>Optional columns:</strong>
+              <ul className="list-disc pl-5">
+                <li><code>first_name</code> (also accepts <code>firstname</code>, <code>first name</code>, <code>fname</code>)</li>
+                <li><code>last_name</code> (also accepts <code>lastname</code>, <code>last name</code>, <code>surname</code>)</li>
+                <li><code>phone</code> (also accepts <code>mobile</code>, <code>phone_number</code>, <code>cell</code>, <code>tel</code>)</li>
+              </ul>
+            </li>
             <li>Quoted fields with commas work fine: <code>"Smith, Jr."</code></li>
-            <li>Click the <strong>Download example CSV</strong> button on the page to grab a template</li>
+            <li>Empty cells are OK — they just stay empty in the customer record</li>
           </ul>
+          <p className="font-semibold">Example CSV:</p>
+          <pre className="bg-slate-900 text-emerald-300 text-xs p-3 rounded overflow-x-auto">
+{`email,first_name,last_name,phone
+maria@example.com,Maria,Lopez,555-1234
+carlos@example.com,Carlos,Garcia,555-5678
+sofia@example.com,Sofia,Rivera,`}
+          </pre>
           <p className="font-semibold">Flow:</p>
           <ol className="list-decimal pl-5 text-xs space-y-1">
             <li>Upload your CSV — drag or click the dashed zone</li>
@@ -2726,8 +2779,8 @@ X-RentalFlow-Signature: sha256=<hex>
           </ol>
           <p className="font-semibold">What happens per row:</p>
           <ul className="list-disc pl-5 text-xs space-y-1">
-            <li>If email already in auth.users → patch name/phone (no duplicate), counted as <strong>existed</strong></li>
-            <li>If new → create auth.users + customer_profile + (optionally) send invite, counted as <strong>created</strong></li>
+            <li>If email already in <code>auth.users</code> → patch name/phone (no duplicate), counted as <strong>existed</strong></li>
+            <li>If new → create <code>auth.users</code> + <code>customer_profile</code> + (optionally) send invite, counted as <strong>created</strong></li>
             <li>If invalid email → counted as <strong>failed</strong> with reason</li>
           </ul>
           <p className="bg-amber-50 border border-amber-200 rounded p-2 text-xs">

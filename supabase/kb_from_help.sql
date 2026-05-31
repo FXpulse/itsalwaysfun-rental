@@ -2543,22 +2543,55 @@ on conflict (slug) do update set
   updated_at = now();
 
 insert into kb_articles (slug, title, body_md, category, tags, is_published) values
-  ($kbf$help-manual-customer$kbf$, $kbf$Add customers manually (without waiting for them to book)$kbf$, $kbf$At `/admin/customers` click the indigo **"+ Add customer"** button
+  ($kbf$help-customer-overview$kbf$, $kbf$Customer management — overview$kbf$, $kbf$Customers exist in 3 places in RentalFlow. All are linked by email:
+
+-
+**`auth.users`** — auth account (created on signup, manual add, or bulk import).
+Required to log into `/portal`.
+
+-
+**`customer_profiles`** — referral code, points balance, commission balance.
+Auto-created with each auth user.
+
+-
+**`bookings.customer_email`** — bookings reference customers by email.
+You can book without an auth account; customer claims bookings by logging in later with same email.
+
+3 ways to add a customer:
+
+- **They book online** → row appears in `/admin/customers` (aggregated from bookings)
+
+- **One at a time** → `/admin/customers` → **+ Add customer** (see *"Add customers manually"* section)
+
+- **Bulk from CSV** → `/admin/customers/bulk-import` (see *"Bulk import customers"* section, or grab the **Customers** CSV template at the top of this Help page)
+
+💡 **Why pre-create customers:** assign coupons to them before they book,
+invite VIPs ahead of an event, migrate from another system, or onboard a partner's audience.
+Combine with `/admin/coupons/bulk-assign` for campaigns.$kbf$, $kbf$Customer$kbf$, array[$kbf$help$kbf$, $kbf$imported$kbf$], true)
+on conflict (slug) do update set
+  title = excluded.title,
+  body_md = excluded.body_md,
+  category = excluded.category,
+  tags = excluded.tags,
+  updated_at = now();
+
+insert into kb_articles (slug, title, body_md, category, tags, is_published) values
+  ($kbf$help-manual-customer$kbf$, $kbf$Add customers manually (one at a time)$kbf$, $kbf$At `/admin/customers` click the indigo **"+ Add customer"** button
 to create a customer manually. Useful when you want to:
 
 - Assign a coupon to someone who hasn't booked yet
 
 - Invite a friend or partner to be a referrer ahead of time
 
-- Pre-create accounts for VIP customers from a guest list
+- Pre-create an account for a VIP customer or partner
 
-- Import a customer that exists in another system
+- Add one customer from another system manually
 
 Form fields:
 
 - **Email** (required) — if it already exists we refresh their info, no duplicate created
 
-- **First name + last name** (optional) — stored in user metadata
+- **First name + last name** (optional)
 
 - **Phone** (optional)
 
@@ -2566,25 +2599,18 @@ Form fields:
 
 What happens behind the scenes:
 
-- If user with this email exists → we just patch their name/phone
+- If user with this email exists → we just patch their name/phone (no duplicate)
 
-- If not → we create them in `auth.users` with `email_confirm: true` (so the email is verified immediately)
+- If not → we create them in `auth.users` with email already verified
 
-- Their `customer_profile` row is auto-created with a fresh referral code
+- Their `customer_profile` is auto-created with a fresh referral code
 
-- If you ticked "Send magic link" → an email is sent with a one-tap sign-in button
+- If "Send magic link" is on → invite email is sent
 
 - You're redirected to their customer detail page
 
-Now you can:
-
-- Assign coupons to them from `/admin/coupons` (they'll appear in the search)
-
-- Bulk-assign coupons to them from `/admin/coupons/bulk-assign`
-
-- They earn referral commission immediately if anyone uses their code
-
-- When they log in, they'll see the assigned coupons + referral link in their portal
+👉 **For more than 1-2 customers,** use the bulk import below — it's the same flow,
+just batched. Grab the **Customers** CSV template at the top of this Help page first.
 
 ⚠️ Magic link invite emails require `RESEND_API_KEY` +
 `EMAIL_FROM` env vars to be configured. If they're not,
@@ -2602,19 +2628,38 @@ with up to 500 customers at once. Useful for migrating from
 another system, importing a guest list, or onboarding a partner's
 audience.
 
+📥 **Get the template first:** at the top of this Help page,
+click the **Customers** CSV template in the orange templates
+box. Fill it in, then upload.
+
 CSV format:
 
 - First row = headers (case-insensitive)
 
-- Required column: `email`
+- **Required column:** `email`
 
-- Optional columns: `first_name` (or `firstname` / `first name`), `last_name`, `phone` (or `mobile`)
+- **Optional columns:**
+
+<li>`first_name` (also accepts `firstname`, `first name`, `fname`)
+
+- `last_name` (also accepts `lastname`, `last name`, `surname`)
+
+- `phone` (also accepts `mobile`, `phone_number`, `cell`, `tel`)
+
+</li>
 
 - Quoted fields with commas work fine: `"Smith, Jr."`
 
-- Click the **Download example CSV** button on the page to grab a template
+- Empty cells are OK — they just stay empty in the customer record
 
-Flow:
+Example CSV:
+
+email,first_name,last_name,phone
+maria@example.com,Maria,Lopez,555-1234
+carlos@example.com,Carlos,Garcia,555-5678
+sofia@example.com,Sofia,Rivera,
+</pre>
+<p>Flow:
 
 - Upload your CSV — drag or click the dashed zone
 
@@ -2630,9 +2675,9 @@ Flow:
 
 What happens per row:
 
-- If email already in auth.users → patch name/phone (no duplicate), counted as **existed**
+- If email already in `auth.users` → patch name/phone (no duplicate), counted as **existed**
 
-- If new → create auth.users + customer_profile + (optionally) send invite, counted as **created**
+- If new → create `auth.users` + `customer_profile` + (optionally) send invite, counted as **created**
 
 - If invalid email → counted as **failed** with reason
 

@@ -165,6 +165,15 @@ const TEMPLATES: Record<string, { headers: string[]; sampleRows: any[][] }> = {
       ["Trailer B (12ft)", "1 large or 2 small bouncers", "", "", "true"],
     ],
   },
+
+  customers: {
+    headers: ["email", "first_name", "last_name", "phone"],
+    sampleRows: [
+      ["maria@example.com", "Maria", "Lopez", "555-1234"],
+      ["carlos@example.com", "Carlos", "Garcia", "555-5678"],
+      ["sofia@example.com", "Sofia", "Rivera", ""],
+    ],
+  },
 };
 
 export async function GET(
