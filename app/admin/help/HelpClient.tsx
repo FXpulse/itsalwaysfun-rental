@@ -2912,15 +2912,27 @@ sofia@example.com,Sofia,Rivera,`}
             <li><code>{`{lastName}`}</code> — last name</li>
             <li><code>{`{businessName}`}</code> — your business name</li>
           </ul>
+          <p className="font-semibold">Schedule for later (NEW):</p>
+          <ul className="list-disc pl-5 text-xs space-y-1">
+            <li>Step 3 of the builder lets you pick "Send now" or "Schedule for later"</li>
+            <li>Pick a date + time in your local timezone</li>
+            <li>Status badge shows <strong>Scheduled</strong> until cron picks it up</li>
+            <li>Cron runs every 5 min → actual send within ±5 min of your chosen time</li>
+            <li>Audience is <strong>re-evaluated at send time</strong> — tags added between schedule + send DO get included (so you can pre-schedule and keep tagging)</li>
+          </ul>
           <p className="font-semibold">Limits:</p>
           <ul className="list-disc pl-5 text-xs space-y-1">
             <li>Audience max: 1000 per campaign — split into batches for more</li>
             <li>Sequential send — ~1-2 min for 100 recipients</li>
             <li>Per-recipient log saved in <code>campaign_recipients</code> for retry / analytics</li>
+            <li>Scheduled campaigns minimum lead time: 1 minute in the future</li>
           </ul>
           <p className="bg-amber-50 border border-amber-200 rounded p-2 text-xs">
             ⚠️ Email volume to unfiltered lists can trigger spam flags. Prefer
             tag-based or recent-activity filters over "all customers".
+          </p>
+          <p className="bg-emerald-50 border border-emerald-200 rounded p-2 text-xs">
+            💡 <strong>Power combo:</strong> schedule a Friday 9 AM "weekend availability" blast on Monday → keep tagging new customers as <code>local</code> all week → Friday morning everyone with that tag gets it automatically.
           </p>
         </div>
       ),

@@ -120,7 +120,8 @@ export async function sendCampaign(input: {
   subject: string;
   body: string;
   filter: CampaignFilter;
-}): Promise<{ ok: true; campaign_id: string; sent: number; failed: number } | { error: string }> {
+  scheduled_at?: string;       // ISO timestamp — if in the future, queue instead of send
+}): Promise<{ ok: true; campaign_id: string; sent: number; failed: number; scheduled?: boolean } | { error: string }> {
   const me = await requireAdmin();
 
   if (!input.name.trim()) return { error: "name_required" };
@@ -128,6 +129,11 @@ export async function sendCampaign(input: {
   if (!input.body.trim()) return { error: "body_required" };
   if (!isEmailConfigured()) return { error: "email_not_configured" };
 
+  // If scheduled in the future (with 60s grace), queue it instead of sending now
+  const scheduledDate = input.scheduled_at ? new Date(input.scheduled_at) : null;
+  const isScheduled = !!(scheduledDate && scheduledDate.getTime() > Date.now() + 60_000);
+
+  // Validate audience size NOW even for scheduled campaigns (avoid surprises)
   const audience = await resolveAudience(input.filter);
   if (audience.length === 0) return { error: "no_recipients" };
   if (audience.length > 1000) return { error: "audience_too_large_split_into_batches" };
@@ -143,13 +149,20 @@ export async function sendCampaign(input: {
       subject: input.subject,
       body: input.body,
       filter_json: input.filter,
-      status: "sending",
+      status: isScheduled ? "scheduled" : "sending",
+      scheduled_at: scheduledDate ? scheduledDate.toISOString() : null,
       recipient_count: audience.length,
       created_by_email: me.email,
     })
     .select("id")
     .single();
   if (insertError || !campaign) return { error: insertError?.message || "create_failed" };
+
+  // If scheduled, return now — cron will pick it up at scheduled_at
+  if (isScheduled) {
+    revalidatePath("/admin/campaigns");
+    return { ok: true, campaign_id: campaign.id, sent: 0, failed: 0, scheduled: true };
+  }
 
   let sent = 0;
   let failed = 0;

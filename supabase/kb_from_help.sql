@@ -2821,6 +2821,18 @@ Available placeholders:
 
 - `` — your business name
 
+Schedule for later (NEW):
+
+- Step 3 of the builder lets you pick "Send now" or "Schedule for later"
+
+- Pick a date + time in your local timezone
+
+- Status badge shows **Scheduled** until cron picks it up
+
+- Cron runs every 5 min → actual send within ±5 min of your chosen time
+
+- Audience is **re-evaluated at send time** — tags added between schedule + send DO get included (so you can pre-schedule and keep tagging)
+
 Limits:
 
 - Audience max: 1000 per campaign — split into batches for more
@@ -2829,8 +2841,12 @@ Limits:
 
 - Per-recipient log saved in `campaign_recipients` for retry / analytics
 
+- Scheduled campaigns minimum lead time: 1 minute in the future
+
 ⚠️ Email volume to unfiltered lists can trigger spam flags. Prefer
-tag-based or recent-activity filters over "all customers".$kbf$, $kbf$Communications$kbf$, array[$kbf$help$kbf$, $kbf$imported$kbf$], true)
+tag-based or recent-activity filters over "all customers".
+
+💡 **Power combo:** schedule a Friday 9 AM "weekend availability" blast on Monday → keep tagging new customers as `local` all week → Friday morning everyone with that tag gets it automatically.$kbf$, $kbf$Communications$kbf$, array[$kbf$help$kbf$, $kbf$imported$kbf$], true)
 on conflict (slug) do update set
   title = excluded.title,
   body_md = excluded.body_md,

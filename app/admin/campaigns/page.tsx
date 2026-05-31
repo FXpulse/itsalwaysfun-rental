@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { Megaphone, Plus, CheckCircle2, AlertTriangle, Eye } from "lucide-react";
+import { Megaphone, Plus, CheckCircle2, AlertTriangle, Eye, Clock } from "lucide-react";
 import { getCurrentUserRole } from "@/lib/auth/roles";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -13,7 +13,7 @@ export default async function CampaignsPage() {
   const supabase = createAdminClient();
   const { data: campaigns } = await supabase
     .from("campaigns")
-    .select("id, name, subject, status, recipient_count, sent_count, failed_count, sent_at, created_at")
+    .select("id, name, subject, status, recipient_count, sent_count, failed_count, sent_at, scheduled_at, created_at")
     .order("created_at", { ascending: false });
   const list = (campaigns as any[]) || [];
 
@@ -73,7 +73,10 @@ export default async function CampaignsPage() {
                     <StatusBadge status={c.status} />
                   </td>
                   <td className="px-3 py-2 text-xs text-slate-500">
-                    {c.sent_at ? new Date(c.sent_at).toLocaleString() : <span className="text-slate-400">—</span>}
+                    {c.sent_at ? new Date(c.sent_at).toLocaleString()
+                      : c.scheduled_at
+                        ? <span className="inline-flex items-center gap-1 text-violet-700"><Clock className="h-3 w-3" /> {new Date(c.scheduled_at).toLocaleString()}</span>
+                        : <span className="text-slate-400">—</span>}
                   </td>
                 </tr>
               ))}
@@ -88,6 +91,7 @@ export default async function CampaignsPage() {
 function StatusBadge({ status }: { status: string }) {
   const map: Record<string, { cls: string; icon: any; label: string }> = {
     draft: { cls: "bg-slate-100 text-slate-700", icon: <Eye className="h-3 w-3" />, label: "Draft" },
+    scheduled: { cls: "bg-violet-100 text-violet-800", icon: <Clock className="h-3 w-3" />, label: "Scheduled" },
     sending: { cls: "bg-blue-100 text-blue-800", icon: <Megaphone className="h-3 w-3" />, label: "Sending" },
     sent: { cls: "bg-emerald-100 text-emerald-800", icon: <CheckCircle2 className="h-3 w-3" />, label: "Sent" },
     failed: { cls: "bg-rose-100 text-rose-800", icon: <AlertTriangle className="h-3 w-3" />, label: "Failed" },
