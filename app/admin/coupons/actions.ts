@@ -65,7 +65,10 @@ export async function searchCustomers(query: string): Promise<Array<{ user_id: s
   );
   if (matchingUsers.length === 0) return [];
 
-  // Filter to those with a customer_profile (so we only pick actual customers)
+  // Look up customer_profile to enrich the referral_code badge, but do NOT
+  // filter by it — admin can assign coupons to any auth user (whether they've
+  // logged into the portal yet or not). When the customer earns their first
+  // commission, ensureCustomerProfile() auto-creates the missing profile.
   const userIds = matchingUsers.map((u) => u.id);
   const { data: profiles } = await supabase
     .from("customer_profiles")
@@ -76,7 +79,6 @@ export async function searchCustomers(query: string): Promise<Array<{ user_id: s
   );
 
   return matchingUsers
-    .filter((u) => profileMap.has(u.id))
     .slice(0, 10)
     .map((u) => ({
       user_id: u.id,

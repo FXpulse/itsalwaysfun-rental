@@ -2543,6 +2543,60 @@ on conflict (slug) do update set
   updated_at = now();
 
 insert into kb_articles (slug, title, body_md, category, tags, is_published) values
+  ($kbf$help-manual-customer$kbf$, $kbf$Add customers manually (without waiting for them to book)$kbf$, $kbf$At `/admin/customers` click the indigo **"+ Add customer"** button
+to create a customer manually. Useful when you want to:
+
+- Assign a coupon to someone who hasn't booked yet
+
+- Invite a friend or partner to be a referrer ahead of time
+
+- Pre-create accounts for VIP customers from a guest list
+
+- Import a customer that exists in another system
+
+Form fields:
+
+- **Email** (required) — if it already exists we refresh their info, no duplicate created
+
+- **First name + last name** (optional) — stored in user metadata
+
+- **Phone** (optional)
+
+- **Send a magic link invite** (toggle, default ON) — emails them a "Welcome — sign in to your portal" link that expires in 1 hour
+
+What happens behind the scenes:
+
+- If user with this email exists → we just patch their name/phone
+
+- If not → we create them in `auth.users` with `email_confirm: true` (so the email is verified immediately)
+
+- Their `customer_profile` row is auto-created with a fresh referral code
+
+- If you ticked "Send magic link" → an email is sent with a one-tap sign-in button
+
+- You're redirected to their customer detail page
+
+Now you can:
+
+- Assign coupons to them from `/admin/coupons` (they'll appear in the search)
+
+- Bulk-assign coupons to them from `/admin/coupons/bulk-assign`
+
+- They earn referral commission immediately if anyone uses their code
+
+- When they log in, they'll see the assigned coupons + referral link in their portal
+
+⚠️ Magic link invite emails require `RESEND_API_KEY` +
+`EMAIL_FROM` env vars to be configured. If they're not,
+we still create the account but skip the email step.$kbf$, $kbf$Customer$kbf$, array[$kbf$help$kbf$, $kbf$imported$kbf$], true)
+on conflict (slug) do update set
+  title = excluded.title,
+  body_md = excluded.body_md,
+  category = excluded.category,
+  tags = excluded.tags,
+  updated_at = now();
+
+insert into kb_articles (slug, title, body_md, category, tags, is_published) values
   ($kbf$help-tests$kbf$, $kbf$Testing checklist$kbf$, $kbf$Before going live, test these end-to-end:
 
 - ☐ Public booking → Stripe test card `4242 4242 4242 4242` → check email + SMS arrive

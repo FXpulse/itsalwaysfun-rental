@@ -2650,6 +2650,52 @@ X-RentalFlow-Signature: sha256=<hex>
       ),
     },
     {
+      id: "manual-customer",
+      title: "Add customers manually (without waiting for them to book)",
+      icon: Users,
+      content: (
+        <div className="space-y-3 text-sm">
+          <p>
+            At <code>/admin/customers</code> click the indigo <strong>"+ Add customer"</strong> button
+            to create a customer manually. Useful when you want to:
+          </p>
+          <ul className="list-disc pl-5 text-xs space-y-1">
+            <li>Assign a coupon to someone who hasn't booked yet</li>
+            <li>Invite a friend or partner to be a referrer ahead of time</li>
+            <li>Pre-create accounts for VIP customers from a guest list</li>
+            <li>Import a customer that exists in another system</li>
+          </ul>
+          <p className="font-semibold">Form fields:</p>
+          <ul className="list-disc pl-5 text-xs space-y-1">
+            <li><strong>Email</strong> (required) — if it already exists we refresh their info, no duplicate created</li>
+            <li><strong>First name + last name</strong> (optional) — stored in user metadata</li>
+            <li><strong>Phone</strong> (optional)</li>
+            <li><strong>Send a magic link invite</strong> (toggle, default ON) — emails them a "Welcome — sign in to your portal" link that expires in 1 hour</li>
+          </ul>
+          <p className="font-semibold">What happens behind the scenes:</p>
+          <ol className="list-decimal pl-5 text-xs space-y-1">
+            <li>If user with this email exists → we just patch their name/phone</li>
+            <li>If not → we create them in <code>auth.users</code> with <code>email_confirm: true</code> (so the email is verified immediately)</li>
+            <li>Their <code>customer_profile</code> row is auto-created with a fresh referral code</li>
+            <li>If you ticked "Send magic link" → an email is sent with a one-tap sign-in button</li>
+            <li>You're redirected to their customer detail page</li>
+          </ol>
+          <p className="font-semibold">Now you can:</p>
+          <ul className="list-disc pl-5 text-xs space-y-1">
+            <li>Assign coupons to them from <code>/admin/coupons</code> (they'll appear in the search)</li>
+            <li>Bulk-assign coupons to them from <code>/admin/coupons/bulk-assign</code></li>
+            <li>They earn referral commission immediately if anyone uses their code</li>
+            <li>When they log in, they'll see the assigned coupons + referral link in their portal</li>
+          </ul>
+          <p className="bg-amber-50 border border-amber-200 rounded p-2 text-xs">
+            ⚠️ Magic link invite emails require <code>RESEND_API_KEY</code> +{" "}
+            <code>EMAIL_FROM</code> env vars to be configured. If they're not,
+            we still create the account but skip the email step.
+          </p>
+        </div>
+      ),
+    },
+    {
       id: "tests",
       title: "Testing checklist",
       icon: HelpCircle,

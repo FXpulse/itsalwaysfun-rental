@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { UserPlus } from "lucide-react";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUserRole } from "@/lib/auth/roles";
 import { formatCurrency } from "@/lib/utils";
@@ -121,10 +122,20 @@ export default async function AdminCustomersPage({
 
   return (
     <div className="max-w-6xl">
-      <h1 className="text-2xl font-bold text-brand-navy mb-1">Customers</h1>
-      <p className="text-sm text-slate-500 mb-6">
-        Aggregated from bookings (grouped by email).
-      </p>
+      <div className="flex items-start justify-between flex-wrap gap-3 mb-6">
+        <div>
+          <h1 className="text-2xl font-bold text-brand-navy mb-1">Customers</h1>
+          <p className="text-sm text-slate-500">
+            Aggregated from bookings (grouped by email). Add manually below for portal-only customers.
+          </p>
+        </div>
+        <Link
+          href="/admin/customers/new"
+          className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg px-4 py-2 text-sm inline-flex items-center gap-1 shadow-sm"
+        >
+          <UserPlus className="h-4 w-4" /> Add customer
+        </Link>
+      </div>
 
       {/* Summary */}
       <div className="grid grid-cols-3 gap-4 mb-6">
