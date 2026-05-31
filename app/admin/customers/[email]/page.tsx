@@ -4,6 +4,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUserRole } from "@/lib/auth/roles";
 import { formatCurrency } from "@/lib/utils";
 import { ArrowLeft, Mail, Phone, MapPin, Calendar, DollarSign, Package } from "lucide-react";
+import { CustomerTagsPanel } from "./CustomerTagsPanel";
+import { listExistingTags } from "./tag-actions";
 
 export const dynamic = "force-dynamic";
 
@@ -34,13 +36,18 @@ export default async function CustomerDetailPage({
   if (!email || !email.includes("@")) notFound();
 
   const supabase = createAdminClient();
-  const { data: rawBookings } = await supabase
-    .from("bookings")
-    .select("*")
-    .ilike("customer_email", email)
-    .order("event_date", { ascending: false });
+  const [
+    { data: rawBookings },
+    { data: tagRows },
+    suggestions,
+  ] = await Promise.all([
+    supabase.from("bookings").select("*").ilike("customer_email", email).order("event_date", { ascending: false }),
+    supabase.from("customer_tags").select("id, tag_name, tag_color, notes").eq("customer_email", email).order("tag_name"),
+    listExistingTags(),
+  ]);
 
   const bookings = rawBookings || [];
+  const tags = (tagRows as any[]) || [];
   if (bookings.length === 0) notFound();
 
   const latest = bookings[0];
@@ -82,6 +89,11 @@ export default async function CustomerDetailPage({
           </span>
         )}
       </p>
+
+      {/* Tags */}
+      <div className="mb-6">
+        <CustomerTagsPanel email={email} tags={tags} suggestions={suggestions} />
+      </div>
 
       {/* Contact + stats */}
       <div className="grid md:grid-cols-2 gap-4 mb-8">

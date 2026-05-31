@@ -2853,6 +2853,110 @@ sofia@example.com,Sofia,Rivera,`}
       ),
     },
     {
+      id: "customer-tags",
+      title: "Customer tags — label customers for targeting",
+      icon: Tag,
+      content: (
+        <div className="space-y-3 text-sm">
+          <p>
+            At <code>/admin/customers/[email]</code> (any customer detail page),
+            you can add colored tags to label customers — like <code>promoter</code>,{" "}
+            <code>vip</code>, <code>inactive</code>, <code>local_business</code>,
+            or anything else you invent. Tags are tenant-private.
+          </p>
+          <p className="font-semibold">How to add a tag:</p>
+          <ol className="list-decimal pl-5 text-xs space-y-1">
+            <li>Open a customer detail page</li>
+            <li>Click <strong>+ Add tag</strong> at the top</li>
+            <li>Type the tag name (auto-formatted lowercase + underscores)</li>
+            <li>Existing tags from this tenant auto-suggest as chips below the input — click to add</li>
+            <li>(Optional) Add notes for why you're tagging</li>
+            <li>Click <strong>Add</strong> or hit Enter</li>
+          </ol>
+          <p className="font-semibold">Use cases:</p>
+          <ul className="list-disc pl-5 text-xs space-y-1">
+            <li><strong><code>promoter</code></strong> — customers who only refer (don't book themselves)</li>
+            <li><strong><code>vip</code></strong> — top spenders that get special treatment</li>
+            <li><strong><code>inactive</code></strong> — haven't booked in 6+ months, win-back target</li>
+            <li><strong><code>local_business</code></strong> — corporate/recurring B2B customers</li>
+            <li><strong><code>event_planner</code></strong> — partners who book on behalf of clients</li>
+            <li><strong><code>do_not_email</code></strong> — opted out of marketing</li>
+          </ul>
+          <p className="bg-emerald-50 border border-emerald-200 rounded p-2 text-xs">
+            💡 <strong>Combine with campaigns:</strong> tag 20 customers as <code>vip</code>, then go to <code>/admin/campaigns/new</code> → audience "By tag" → select <code>vip</code> → send them a personalized message.
+          </p>
+        </div>
+      ),
+    },
+    {
+      id: "campaigns",
+      title: "Email campaigns — targeted blasts to filtered audiences",
+      icon: Mail,
+      content: (
+        <div className="space-y-3 text-sm">
+          <p>
+            At <code>/admin/campaigns</code> you can compose + send a one-time
+            email blast to a filtered audience. Personalized per recipient
+            with placeholders.
+          </p>
+          <p className="font-semibold">4 audience modes:</p>
+          <ul className="list-disc pl-5 text-xs space-y-1">
+            <li><strong>By tag</strong> — recipients are those with ANY of the selected tags</li>
+            <li><strong>Recent bookings</strong> — paid for a booking in the last N days</li>
+            <li><strong>High spenders</strong> — paid at least $X across all bookings</li>
+            <li><strong>All customers</strong> — every email we have (use sparingly to avoid spam flags)</li>
+          </ul>
+          <p className="font-semibold">Available placeholders:</p>
+          <ul className="list-disc pl-5 text-xs space-y-1">
+            <li><code>{`{firstName}`}</code> — customer's first name (or email prefix)</li>
+            <li><code>{`{lastName}`}</code> — last name</li>
+            <li><code>{`{businessName}`}</code> — your business name</li>
+          </ul>
+          <p className="font-semibold">Limits:</p>
+          <ul className="list-disc pl-5 text-xs space-y-1">
+            <li>Audience max: 1000 per campaign — split into batches for more</li>
+            <li>Sequential send — ~1-2 min for 100 recipients</li>
+            <li>Per-recipient log saved in <code>campaign_recipients</code> for retry / analytics</li>
+          </ul>
+          <p className="bg-amber-50 border border-amber-200 rounded p-2 text-xs">
+            ⚠️ Email volume to unfiltered lists can trigger spam flags. Prefer
+            tag-based or recent-activity filters over "all customers".
+          </p>
+        </div>
+      ),
+    },
+    {
+      id: "reengagement-90d",
+      title: "Auto re-engagement email at 90 days",
+      icon: Mail,
+      content: (
+        <div className="space-y-3 text-sm">
+          <p>
+            90 days after each booking's event date, RentalFlow automatically
+            emails the customer encouraging them to rebook. Edits the same way
+            as other booking emails: <code>/admin/email-templates</code> → pick{" "}
+            <code>booking_reengagement_90d</code>.
+          </p>
+          <p className="font-semibold">Booking email lifecycle (5 emails):</p>
+          <ol className="list-decimal pl-5 text-xs space-y-1">
+            <li><code>booking_confirmation</code> — instant on payment</li>
+            <li><code>booking_reminder_3d</code> — 3 days before event</li>
+            <li><code>booking_review_request</code> — 1 day after event</li>
+            <li><code>booking_reengagement_90d</code> — 90 days after event (NEW)</li>
+            <li><code>booking_anniversary_1y</code> — 365 days after booking created</li>
+          </ol>
+          <p className="text-xs">
+            All 5 are idempotent (each fires only once per booking) and run
+            from the daily cron at <code>/api/cron/booking-emails</code>.
+            Each template's subject + body is editable per tenant.
+          </p>
+          <p className="bg-amber-50 border border-amber-200 rounded p-2 text-xs">
+            ⚠️ If you haven't seeded the <code>booking_reengagement_90d</code> template yet, the email skips silently. Add it in <code>/admin/email-templates</code> by clicking "Add template" with key <code>booking_reengagement_90d</code>.
+          </p>
+        </div>
+      ),
+    },
+    {
       id: "tests",
       title: "Testing checklist",
       icon: HelpCircle,

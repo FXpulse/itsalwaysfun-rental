@@ -42,6 +42,7 @@ import {
   Key,
   Webhook,
   Target,
+  Megaphone,
 } from "lucide-react";
 
 type Role = "admin" | "staff";
@@ -79,6 +80,7 @@ const ALL_NAV: NavItem[] = [
   { href: "/admin/reviews", label: "Reviews", icon: Star, minRole: "admin" },
   { href: "/admin/banners", label: "Home banners", icon: Images, minRole: "admin" },
   { href: "/admin/email-templates", label: "Email templates", icon: Mail, minRole: "admin" },
+  { href: "/admin/campaigns", label: "Campaigns", icon: Megaphone, minRole: "admin" },
   { href: "/admin/faqs", label: "FAQs", icon: HelpCircle, minRole: "admin" },
   { href: "/admin/users", label: "Users", icon: Users, minRole: "admin" },
   { href: "/admin/settings/payments", label: "Payments (Stripe)", icon: CreditCard, minRole: "admin" },

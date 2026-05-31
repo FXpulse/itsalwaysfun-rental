@@ -1,11 +1,12 @@
 // Scheduled booking emails:
-//   1. booking_confirmation     — immediately on payment
-//   2. booking_reminder_3d      — 3 days before event_date
-//   3. booking_review_request   — 1 day after event_date
-//   4. booking_anniversary_1y   — 365 days after created_at
+//   1. booking_confirmation         — immediately on payment
+//   2. booking_reminder_3d          — 3 days before event_date
+//   3. booking_review_request       — 1 day after event_date
+//   4. booking_reengagement_90d     — 90 days after event_date (encourage rebooking)
+//   5. booking_anniversary_1y       — 365 days after created_at
 //
 // Confirmation fires inline from Stripe webhook / mark-paid action.
-// The other 3 fire from a daily cron at /api/cron/booking-emails.
+// The other 4 fire from a daily cron at /api/cron/booking-emails.
 // Each send is idempotent — booking_emails_sent (unique on booking_id+type)
 // blocks duplicates.
 
@@ -18,6 +19,7 @@ type EmailType =
   | "booking_confirmation"
   | "booking_reminder_3d"
   | "booking_review_request"
+  | "booking_reengagement_90d"
   | "booking_anniversary_1y";
 
 interface BookingRow {
@@ -164,6 +166,7 @@ export async function processScheduledBookingEmails(): Promise<{
   const summary = {
     reminder_3d: 0,
     review_1d: 0,
+    reengagement_90d: 0,
     anniversary_1y: 0,
     errors: [] as string[],
   };
@@ -186,6 +189,10 @@ export async function processScheduledBookingEmails(): Promise<{
   const oneDayAgo = new Date(today);
   oneDayAgo.setDate(today.getDate() - 1);
   const oneDayAgoStr = oneDayAgo.toISOString().split("T")[0];
+
+  const ninetyDaysAgo = new Date(today);
+  ninetyDaysAgo.setDate(today.getDate() - 90);
+  const ninetyDaysAgoStr = ninetyDaysAgo.toISOString().split("T")[0];
 
   // ─── 1) Reminder 3 days before event ─────────────────────────────────
   // Match bookings whose event_date is exactly 3 days from today, paid, not cancelled
@@ -266,7 +273,37 @@ export async function processScheduledBookingEmails(): Promise<{
     }
   }
 
-  // ─── 3) Anniversary 1 year after booking ─────────────────────────────
+  // ─── 3) Re-engagement 90 days after event ────────────────────────────
+  // Encourage rebooking — customer's last event was 90 days ago
+  {
+    const { data: bookings } = await supabase
+      .from("bookings")
+      .select("*")
+      .eq("event_date", ninetyDaysAgoStr)
+      .eq("stripe_payment_status", "paid")
+      .neq("booking_status", "cancelled");
+
+    for (const b of (bookings as BookingRow[]) || []) {
+      try {
+        if (await alreadySent(b.id, "booking_reengagement_90d")) continue;
+        const r = await sendTemplated({
+          key: "booking_reengagement_90d",
+          to: b.customer_email,
+          vars: buildVars(b),
+          tags: [
+            { name: "type", value: "booking_reengagement_90d" },
+            { name: "booking_id", value: b.id },
+          ],
+        });
+        await recordSend(b.id, "booking_reengagement_90d", r.ok, r.id, r.ok ? undefined : r.error);
+        if (r.ok) summary.reengagement_90d++;
+      } catch (e: any) {
+        summary.errors.push(`reengagement_90d ${b.id}: ${e.message}`);
+      }
+    }
+  }
+
+  // ─── 4) Anniversary 1 year after booking ─────────────────────────────
   // Match bookings whose created_at falls exactly 365 days ago (or 366 for leap)
   // Window: [365 days ago start of day, 365 days ago end of day]
   {

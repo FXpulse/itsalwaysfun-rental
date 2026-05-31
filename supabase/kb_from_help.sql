@@ -2757,6 +2757,118 @@ on conflict (slug) do update set
   updated_at = now();
 
 insert into kb_articles (slug, title, body_md, category, tags, is_published) values
+  ($kbf$help-customer-tags$kbf$, $kbf$Customer tags — label customers for targeting$kbf$, $kbf$At `/admin/customers/[email]` (any customer detail page),
+you can add colored tags to label customers — like `promoter`,
+`vip`, `inactive`, `local_business`,
+or anything else you invent. Tags are tenant-private.
+
+How to add a tag:
+
+- Open a customer detail page
+
+- Click **+ Add tag** at the top
+
+- Type the tag name (auto-formatted lowercase + underscores)
+
+- Existing tags from this tenant auto-suggest as chips below the input — click to add
+
+- (Optional) Add notes for why you're tagging
+
+- Click **Add** or hit Enter
+
+Use cases:
+
+- **`promoter`** — customers who only refer (don't book themselves)
+
+- **`vip`** — top spenders that get special treatment
+
+- **`inactive`** — haven't booked in 6+ months, win-back target
+
+- **`local_business`** — corporate/recurring B2B customers
+
+- **`event_planner`** — partners who book on behalf of clients
+
+- **`do_not_email`** — opted out of marketing
+
+💡 **Combine with campaigns:** tag 20 customers as `vip`, then go to `/admin/campaigns/new` → audience "By tag" → select `vip` → send them a personalized message.$kbf$, $kbf$Customer$kbf$, array[$kbf$help$kbf$, $kbf$imported$kbf$], true)
+on conflict (slug) do update set
+  title = excluded.title,
+  body_md = excluded.body_md,
+  category = excluded.category,
+  tags = excluded.tags,
+  updated_at = now();
+
+insert into kb_articles (slug, title, body_md, category, tags, is_published) values
+  ($kbf$help-campaigns$kbf$, $kbf$Email campaigns — targeted blasts to filtered audiences$kbf$, $kbf$At `/admin/campaigns` you can compose + send a one-time
+email blast to a filtered audience. Personalized per recipient
+with placeholders.
+
+4 audience modes:
+
+- **By tag** — recipients are those with ANY of the selected tags
+
+- **Recent bookings** — paid for a booking in the last N days
+
+- **High spenders** — paid at least $X across all bookings
+
+- **All customers** — every email we have (use sparingly to avoid spam flags)
+
+Available placeholders:
+
+- `` — customer's first name (or email prefix)
+
+- `` — last name
+
+- `` — your business name
+
+Limits:
+
+- Audience max: 1000 per campaign — split into batches for more
+
+- Sequential send — ~1-2 min for 100 recipients
+
+- Per-recipient log saved in `campaign_recipients` for retry / analytics
+
+⚠️ Email volume to unfiltered lists can trigger spam flags. Prefer
+tag-based or recent-activity filters over "all customers".$kbf$, $kbf$Communications$kbf$, array[$kbf$help$kbf$, $kbf$imported$kbf$], true)
+on conflict (slug) do update set
+  title = excluded.title,
+  body_md = excluded.body_md,
+  category = excluded.category,
+  tags = excluded.tags,
+  updated_at = now();
+
+insert into kb_articles (slug, title, body_md, category, tags, is_published) values
+  ($kbf$help-reengagement-90d$kbf$, $kbf$Auto re-engagement email at 90 days$kbf$, $kbf$90 days after each booking's event date, RentalFlow automatically
+emails the customer encouraging them to rebook. Edits the same way
+as other booking emails: `/admin/email-templates` → pick
+`booking_reengagement_90d`.
+
+Booking email lifecycle (5 emails):
+
+- `booking_confirmation` — instant on payment
+
+- `booking_reminder_3d` — 3 days before event
+
+- `booking_review_request` — 1 day after event
+
+- `booking_reengagement_90d` — 90 days after event (NEW)
+
+- `booking_anniversary_1y` — 365 days after booking created
+
+All 5 are idempotent (each fires only once per booking) and run
+from the daily cron at `/api/cron/booking-emails`.
+Each template's subject + body is editable per tenant.
+
+⚠️ If you haven't seeded the `booking_reengagement_90d` template yet, the email skips silently. Add it in `/admin/email-templates` by clicking "Add template" with key `booking_reengagement_90d`.$kbf$, $kbf$Communications$kbf$, array[$kbf$help$kbf$, $kbf$imported$kbf$], true)
+on conflict (slug) do update set
+  title = excluded.title,
+  body_md = excluded.body_md,
+  category = excluded.category,
+  tags = excluded.tags,
+  updated_at = now();
+
+insert into kb_articles (slug, title, body_md, category, tags, is_published) values
   ($kbf$help-tests$kbf$, $kbf$Testing checklist$kbf$, $kbf$Before going live, test these end-to-end:
 
 - ☐ Public booking → Stripe test card `4242 4242 4242 4242` → check email + SMS arrive
