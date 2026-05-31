@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUserRole } from "@/lib/auth/roles";
 import { FleetManager } from "./FleetManager";
 import { BulkUploadButton } from "@/components/admin/BulkUploadButton";
+import { ExportCsvButton } from "@/components/admin/ExportCsvButton";
 import { bulkUploadVehicles, bulkUploadTrailers } from "../bulk-upload/actions";
 
 export const dynamic = "force-dynamic";
@@ -55,7 +56,9 @@ export default async function AdminFleetPage() {
     <div className="max-w-4xl">
       <div className="flex items-start justify-between mb-1">
         <h1 className="text-2xl font-bold text-brand-navy">Fleet</h1>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
+          <ExportCsvButton entity="vehicles" label="Export vehicles" />
+          <ExportCsvButton entity="trailers" label="Export trailers" />
           <BulkUploadButton
             label="Bulk vehicles"
             templateUrl="/api/templates/vehicles"

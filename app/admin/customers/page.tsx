@@ -129,7 +129,15 @@ export default async function AdminCustomersPage({
             Aggregated from bookings (grouped by email). Add manually below for portal-only customers.
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
+          <a
+            href="/api/admin/export/customers"
+            download
+            className="inline-flex items-center gap-1 bg-white hover:bg-slate-50 text-slate-700 text-sm font-semibold rounded-md px-3 py-2 ring-1 ring-slate-200 shadow-sm"
+            title="Download all customers as CSV"
+          >
+            <Upload className="h-4 w-4 rotate-180" /> Export CSV
+          </a>
           <Link
             href="/admin/customers/bulk-import"
             className="bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white font-semibold rounded-lg px-4 py-2 text-sm inline-flex items-center gap-1 shadow-sm"

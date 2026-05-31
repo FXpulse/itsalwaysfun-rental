@@ -5,6 +5,7 @@ import { getCurrentUserRole } from "@/lib/auth/roles";
 import { InventoryManager } from "./InventoryManager";
 import { CategoriesPanel } from "./CategoriesPanel";
 import { BulkUploadButton } from "@/components/admin/BulkUploadButton";
+import { ExportCsvButton } from "@/components/admin/ExportCsvButton";
 import { bulkUploadInventory } from "../bulk-upload/actions";
 
 export const dynamic = "force-dynamic";
@@ -73,11 +74,14 @@ export default async function AdminInventoryPage() {
       <div className="flex items-start justify-between mb-1">
         <h1 className="text-2xl font-bold text-brand-navy">Inventory</h1>
         {me.role === "admin" && (
-          <BulkUploadButton
-            templateUrl="/api/templates/inventory"
-            uploadAction={bulkUploadInventory}
-            description="Bulk add operational gear from a CSV."
-          />
+          <div className="flex gap-2">
+            <ExportCsvButton entity="inventory" />
+            <BulkUploadButton
+              templateUrl="/api/templates/inventory"
+              uploadAction={bulkUploadInventory}
+              description="Bulk add operational gear from a CSV."
+            />
+          </div>
         )}
       </div>
       <p className="text-sm text-slate-500 mb-6">

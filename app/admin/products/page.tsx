@@ -5,6 +5,7 @@ import { Plus, Edit, Calendar, Eye, EyeOff } from "lucide-react";
 import type { Product } from "@/types/database";
 import { ProductActiveToggle } from "./ProductActiveToggle";
 import { BulkUploadButton } from "@/components/admin/BulkUploadButton";
+import { ExportCsvButton } from "@/components/admin/ExportCsvButton";
 import { bulkUploadProducts } from "../bulk-upload/actions";
 
 export const dynamic = "force-dynamic";
@@ -37,6 +38,7 @@ export default async function AdminProductsPage() {
           </p>
         </div>
         <div className="flex gap-2">
+          <ExportCsvButton entity="products" />
           <BulkUploadButton
             label="Bulk upload"
             templateUrl="/api/templates/products"
