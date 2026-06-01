@@ -48,6 +48,51 @@ function parseForm(formData: FormData) {
   };
 }
 
+/** Find-or-create a customer by email. Used when admin types an email that
+ *  doesn't appear in search results — creates the auth.user (email_confirmed)
+ *  so the coupon can be attributed, then customer can sign in any time. */
+export async function findOrCreateCustomerByEmail(email: string): Promise<{ user_id?: string; email?: string; error?: string }> {
+  try {
+    await requireAdmin();
+    const normalized = email.trim().toLowerCase();
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(normalized)) {
+      return { error: "Invalid email" };
+    }
+    const supabase = createAdminClient();
+
+    // Try create first — Supabase returns error if user exists
+    const { data: created, error: createErr } = await supabase.auth.admin.createUser({
+      email: normalized,
+      email_confirm: true,
+    });
+    if (created?.user) {
+      return { user_id: created.user.id, email: normalized };
+    }
+    // Already exists — find them
+    if (createErr && /already.*registered|already.*exists|duplicate/i.test(createErr.message)) {
+      const { data: usersData } = await supabase.auth.admin.listUsers({ perPage: 1000 });
+      const existing = (usersData?.users || []).find((u) => (u.email || "").toLowerCase() === normalized);
+      if (existing) {
+        return { user_id: existing.id, email: normalized };
+      }
+      // Try paginating
+      let page = 2;
+      while (page < 20) {
+        const { data: pageData } = await supabase.auth.admin.listUsers({ page, perPage: 1000 });
+        const found = pageData?.users?.find((u) => (u.email || "").toLowerCase() === normalized);
+        if (found) return { user_id: found.id, email: normalized };
+        if (!pageData?.users || pageData.users.length < 1000) break;
+        page++;
+      }
+      return { error: "User exists but could not be found in pagination" };
+    }
+    return { error: createErr?.message || "Failed to create user" };
+  } catch (e: any) {
+    console.error("findOrCreateCustomerByEmail error:", e);
+    return { error: e?.message || String(e) };
+  }
+}
+
 /** Search customers by email. Used by admin coupon form to assign a referrer.
  *  customer_profiles doesn't store email/name — those live in auth.users.
  *  We list users via admin SDK then filter to those that have a customer_profile. */
