@@ -158,6 +158,29 @@ export async function POST(request: Request) {
       console.error("[GHL sync failed, non-fatal]", e);
     }
 
+    // Increment coupon current_uses now that payment is confirmed
+    // (was previously done at hold-creation time, which over-counted
+    // when holds expired without payment).
+    if (booking.coupon_code) {
+      try {
+        const { data: c } = await supabase
+          .from("coupons")
+          .select("current_uses")
+          .eq("code", booking.coupon_code)
+          .eq("tenant_id", booking.tenant_id)
+          .maybeSingle();
+        if (c) {
+          await supabase
+            .from("coupons")
+            .update({ current_uses: ((c as any).current_uses || 0) + 1 })
+            .eq("code", booking.coupon_code)
+            .eq("tenant_id", booking.tenant_id);
+        }
+      } catch (e) {
+        console.error("[coupon increment failed, non-fatal]", e);
+      }
+    }
+
     // Loyalty: award points to the buyer + commission to referrer (if any)
     try {
       await awardForPaidBooking(bookingId);

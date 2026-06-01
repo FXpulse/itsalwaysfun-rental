@@ -689,24 +689,10 @@ export async function POST(request: Request) {
     }
   }
 
-  // Increment coupon usage (best-effort — don't block booking)
-  if (appliedCouponCode) {
-    try {
-      const { data: c } = await supabase
-        .from("coupons")
-        .select("current_uses")
-        .eq("code", appliedCouponCode)
-        .single();
-      if (c) {
-        await supabase
-          .from("coupons")
-          .update({ current_uses: (c.current_uses || 0) + 1 })
-          .eq("code", appliedCouponCode);
-      }
-    } catch {
-      // ignore — booking already saved, counter is non-critical
-    }
-  }
+  // NOTE: coupon current_uses is intentionally NOT incremented here —
+  // a held booking can expire without payment, which would over-count
+  // the coupon. The increment now happens in the Stripe webhook when
+  // payment_intent.succeeded fires (only paid bookings count).
 
   return NextResponse.json({
     booking_id: booking.id,
