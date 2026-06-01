@@ -198,7 +198,26 @@ async function renderChecklist(params: { id: string }) {
         <div className="space-y-4">
           <h2 className="text-xl font-bold text-brand-navy">📋 Checklist by category</h2>
           {Object.keys(CATEGORY_LABELS).map((cat) => {
-            const items = summary!.items.filter((i) => i.item.category === cat);
+            // Strip non-serializable autoDetect function before passing to client component
+            const items = summary!.items
+              .filter((i) => i.item.category === cat)
+              .map((i) => ({
+                item: {
+                  key: i.item.key,
+                  category: i.item.category,
+                  label: i.item.label,
+                  description: i.item.description,
+                  manualOnly: i.item.manualOnly || false,
+                  required: i.item.required || false,
+                },
+                is_completed: i.is_completed,
+                is_auto_detected: i.is_auto_detected,
+                detected_value: i.detected_value,
+                manual_value: i.manual_value,
+                completed_at: i.completed_at,
+                completed_by_email: i.completed_by_email,
+                notes: i.notes,
+              }));
             if (items.length === 0) return null;
             return (
               <ChecklistByCategory
@@ -206,7 +225,7 @@ async function renderChecklist(params: { id: string }) {
                 tenantId={params.id}
                 category={cat as any}
                 categoryLabel={CATEGORY_LABELS[cat as keyof typeof CATEGORY_LABELS]}
-                items={items}
+                items={items as any}
               />
             );
           })}
