@@ -9,7 +9,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import Script from "next/script";
+import { SaasChatWidget } from "@/components/marketing/SaasChatWidget";
 import {
   Check,
   X as XIcon,
@@ -398,14 +398,10 @@ export default function MarketingPage() {
         </div>
       </footer>
 
-      {/* GHL Chat Widget — solo carga en la marketing page (apex domain) */}
-      <Script
-        id="ghl-chat-widget"
-        src="https://beta.leadconnectorhq.com/loader.js"
-        data-resources-url="https://beta.leadconnectorhq.com/chat-widget/loader.js"
-        data-widget-id="6a17732b1ce15bb9e95fe212"
-        strategy="afterInteractive"
-      />
+      {/* RentalFlow native AI chat — replaces GHL widget. Powered by gpt-4o-mini
+          with the full product knowledge baked into the system prompt.
+          Endpoint: /api/chat/saas */}
+      <SaasChatWidget />
     </div>
   );
 }

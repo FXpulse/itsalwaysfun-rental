@@ -87,7 +87,7 @@ export async function GET() {
   const recipient =
     (settingRow?.value as string)?.trim() ||
     process.env.ADMIN_ALERT_EMAIL ||
-    "admin@itsalwaysfun.com";
+    "info@getrentalflow.com";       // operator default — IAF tenant can override via site_settings.low_stock_alert_email
 
   // Group by category for readability
   const byCategory = new Map<string, any[]>();
