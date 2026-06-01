@@ -25,6 +25,7 @@ const NAV_GIFT_CARDS = { href: "/gift-cards", label: "🎁 Gift Cards" };
 
 const INFO_ITEMS = [
   { href: "/info/faqs", label: "FAQs" },
+  { href: "/info/policies", label: "Policies" },
   { href: "/reviews", label: "Reviews" },
   { href: "/info/privacy-policy", label: "Privacy Policy" },
   { href: "/info/terms-of-service", label: "Terms of Service" },
