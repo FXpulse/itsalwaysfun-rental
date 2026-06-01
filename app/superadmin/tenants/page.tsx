@@ -21,6 +21,7 @@ import {
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { TenantsTable } from "./TenantsTable";
+import { evaluateChecklist } from "@/lib/superadmin/tenant-checklist";
 
 export const dynamic = "force-dynamic";
 
@@ -67,6 +68,26 @@ export default async function SuperadminTenantsPage() {
     .order("created_at", { ascending: false });
 
   const list: Tenant[] = (tenants as Tenant[]) || [];
+
+  // Compute checklist progress for each tenant (parallel)
+  const checklists = await Promise.all(
+    list.map(async (t) => {
+      try {
+        const s = await evaluateChecklist(t.id);
+        return {
+          tenant_id: t.id,
+          pct: s.pct,
+          completed: s.completed,
+          total: s.total,
+          required_pending: s.required_total - s.required_completed,
+        };
+      } catch {
+        return { tenant_id: t.id, pct: 0, completed: 0, total: 0, required_pending: 0 };
+      }
+    }),
+  );
+  const checklistByTenant: Record<string, typeof checklists[number]> = {};
+  for (const c of checklists) checklistByTenant[c.tenant_id] = c;
 
   // Compute MRR (sum of plan prices for active subscriptions, excluding founder)
   const planPrices: Record<string, number> = {
@@ -201,7 +222,7 @@ export default async function SuperadminTenantsPage() {
       </div>
 
       {/* Tenants table — interactive client component with bulk actions */}
-      <TenantsTable tenants={list} />
+      <TenantsTable tenants={list} checklists={checklistByTenant} />
 
       <p className="text-xs text-slate-400 mt-4">
         💡 Tenants signup at <code>getrentalflow.com/signup</code>. Each gets

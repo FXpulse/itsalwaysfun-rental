@@ -5,7 +5,7 @@ import Link from "next/link";
 import { toast } from "sonner";
 import {
   Crown, CheckCircle2, AlertTriangle, XCircle, Pause, ExternalLink,
-  Mail, Download, Play, X,
+  Mail, Download, Play, X, ClipboardList,
 } from "lucide-react";
 import { bulkSendEmail, bulkPause, bulkUnpause, bulkExportCsv } from "./bulk-actions";
 
@@ -46,7 +46,21 @@ interface Tenant {
   created_at: string;
 }
 
-export function TenantsTable({ tenants }: { tenants: Tenant[] }) {
+interface ChecklistProgress {
+  tenant_id: string;
+  pct: number;
+  completed: number;
+  total: number;
+  required_pending: number;
+}
+
+export function TenantsTable({
+  tenants,
+  checklists = {},
+}: {
+  tenants: Tenant[];
+  checklists?: Record<string, ChecklistProgress>;
+}) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [showEmail, setShowEmail] = useState(false);
   const [pending, startTransition] = useTransition();
@@ -122,6 +136,7 @@ export function TenantsTable({ tenants }: { tenants: Tenant[] }) {
               <th className="px-3 py-2 text-left">Tenant</th>
               <th className="px-3 py-2 text-left">Plan</th>
               <th className="px-3 py-2 text-left">Status</th>
+              <th className="px-3 py-2 text-left">Checklist</th>
               <th className="px-3 py-2 text-left">Owner</th>
               <th className="px-3 py-2 text-left">Created</th>
               <th className="px-3 py-2 text-right">Actions</th>
@@ -168,6 +183,9 @@ export function TenantsTable({ tenants }: { tenants: Tenant[] }) {
                   <td className="px-3 py-2">
                     <StatusBadge status={t.subscription_status} suspended={!!t.suspended_at} />
                   </td>
+                  <td className="px-3 py-2">
+                    <ChecklistCell progress={checklists[t.id]} tenantId={t.id} />
+                  </td>
                   <td className="px-3 py-2 text-xs text-slate-600">
                     <a href={`mailto:${t.owner_email}`} className="hover:text-brand-navy hover:underline">
                       {t.owner_email}
@@ -186,7 +204,7 @@ export function TenantsTable({ tenants }: { tenants: Tenant[] }) {
             })}
             {tenants.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-3 py-8 text-center text-slate-400">
+                <td colSpan={8} className="px-3 py-8 text-center text-slate-400">
                   No tenants yet. The first signup will appear here.
                 </td>
               </tr>
@@ -319,6 +337,38 @@ export function TenantsTable({ tenants }: { tenants: Tenant[] }) {
         </div>
       )}
     </>
+  );
+}
+
+function ChecklistCell({ progress, tenantId }: { progress?: ChecklistProgress; tenantId: string }) {
+  if (!progress || progress.total === 0) {
+    return (
+      <Link
+        href={`/superadmin/tenants/${tenantId}/checklist`}
+        className="inline-flex items-center gap-1 text-xs text-slate-500 hover:text-brand-navy hover:underline"
+      >
+        <ClipboardList className="h-3 w-3" /> Open
+      </Link>
+    );
+  }
+  const pct = progress.pct;
+  const cls = pct >= 90 ? "bg-emerald-100 text-emerald-800 border-emerald-300"
+    : pct >= 60 ? "bg-blue-100 text-blue-800 border-blue-300"
+    : pct >= 30 ? "bg-amber-100 text-amber-800 border-amber-300"
+    : "bg-rose-100 text-rose-800 border-rose-300";
+  return (
+    <Link
+      href={`/superadmin/tenants/${tenantId}/checklist`}
+      title={`${progress.completed} of ${progress.total} items complete${progress.required_pending > 0 ? ` · ${progress.required_pending} required pending` : ""}`}
+      className={`inline-flex items-center gap-1.5 text-xs font-bold border rounded-full px-2 py-0.5 hover:shadow ${cls}`}
+    >
+      <ClipboardList className="h-3 w-3" />
+      <span>{pct}%</span>
+      <span className="text-[10px] opacity-70 font-mono">{progress.completed}/{progress.total}</span>
+      {progress.required_pending > 0 && (
+        <span className="inline-block w-1.5 h-1.5 rounded-full bg-rose-600 ml-0.5" title="Required items pending" />
+      )}
+    </Link>
   );
 }
 

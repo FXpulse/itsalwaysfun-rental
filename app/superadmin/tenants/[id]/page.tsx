@@ -14,6 +14,8 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { TenantActionsPanel } from "./TenantActionsPanel";
 import { TenantBrief } from "./TenantBrief";
+import { evaluateChecklist } from "@/lib/superadmin/tenant-checklist";
+import { ClipboardList } from "lucide-react";
 import { z } from "zod";
 
 export const dynamic = "force-dynamic";
@@ -103,6 +105,13 @@ export default async function TenantDetailPage({
     ? `https://${tenant.custom_domain}`
     : `https://${tenant.slug}.getrentalflow.com`;
 
+  // Checklist progress for header CTA
+  const checklist = await evaluateChecklist(tenant.id);
+  const checklistColor = checklist.pct >= 90 ? "bg-emerald-100 text-emerald-800"
+    : checklist.pct >= 60 ? "bg-blue-100 text-blue-800"
+    : checklist.pct >= 30 ? "bg-amber-100 text-amber-800"
+    : "bg-rose-100 text-rose-800";
+
   return (
     <div className="max-w-6xl mx-auto p-6">
       <Link
@@ -153,6 +162,34 @@ export default async function TenantDetailPage({
           stripeAccountId={tenant.stripe_account_id}
         />
       </div>
+
+      {/* Checklist CTA */}
+      <Link
+        href={`/superadmin/tenants/${tenant.id}/checklist`}
+        className={`group flex items-center justify-between mb-6 rounded-xl border-2 ${
+          checklist.pct === 100 ? "border-emerald-300 bg-emerald-50" : "border-indigo-200 bg-gradient-to-r from-indigo-50 via-violet-50 to-fuchsia-50"
+        } p-4 hover:shadow-md transition`}
+      >
+        <div className="flex items-center gap-3">
+          <ClipboardList className={`h-6 w-6 ${checklist.pct === 100 ? "text-emerald-600" : "text-indigo-600"}`} />
+          <div>
+            <div className="font-bold text-brand-navy flex items-center gap-2">
+              Onboarding Checklist · Ficha del Cliente
+              <span className={`text-xs font-bold px-2 py-0.5 rounded ${checklistColor}`}>
+                {checklist.completed}/{checklist.total} · {checklist.pct}%
+              </span>
+            </div>
+            <div className="text-xs text-slate-500 mt-0.5">
+              {checklist.required_total - checklist.required_completed > 0
+                ? `${checklist.required_total - checklist.required_completed} required item(s) pending`
+                : "All required items complete · view full breakdown →"}
+            </div>
+          </div>
+        </div>
+        <div className="text-xs text-indigo-700 font-semibold group-hover:underline">
+          Open →
+        </div>
+      </Link>
 
       {/* AI Brief panel */}
       <div className="mb-6">
