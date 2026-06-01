@@ -65,21 +65,16 @@ export async function GET(request: Request) {
     });
   }
 
-  // 3. Existing bookings (count active reservations on that date)
-  const now = new Date().toISOString();
+  // 3. Existing bookings — only PAID bookings count.
+  // Unpaid pending_payment bookings don't block inventory.
   const { data: bookings } = await supabase
     .from("bookings")
-    .select("id, booking_status, hold_expires_at")
+    .select("id, booking_status")
     .eq("product_id", product_id)
     .eq("event_date", date)
-    .in("booking_status", ["pending_payment", "confirmed", "delivered"]);
+    .in("booking_status", ["confirmed", "delivered"]);
 
-  // Filter expired holds out
-  const activeBookings = (bookings || []).filter((b) => {
-    if (b.booking_status !== "pending_payment") return true;
-    if (!b.hold_expires_at) return true;
-    return b.hold_expires_at > now;
-  });
+  const activeBookings = bookings || [];
 
   if (activeBookings.length >= product.stock) {
     return NextResponse.json({

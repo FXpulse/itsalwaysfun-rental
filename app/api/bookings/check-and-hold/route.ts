@@ -231,26 +231,19 @@ export async function POST(request: Request) {
     );
   }
 
-  // 3. Check ALL days for existing bookings (respect stock)
-  const nowISO = new Date().toISOString();
+  // 3. Check ALL days for existing bookings (respect stock).
+  // Only PAID bookings count — pending_payment bookings don't block
+  // availability so abandoned carts don't lock real customers out.
   const { data: activeBookings } = await supabase
     .from("bookings")
-    .select("id, event_date, event_end_date, booking_status, hold_expires_at")
+    .select("id, event_date, event_end_date, booking_status")
     .eq("product_id", product.id)
     .lte("event_date", endDate)
     .or(`event_end_date.gte.${startDate},and(event_end_date.is.null,event_date.gte.${startDate})`)
-    .in("booking_status", ["pending_payment", "confirmed", "delivered"]);
+    .in("booking_status", ["confirmed", "delivered"]);
 
-  // Build count-per-day, filtering expired holds
   const occupiedByDay: Record<string, number> = {};
   for (const b of activeBookings || []) {
-    if (
-      b.booking_status === "pending_payment" &&
-      b.hold_expires_at &&
-      b.hold_expires_at < nowISO
-    ) {
-      continue;
-    }
     const bStart = b.event_date;
     const bEnd = b.event_end_date || b.event_date;
     for (const day of datesInRange(bStart, bEnd)) {

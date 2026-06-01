@@ -39,14 +39,15 @@ export async function GET(
   const todayISO = today.toISOString().split("T")[0];
   const ninetyDaysISO = inNinetyDays.toISOString().split("T")[0];
 
-  // Get all bookings that occupy this product in the next 90 days
+  // Get all PAID bookings that occupy this product in the next 90 days.
+  // Unpaid pending_payment bookings don't block the calendar.
   const { data: bookings } = await supabase
     .from("bookings")
-    .select("event_date, booking_status, hold_expires_at")
+    .select("event_date, booking_status")
     .eq("product_id", product.id)
     .gte("event_date", todayISO)
     .lte("event_date", ninetyDaysISO)
-    .in("booking_status", ["pending_payment", "confirmed", "delivered"]);
+    .in("booking_status", ["confirmed", "delivered"]);
 
   // Get manual blocked dates
   const { data: blocks } = await supabase
@@ -56,18 +57,9 @@ export async function GET(
     .gte("blocked_date", todayISO)
     .lte("blocked_date", ninetyDaysISO);
 
-  // Filter out expired holds (pending_payment with hold_expires_at < now)
-  const now = new Date();
   const unavailableDates = new Set<string>();
 
   for (const b of bookings || []) {
-    if (
-      b.booking_status === "pending_payment" &&
-      b.hold_expires_at &&
-      new Date(b.hold_expires_at) < now
-    ) {
-      continue; // expired hold, ignore
-    }
     unavailableDates.add(b.event_date);
   }
   for (const bd of blocks || []) {
