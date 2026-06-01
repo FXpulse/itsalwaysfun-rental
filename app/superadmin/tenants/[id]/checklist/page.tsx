@@ -11,6 +11,53 @@ import { NotesTimeline } from "./NotesTimeline";
 export const dynamic = "force-dynamic";
 
 export default async function TenantChecklistPage({ params }: { params: { id: string } }) {
+  // Wrap EVERYTHING in try/catch so we can render the actual error inline
+  // instead of throwing and getting the generic Next.js production digest screen.
+  let renderError: { message: string; stack: string; where: string } | null = null;
+
+  try {
+    return await renderChecklist(params);
+  } catch (e: any) {
+    renderError = {
+      message: e?.message || String(e) || "(no message)",
+      stack: e?.stack || "(no stack)",
+      where: "renderChecklist outer",
+    };
+  }
+
+  // Fallback render with real error details
+  return (
+    <div className="max-w-3xl mx-auto p-6">
+      <Link href="/superadmin/tenants" className="text-sm text-slate-500 hover:text-brand-navy">
+        ← Back to tenants
+      </Link>
+      <div className="card bg-rose-50 border-2 border-rose-300 p-6 mt-4">
+        <h1 className="font-bold text-rose-900 text-xl flex items-center gap-2">
+          <AlertTriangle className="h-5 w-5" /> Checklist page error
+        </h1>
+        <p className="text-sm text-rose-800 mt-2">
+          The page rendering threw an error. Caught inline so you can see the message:
+        </p>
+        <div className="mt-3 bg-white border border-rose-200 rounded p-3">
+          <div className="text-[10px] uppercase tracking-wider font-bold text-rose-700">Where</div>
+          <div className="text-xs font-mono mt-1">{renderError!.where}</div>
+        </div>
+        <div className="mt-2 bg-white border border-rose-200 rounded p-3">
+          <div className="text-[10px] uppercase tracking-wider font-bold text-rose-700">Message</div>
+          <div className="text-xs font-mono mt-1 break-all">{renderError!.message}</div>
+        </div>
+        <details className="mt-2 bg-white border border-rose-200 rounded p-3">
+          <summary className="text-xs font-bold text-rose-700 cursor-pointer">Stack trace</summary>
+          <pre className="text-[10px] whitespace-pre-wrap break-all mt-2 text-slate-700 max-h-96 overflow-auto">
+            {renderError!.stack}
+          </pre>
+        </details>
+      </div>
+    </div>
+  );
+}
+
+async function renderChecklist(params: { id: string }) {
   // Auth gate
   const auth = createClient();
   const { data: { user } } = await auth.auth.getUser();
@@ -44,7 +91,6 @@ export default async function TenantChecklistPage({ params }: { params: { id: st
     profileRow = profileRes.data;
     notes = (notesRes.data as any[]) || [];
     summary = s;
-    // Detect missing table via Supabase error
     if ((profileRes as any).error?.code === "42P01" || (notesRes as any).error?.code === "42P01") {
       migrationMissing = true;
     }
