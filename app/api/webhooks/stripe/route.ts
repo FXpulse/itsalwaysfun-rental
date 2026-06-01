@@ -161,21 +161,10 @@ export async function POST(request: Request) {
     // Increment coupon current_uses now that payment is confirmed
     // (was previously done at hold-creation time, which over-counted
     // when holds expired without payment).
-    if (booking.coupon_code) {
+    if (booking.coupon_code && booking.tenant_id) {
       try {
-        const { data: c } = await supabase
-          .from("coupons")
-          .select("current_uses")
-          .eq("code", booking.coupon_code)
-          .eq("tenant_id", booking.tenant_id)
-          .maybeSingle();
-        if (c) {
-          await supabase
-            .from("coupons")
-            .update({ current_uses: ((c as any).current_uses || 0) + 1 })
-            .eq("code", booking.coupon_code)
-            .eq("tenant_id", booking.tenant_id);
-        }
+        const { incrementCouponUses } = await import("@/lib/coupons/counter");
+        await incrementCouponUses({ code: booking.coupon_code, tenantId: booking.tenant_id });
       } catch (e) {
         console.error("[coupon increment failed, non-fatal]", e);
       }
@@ -237,10 +226,30 @@ export async function POST(request: Request) {
   if (event.type === "charge.refunded") {
     const charge = event.data.object as Stripe.Charge;
     if (charge.payment_intent && typeof charge.payment_intent === "string") {
+      // Find the booking first so we can decrement the coupon counter
+      const { data: refundedBooking } = await supabase
+        .from("bookings")
+        .select("id, coupon_code, tenant_id, stripe_payment_status")
+        .eq("stripe_payment_intent_id", charge.payment_intent)
+        .maybeSingle();
+
       await supabase
         .from("bookings")
         .update({ stripe_payment_status: "refunded", booking_status: "cancelled" })
         .eq("stripe_payment_intent_id", charge.payment_intent);
+
+      // Decrement coupon if this booking was using one
+      if (refundedBooking && (refundedBooking as any).coupon_code && (refundedBooking as any).tenant_id) {
+        try {
+          const { decrementCouponUses } = await import("@/lib/coupons/counter");
+          await decrementCouponUses({
+            code: (refundedBooking as any).coupon_code,
+            tenantId: (refundedBooking as any).tenant_id,
+          });
+        } catch (e) {
+          console.error("[coupon decrement on refund failed, non-fatal]", e);
+        }
+      }
     }
     return NextResponse.json({ received: true, type: "refund" });
   }

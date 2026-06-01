@@ -8,6 +8,7 @@ import { awardForPaidBooking } from "@/lib/loyalty";
 import { sendBookingConfirmation } from "@/lib/email/scheduled-emails";
 import { sendBookingRefunded, sendBookingCancelled } from "@/lib/email/booking-lifecycle";
 import { logAuditEvent } from "@/lib/audit";
+import { reverseCouponIfPaid } from "@/lib/coupons/counter";
 import { z } from "zod";
 
 async function requireAdmin() {
@@ -62,17 +63,20 @@ export async function updateBookingStatus(bookingId: string, newStatus: string) 
 
   if (error) return { error: error.message };
 
-  // Cancellation email when admin sets status to cancelled
+  // Cancellation email + coupon reversal when admin sets status to cancelled
   if (parsed.data === "cancelled") {
     try {
       await sendBookingCancelled(bookingId, null);
     } catch (e) {
       console.error("[cancellation email failed, non-fatal]", e);
     }
+    // If the booking was paid with a coupon, free that use back up
+    await reverseCouponIfPaid(bookingId);
   }
 
   revalidatePath("/admin/bookings");
   revalidatePath(`/admin/bookings/${bookingId}`);
+  revalidatePath("/admin/coupons");
   return { success: true };
 }
 
@@ -144,6 +148,9 @@ export async function refundBooking(bookingId: string, note: string) {
     console.error("[refund email failed, non-fatal]", e);
   }
 
+  // Coupon reversal — paid booking is now refunded, free that use back up
+  await reverseCouponIfPaid(bookingId);
+
   // Audit log
   await logAuditEvent({
     userEmail: user.email || "unknown",
@@ -162,6 +169,7 @@ export async function refundBooking(bookingId: string, note: string) {
 
   revalidatePath("/admin/bookings");
   revalidatePath(`/admin/bookings/${bookingId}`);
+  revalidatePath("/admin/coupons");
   return {
     success: true,
     stripe_refund_id: stripeRefundId,
