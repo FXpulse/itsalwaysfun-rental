@@ -557,6 +557,12 @@ export function BookingWizard({
               setEventDate(start);
               setEventEndDate(end);
             }}
+            startTime={startTime}
+            endTime={endTime}
+            onTimeChange={(s, e) => {
+              setStartTime(s);
+              setEndTime(e);
+            }}
             product={selectedProduct}
             numDays={numDays}
             totalAmount={totalAmount}
@@ -655,7 +661,15 @@ export function BookingWizard({
             bookingResult={bookingResult}
             selectedProduct={selectedProduct}
             eventDate={eventDate!}
+            eventEndDate={effectiveEndDate || eventDate!}
             startTime={startTime}
+            endTime={endTime}
+            numDays={numDays}
+            productTotal={productTotal}
+            powerSupplyCost={powerSupplyCost}
+            addonsTotal={addonsTotal}
+            protectionCost={protectionCost}
+            taxAmount={taxAmount}
             stripeConfigured={stripeConfigured}
             stripePublishableKey={stripePublishableKey}
             onComplete={() => setStep("done")}
@@ -693,6 +707,9 @@ function DatePickerStep({
   startDate,
   endDate,
   onChange,
+  startTime,
+  endTime,
+  onTimeChange,
   product,
   numDays,
   totalAmount,
@@ -703,6 +720,9 @@ function DatePickerStep({
   startDate: string | null;
   endDate: string | null;
   onChange: (start: string | null, end: string | null) => void;
+  startTime: string;
+  endTime: string;
+  onTimeChange: (start: string, end: string) => void;
   product: Product | undefined;
   numDays: number;
   totalAmount: number;
@@ -913,6 +933,47 @@ function DatePickerStep({
                 </p>
               )}
             </div>
+
+            {startDate && (
+              <div className="border-t border-slate-200 pt-3 mb-3">
+                <div className="text-xs uppercase text-slate-500 font-semibold mb-2">
+                  ⏰ What hours?
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">
+                      Start
+                    </label>
+                    <select
+                      value={startTime}
+                      onChange={(e) => onTimeChange(e.target.value, endTime)}
+                      className="input text-sm py-1.5"
+                    >
+                      {TIME_OPTIONS.map((t) => (
+                        <option key={t}>{t}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">
+                      End
+                    </label>
+                    <select
+                      value={endTime}
+                      onChange={(e) => onTimeChange(startTime, e.target.value)}
+                      className="input text-sm py-1.5"
+                    >
+                      {TIME_OPTIONS.map((t) => (
+                        <option key={t}>{t}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                <p className="text-[10px] text-slate-400 mt-1">
+                  You can adjust these on the next step too.
+                </p>
+              </div>
+            )}
 
             {startDate && (
               <button
