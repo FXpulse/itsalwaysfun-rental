@@ -21,7 +21,6 @@ import {
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { TenantsTable } from "./TenantsTable";
-import { evaluateChecklist } from "@/lib/superadmin/tenant-checklist";
 
 export const dynamic = "force-dynamic";
 
@@ -69,25 +68,25 @@ export default async function SuperadminTenantsPage() {
 
   const list: Tenant[] = (tenants as Tenant[]) || [];
 
-  // Compute checklist progress for each tenant (parallel)
-  const checklists = await Promise.all(
-    list.map(async (t) => {
-      try {
-        const s = await evaluateChecklist(t.id);
-        return {
-          tenant_id: t.id,
-          pct: s.pct,
-          completed: s.completed,
-          total: s.total,
-          required_pending: s.required_total - s.required_completed,
-        };
-      } catch {
-        return { tenant_id: t.id, pct: 0, completed: 0, total: 0, required_pending: 0 };
-      }
-    }),
-  );
-  const checklistByTenant: Record<string, typeof checklists[number]> = {};
-  for (const c of checklists) checklistByTenant[c.tenant_id] = c;
+  // Lightweight checklist progress per tenant — only counts MANUAL completions
+  // from tenant_onboarding_checklist. Avoids running 35×N autoDetect queries.
+  // Full % including auto-detects is computed on the detail page.
+  let manualByTenant: Record<string, number> = {};
+  try {
+    const { data: manualRows } = await supabase
+      .from("tenant_onboarding_checklist")
+      .select("tenant_id, is_completed")
+      .eq("is_completed", true);
+    for (const r of (manualRows as any[]) || []) {
+      manualByTenant[r.tenant_id] = (manualByTenant[r.tenant_id] || 0) + 1;
+    }
+  } catch {
+    manualByTenant = {};
+  }
+  const checklistByTenant: Record<string, { manual_completed: number }> = {};
+  for (const t of list) {
+    checklistByTenant[t.id] = { manual_completed: manualByTenant[t.id] || 0 };
+  }
 
   // Compute MRR (sum of plan prices for active subscriptions, excluding founder)
   const planPrices: Record<string, number> = {

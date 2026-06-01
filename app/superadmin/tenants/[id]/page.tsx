@@ -105,9 +105,22 @@ export default async function TenantDetailPage({
     ? `https://${tenant.custom_domain}`
     : `https://${tenant.slug}.getrentalflow.com`;
 
-  // Checklist progress for header CTA
-  const checklist = await evaluateChecklist(tenant.id);
-  const checklistColor = checklist.pct >= 90 ? "bg-emerald-100 text-emerald-800"
+  // Checklist progress for header CTA (defensive — tables may not exist yet)
+  let checklist: { pct: number; completed: number; total: number; required_total: number; required_completed: number } | null = null;
+  try {
+    const c = await evaluateChecklist(tenant.id);
+    checklist = {
+      pct: c.pct,
+      completed: c.completed,
+      total: c.total,
+      required_total: c.required_total,
+      required_completed: c.required_completed,
+    };
+  } catch (e) {
+    checklist = null;
+  }
+  const checklistColor = !checklist ? "bg-slate-100 text-slate-700"
+    : checklist.pct >= 90 ? "bg-emerald-100 text-emerald-800"
     : checklist.pct >= 60 ? "bg-blue-100 text-blue-800"
     : checklist.pct >= 30 ? "bg-amber-100 text-amber-800"
     : "bg-rose-100 text-rose-800";
@@ -167,20 +180,28 @@ export default async function TenantDetailPage({
       <Link
         href={`/superadmin/tenants/${tenant.id}/checklist`}
         className={`group flex items-center justify-between mb-6 rounded-xl border-2 ${
-          checklist.pct === 100 ? "border-emerald-300 bg-emerald-50" : "border-indigo-200 bg-gradient-to-r from-indigo-50 via-violet-50 to-fuchsia-50"
+          checklist && checklist.pct === 100 ? "border-emerald-300 bg-emerald-50" : "border-indigo-200 bg-gradient-to-r from-indigo-50 via-violet-50 to-fuchsia-50"
         } p-4 hover:shadow-md transition`}
       >
         <div className="flex items-center gap-3">
-          <ClipboardList className={`h-6 w-6 ${checklist.pct === 100 ? "text-emerald-600" : "text-indigo-600"}`} />
+          <ClipboardList className={`h-6 w-6 ${checklist && checklist.pct === 100 ? "text-emerald-600" : "text-indigo-600"}`} />
           <div>
             <div className="font-bold text-brand-navy flex items-center gap-2">
               Onboarding Checklist · Ficha del Cliente
-              <span className={`text-xs font-bold px-2 py-0.5 rounded ${checklistColor}`}>
-                {checklist.completed}/{checklist.total} · {checklist.pct}%
-              </span>
+              {checklist ? (
+                <span className={`text-xs font-bold px-2 py-0.5 rounded ${checklistColor}`}>
+                  {checklist.completed}/{checklist.total} · {checklist.pct}%
+                </span>
+              ) : (
+                <span className="text-xs font-bold px-2 py-0.5 rounded bg-amber-100 text-amber-800">
+                  Run SQL migration to enable
+                </span>
+              )}
             </div>
             <div className="text-xs text-slate-500 mt-0.5">
-              {checklist.required_total - checklist.required_completed > 0
+              {!checklist
+                ? "Tables not yet created. Run supabase/tenant_onboarding_checklist.sql"
+                : checklist.required_total - checklist.required_completed > 0
                 ? `${checklist.required_total - checklist.required_completed} required item(s) pending`
                 : "All required items complete · view full breakdown →"}
             </div>

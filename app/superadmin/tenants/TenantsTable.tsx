@@ -47,11 +47,7 @@ interface Tenant {
 }
 
 interface ChecklistProgress {
-  tenant_id: string;
-  pct: number;
-  completed: number;
-  total: number;
-  required_pending: number;
+  manual_completed: number;
 }
 
 export function TenantsTable({
@@ -341,32 +337,21 @@ export function TenantsTable({
 }
 
 function ChecklistCell({ progress, tenantId }: { progress?: ChecklistProgress; tenantId: string }) {
-  if (!progress || progress.total === 0) {
-    return (
-      <Link
-        href={`/superadmin/tenants/${tenantId}/checklist`}
-        className="inline-flex items-center gap-1 text-xs text-slate-500 hover:text-brand-navy hover:underline"
-      >
-        <ClipboardList className="h-3 w-3" /> Open
-      </Link>
-    );
-  }
-  const pct = progress.pct;
-  const cls = pct >= 90 ? "bg-emerald-100 text-emerald-800 border-emerald-300"
-    : pct >= 60 ? "bg-blue-100 text-blue-800 border-blue-300"
-    : pct >= 30 ? "bg-amber-100 text-amber-800 border-amber-300"
-    : "bg-rose-100 text-rose-800 border-rose-300";
+  const manualCount = progress?.manual_completed || 0;
   return (
     <Link
       href={`/superadmin/tenants/${tenantId}/checklist`}
-      title={`${progress.completed} of ${progress.total} items complete${progress.required_pending > 0 ? ` · ${progress.required_pending} required pending` : ""}`}
-      className={`inline-flex items-center gap-1.5 text-xs font-bold border rounded-full px-2 py-0.5 hover:shadow ${cls}`}
+      className="inline-flex items-center gap-1.5 text-xs font-bold border border-indigo-200 bg-indigo-50 text-indigo-700 rounded-full px-2 py-0.5 hover:bg-indigo-100 hover:shadow"
+      title={manualCount > 0 ? `${manualCount} manual item(s) checked off · click for full breakdown` : "Open checklist + client profile"}
     >
       <ClipboardList className="h-3 w-3" />
-      <span>{pct}%</span>
-      <span className="text-[10px] opacity-70 font-mono">{progress.completed}/{progress.total}</span>
-      {progress.required_pending > 0 && (
-        <span className="inline-block w-1.5 h-1.5 rounded-full bg-rose-600 ml-0.5" title="Required items pending" />
+      {manualCount > 0 ? (
+        <>
+          <span>{manualCount}</span>
+          <span className="text-[10px] opacity-70">checked</span>
+        </>
+      ) : (
+        <span>Open</span>
       )}
     </Link>
   );

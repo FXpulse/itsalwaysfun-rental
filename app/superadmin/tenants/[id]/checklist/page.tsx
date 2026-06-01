@@ -26,25 +26,42 @@ export default async function TenantChecklistPage({ params }: { params: { id: st
     .maybeSingle();
   if (!role) redirect("/superadmin/login?error=not_superadmin");
 
-  // Fetch tenant + profile + notes + checklist in parallel
-  const [{ data: tenant }, { data: profileRow }, { data: notes }] = await Promise.all([
-    admin.from("tenants").select("*").eq("id", params.id).maybeSingle(),
-    admin.from("tenant_profile").select("*").eq("tenant_id", params.id).maybeSingle(),
-    admin.from("tenant_operator_notes").select("*").eq("tenant_id", params.id).order("created_at", { ascending: false }).limit(50),
-  ]);
+  // Fetch tenant first
+  const { data: tenant } = await admin.from("tenants").select("*").eq("id", params.id).maybeSingle();
   if (!tenant) notFound();
 
-  const summary = await evaluateChecklist(params.id);
-  const profile = (profileRow as any) || {};
+  // Fetch profile + notes + checklist defensively (tables may not exist if migration not run)
+  let profileRow: any = null;
+  let notes: any[] = [];
+  let summary: Awaited<ReturnType<typeof evaluateChecklist>> | null = null;
+  let migrationMissing = false;
+  try {
+    const [profileRes, notesRes, s] = await Promise.all([
+      admin.from("tenant_profile").select("*").eq("tenant_id", params.id).maybeSingle(),
+      admin.from("tenant_operator_notes").select("*").eq("tenant_id", params.id).order("created_at", { ascending: false }).limit(50),
+      evaluateChecklist(params.id),
+    ]);
+    profileRow = profileRes.data;
+    notes = (notesRes.data as any[]) || [];
+    summary = s;
+    // Detect missing table via Supabase error
+    if ((profileRes as any).error?.code === "42P01" || (notesRes as any).error?.code === "42P01") {
+      migrationMissing = true;
+    }
+  } catch (e) {
+    migrationMissing = true;
+  }
+  const profile = profileRow || {};
 
   // Status banner color depending on pct
+  const pct = summary?.pct ?? 0;
   const bannerCls =
-    summary.pct >= 90 ? "from-emerald-600 via-teal-600 to-cyan-700" :
-    summary.pct >= 60 ? "from-blue-600 via-indigo-600 to-violet-700" :
-    summary.pct >= 30 ? "from-amber-500 via-orange-500 to-rose-500" :
+    pct >= 90 ? "from-emerald-600 via-teal-600 to-cyan-700" :
+    pct >= 60 ? "from-blue-600 via-indigo-600 to-violet-700" :
+    pct >= 30 ? "from-amber-500 via-orange-500 to-rose-500" :
     "from-rose-600 via-pink-600 to-fuchsia-700";
 
-  const requiredPct = summary.required_total > 0
+  const requiredPct = summary && summary.required_total > 0
     ? Math.round((summary.required_completed / summary.required_total) * 100)
     : 100;
 
@@ -67,8 +84,8 @@ export default async function TenantChecklistPage({ params }: { params: { id: st
         <p className="text-sm text-white/80">{(tenant as any).owner_email} · {(tenant as any).slug}</p>
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-5">
-          <Stat label="Overall progress" value={`${summary.pct}%`} sub={`${summary.completed} / ${summary.total}`} />
-          <Stat label="Required (critical)" value={`${requiredPct}%`} sub={`${summary.required_completed} / ${summary.required_total}`} />
+          <Stat label="Overall progress" value={summary ? `${summary.pct}%` : "—"} sub={summary ? `${summary.completed} / ${summary.total}` : undefined} />
+          <Stat label="Required (critical)" value={summary ? `${requiredPct}%` : "—"} sub={summary ? `${summary.required_completed} / ${summary.required_total}` : undefined} />
           <Stat label="Account status" value={profile.account_status || "—"} />
           <Stat label="Industry" value={profile.industry?.replace(/_/g, " ") || "—"} />
         </div>
@@ -77,13 +94,27 @@ export default async function TenantChecklistPage({ params }: { params: { id: st
         <div className="mt-5 h-2 bg-white/20 rounded-full overflow-hidden">
           <div
             className="h-full bg-white shadow"
-            style={{ width: `${summary.pct}%` }}
+            style={{ width: `${pct}%` }}
           />
         </div>
       </div>
 
+      {/* Migration missing warning */}
+      {migrationMissing && (
+        <div className="card bg-amber-50 border-2 border-amber-300 p-5 flex items-start gap-3">
+          <AlertTriangle className="h-6 w-6 text-amber-600 shrink-0" />
+          <div>
+            <h2 className="font-bold text-amber-900 text-lg">⚠️ SQL migration not yet run</h2>
+            <p className="text-sm text-amber-800 mt-1">
+              Tables <code className="bg-white px-1 rounded">tenant_onboarding_checklist</code>, <code className="bg-white px-1 rounded">tenant_operator_notes</code>, <code className="bg-white px-1 rounded">tenant_profile</code> don't exist yet. Run <code className="bg-white px-1 rounded">supabase/tenant_onboarding_checklist.sql</code> in the Supabase SQL editor to enable saving checklist state, notes, and profile.
+            </p>
+            <p className="text-xs text-amber-700 mt-2">The checklist below still works for viewing auto-detected items. Saves will fail until the migration runs.</p>
+          </div>
+        </div>
+      )}
+
       {/* Banner when 100% */}
-      {summary.pct === 100 && (
+      {summary && summary.pct === 100 && (
         <div className="card bg-emerald-50 border-2 border-emerald-300 p-5 flex items-start gap-3">
           <CheckCircle2 className="h-6 w-6 text-emerald-600 shrink-0" />
           <div>
@@ -96,7 +127,7 @@ export default async function TenantChecklistPage({ params }: { params: { id: st
       )}
 
       {/* Banner when required gaps */}
-      {summary.required_completed < summary.required_total && (
+      {summary && summary.required_completed < summary.required_total && (
         <div className="card bg-amber-50 border-2 border-amber-300 p-5 flex items-start gap-3">
           <AlertTriangle className="h-6 w-6 text-amber-600 shrink-0" />
           <div>
@@ -117,27 +148,29 @@ export default async function TenantChecklistPage({ params }: { params: { id: st
       <NotesTimeline tenantId={params.id} notes={(notes as any[]) || []} />
 
       {/* Checklist by category */}
-      <div className="space-y-4">
-        <h2 className="text-xl font-bold text-brand-navy">📋 Checklist by category</h2>
-        {Object.keys(CATEGORY_LABELS).map((cat) => {
-          const items = summary.items.filter((i) => i.item.category === cat);
-          if (items.length === 0) return null;
-          return (
-            <ChecklistByCategory
-              key={cat}
-              tenantId={params.id}
-              category={cat as any}
-              categoryLabel={CATEGORY_LABELS[cat as keyof typeof CATEGORY_LABELS]}
-              items={items}
-            />
-          );
-        })}
-      </div>
+      {summary && (
+        <div className="space-y-4">
+          <h2 className="text-xl font-bold text-brand-navy">📋 Checklist by category</h2>
+          {Object.keys(CATEGORY_LABELS).map((cat) => {
+            const items = summary!.items.filter((i) => i.item.category === cat);
+            if (items.length === 0) return null;
+            return (
+              <ChecklistByCategory
+                key={cat}
+                tenantId={params.id}
+                category={cat as any}
+                categoryLabel={CATEGORY_LABELS[cat as keyof typeof CATEGORY_LABELS]}
+                items={items}
+              />
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
 
-function Stat({ label, value, sub }: { label: string; value: string; sub?: string }) {
+function Stat({ label, value, sub }: { label: string; value: string; sub?: string | undefined }) {
   return (
     <div className="bg-white/10 rounded-lg p-3 backdrop-blur">
       <div className="text-[10px] uppercase tracking-wider text-white/70">{label}</div>
