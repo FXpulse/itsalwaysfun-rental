@@ -441,12 +441,19 @@ export interface ChecklistSummary {
 /** Run the full checklist evaluation for a tenant. */
 export async function evaluateChecklist(tenantId: string): Promise<ChecklistSummary> {
   const supabase = createAdminClient({ unscoped: true });
-  const { data: manualRows } = await supabase
-    .from("tenant_onboarding_checklist")
-    .select("item_key, is_completed, completed_at, completed_by_email, notes")
-    .eq("tenant_id", tenantId);
+  let manualRows: any[] = [];
+  try {
+    const r = await supabase
+      .from("tenant_onboarding_checklist")
+      .select("item_key, is_completed, completed_at, completed_by_email, notes")
+      .eq("tenant_id", tenantId);
+    manualRows = (r.data as any[]) || [];
+  } catch (e) {
+    console.error("evaluateChecklist: manualRows query failed:", e);
+    manualRows = [];
+  }
   const manualByKey = new Map<string, any>(
-    ((manualRows as any[]) || []).map((r) => [r.item_key, r]),
+    manualRows.map((r) => [r.item_key, r]),
   );
 
   // Run all auto-detects in parallel
