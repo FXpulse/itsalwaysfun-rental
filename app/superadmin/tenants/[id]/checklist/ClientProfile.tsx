@@ -40,17 +40,28 @@ export function ClientProfile({ tenantId, initial }: { tenantId: string; initial
   const [profile, setProfile] = useState<Profile>(initial);
   const [isPending, startTransition] = useTransition();
   const [saved, setSaved] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   function set<K extends keyof Profile>(key: K, value: Profile[K]) {
     setProfile((p) => ({ ...p, [key]: value }));
     setSaved(false);
+    setError(null);
   }
 
   function handleSave() {
+    setError(null);
     startTransition(async () => {
-      await updateTenantProfile(tenantId, profile as any);
-      setSaved(true);
-      setTimeout(() => setSaved(false), 2000);
+      try {
+        const res = await updateTenantProfile(tenantId, profile as any);
+        if ((res as any)?.error) {
+          setError((res as any).error);
+          return;
+        }
+        setSaved(true);
+        setTimeout(() => setSaved(false), 2000);
+      } catch (e: any) {
+        setError(e?.message || String(e));
+      }
     });
   }
 
@@ -123,7 +134,7 @@ export function ClientProfile({ tenantId, initial }: { tenantId: string; initial
             />
           </Section>
 
-          <div className="flex items-center gap-3 pt-2 border-t border-slate-100">
+          <div className="flex items-center gap-3 pt-2 border-t border-slate-100 flex-wrap">
             <button
               type="button"
               onClick={handleSave}
@@ -133,6 +144,11 @@ export function ClientProfile({ tenantId, initial }: { tenantId: string; initial
               <Save className="h-4 w-4" /> {isPending ? "Saving..." : "Save profile"}
             </button>
             {saved && <span className="text-xs text-emerald-700 font-semibold">✓ Saved</span>}
+            {error && (
+              <span className="text-xs text-rose-700 font-semibold bg-rose-50 border border-rose-200 px-2 py-1 rounded">
+                ⚠ {error}
+              </span>
+            )}
           </div>
         </div>
       )}
