@@ -1,12 +1,11 @@
 "use client";
 
 import { Suspense, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
+import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { Mail, ArrowRight, KeyRound } from "lucide-react";
 import Link from "next/link";
-import { postLoginHookup } from "./actions";
+import { requestPortalCode, verifyPortalCode } from "./actions";
 
 export default function CustomerLoginPage() {
   return (
@@ -25,7 +24,6 @@ function LoginFallback() {
 }
 
 function LoginForm() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const next = searchParams.get("next") || "/portal";
   const [step, setStep] = useState<"email" | "code">("email");
@@ -37,19 +35,11 @@ function LoginForm() {
     e.preventDefault();
     setLoading(true);
 
-    const supabase = createClient();
-    const { error } = await supabase.auth.signInWithOtp({
-      email: email.trim().toLowerCase(),
-      options: {
-        // No emailRedirectTo — we use the OTP code, not the link
-        shouldCreateUser: true,
-      },
-    });
-
+    const res = await requestPortalCode(email);
     setLoading(false);
 
-    if (error) {
-      toast.error(error.message);
+    if (!res.ok) {
+      toast.error(res.error || "Failed to send code");
       return;
     }
 
@@ -61,30 +51,17 @@ function LoginForm() {
     e.preventDefault();
     setLoading(true);
 
-    const supabase = createClient();
-    const cleanCode = code.replace(/\s+/g, "").trim();
-
-    const { error } = await supabase.auth.verifyOtp({
-      email: email.trim().toLowerCase(),
-      token: cleanCode,
-      type: "email",
-    });
-
+    const res = await verifyPortalCode(email, code);
     setLoading(false);
 
-    if (error) {
-      toast.error(error.message);
+    if (!res.ok) {
+      toast.error(res.error || "Invalid code");
       return;
     }
 
-    // Post-login hookup (profile + referrer) — best effort, don't block
-    try {
-      await postLoginHookup();
-    } catch {}
-
     toast.success("Signed in");
-    // Use full reload to ensure session cookie picks up server-side
-    window.location.href = next;
+    // Full reload so the session cookie picks up server-side
+    window.location.href = res.next || next;
   }
 
   if (step === "code") {
@@ -119,7 +96,7 @@ function LoginForm() {
                 autoFocus
               />
               <p className="text-xs text-slate-400 mt-1">
-                Look for the code in the email subject line or body. Expires in 1 hour.
+                Code expires in 15 minutes.
               </p>
             </div>
 
