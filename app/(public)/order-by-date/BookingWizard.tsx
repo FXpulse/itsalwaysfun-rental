@@ -56,6 +56,19 @@ const TIME_OPTIONS = [
   "6:00 PM", "7:00 PM", "8:00 PM", "9:00 PM", "10:00 PM",
 ];
 
+/** Standard rental duration in hours. Used to auto-suggest end time
+ *  when the customer picks a start time. */
+const DEFAULT_RENTAL_HOURS = 4;
+
+/** Given a TIME_OPTIONS label, return the label that's N hours later.
+ *  Clamps to the last option if it would go past 10 PM. */
+function addRentalHours(startLabel: string, hours: number): string {
+  const idx = TIME_OPTIONS.indexOf(startLabel);
+  if (idx === -1) return startLabel;
+  const newIdx = Math.min(idx + hours, TIME_OPTIONS.length - 1);
+  return TIME_OPTIONS[newIdx];
+}
+
 interface BookingResult {
   booking_id: string;
   client_secret: string | null;
@@ -139,8 +152,8 @@ export function BookingWizard({
   const [step, setStep] = useState<Step>("date");
   const [eventDate, setEventDate] = useState<string | null>(cartItem?.eventDate || null);
   const [eventEndDate, setEventEndDate] = useState<string | null>(null);
-  const [startTime, setStartTime] = useState("9:00 AM");
-  const [endTime, setEndTime] = useState("5:00 PM");
+  const [startTime, setStartTime] = useState("11:00 AM");
+  const [endTime, setEndTime] = useState("3:00 PM");
 
   // numDays is computed from date range
   const numDays = useMemo(() => {
@@ -946,7 +959,11 @@ function DatePickerStep({
                     </label>
                     <select
                       value={startTime}
-                      onChange={(e) => onTimeChange(e.target.value, endTime)}
+                      onChange={(e) => {
+                        const newStart = e.target.value;
+                        // Auto-shift end to keep a 4-hour rental window
+                        onTimeChange(newStart, addRentalHours(newStart, DEFAULT_RENTAL_HOURS));
+                      }}
                       className="input text-sm py-1.5"
                     >
                       {TIME_OPTIONS.map((t) => (
@@ -970,7 +987,7 @@ function DatePickerStep({
                   </div>
                 </div>
                 <p className="text-[10px] text-slate-400 mt-1">
-                  You can adjust these on the next step too.
+                  Default rental is {DEFAULT_RENTAL_HOURS} hours — adjust the end time if you need more.
                 </p>
               </div>
             )}
@@ -1269,7 +1286,10 @@ function CustomerInfoStep({
           <label className="block text-sm font-medium text-slate-700 mb-1">Start time</label>
           <select
             value={startTime}
-            onChange={(e) => onTimeChange(e.target.value, endTime)}
+            onChange={(e) => {
+              const newStart = e.target.value;
+              onTimeChange(newStart, addRentalHours(newStart, DEFAULT_RENTAL_HOURS));
+            }}
             className="input"
           >
             {TIME_OPTIONS.map((t) => (
@@ -1288,6 +1308,9 @@ function CustomerInfoStep({
               <option key={t}>{t}</option>
             ))}
           </select>
+          <p className="text-[10px] text-slate-400 mt-0.5">
+            Default rental is {DEFAULT_RENTAL_HOURS}h — auto-set when you pick a start time.
+          </p>
         </div>
       </div>
 
