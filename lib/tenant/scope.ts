@@ -23,7 +23,10 @@ const MULTI_TENANT_TABLES = new Set([
   "booking_extensions",
   "coi_requests",
   "dispatch_routes",
-  "dispatch_stops",
+  // dispatch_stops intentionally NOT listed — table has no tenant_id column.
+  // Tenancy is enforced via the route_id FK to dispatch_routes (which IS
+  // tenant-scoped). Adding it here breaks selects (filter on nonexistent
+  // column returns nothing) and inserts (PostgREST rejects unknown field).
   // Customer-facing
   "customer_profiles",
   "gift_cards",
