@@ -13,6 +13,8 @@ import { getCurrentTenantId } from "@/lib/tenant/db";
 import {
   isPlacesConfigured,
   extractPlaceIdentifier,
+  searchPlaceByText,
+  resolveBusinessFromUrl,
 } from "@/lib/google-places/client";
 
 export const dynamic = "force-dynamic";
@@ -118,6 +120,81 @@ export async function GET(_request: Request) {
     } catch (e: any) {
       out.redirect_test_error = e?.message || String(e);
     }
+  }
+
+  // 5. Run the real search with the extracted query + coords
+  if (out.extracted?.query && out.extracted?.businessLat && out.extracted?.businessLon) {
+    try {
+      const searchResult = await searchPlaceByText(out.extracted.query, {
+        lat: out.extracted.businessLat,
+        lon: out.extracted.businessLon,
+      });
+      out.real_search = searchResult
+        ? {
+            id: searchResult.id,
+            display_name: searchResult.displayName?.text,
+            address: searchResult.formattedAddress,
+            rating: searchResult.rating,
+            review_count: searchResult.userRatingCount,
+          }
+        : null;
+    } catch (e: any) {
+      out.real_search_error = e?.message || String(e);
+    }
+
+    // Also try without the apostrophe — common Google search workaround
+    const noApostrophe = out.extracted.query.replace(/['']/g, "");
+    if (noApostrophe !== out.extracted.query) {
+      try {
+        const altResult = await searchPlaceByText(noApostrophe, {
+          lat: out.extracted.businessLat,
+          lon: out.extracted.businessLon,
+        });
+        out.no_apostrophe_search = altResult
+          ? {
+              query_used: noApostrophe,
+              id: altResult.id,
+              display_name: altResult.displayName?.text,
+              address: altResult.formattedAddress,
+            }
+          : null;
+      } catch (e: any) {
+        out.no_apostrophe_search_error = e?.message || String(e);
+      }
+    }
+
+    // Also try a broader radius (50km) in case 5km was too tight
+    try {
+      const broaderResult = await searchPlaceByText(out.extracted.query, {
+        lat: out.extracted.businessLat,
+        lon: out.extracted.businessLon,
+        radiusMeters: 50000,
+      });
+      out.broader_radius_search = broaderResult
+        ? {
+            radius_meters: 50000,
+            id: broaderResult.id,
+            display_name: broaderResult.displayName?.text,
+            address: broaderResult.formattedAddress,
+          }
+        : null;
+    } catch (e: any) {
+      out.broader_radius_error = e?.message || String(e);
+    }
+  }
+
+  // 6. Run the full resolution end-to-end
+  try {
+    const fullResult = await resolveBusinessFromUrl(savedUrl);
+    out.full_resolve = fullResult
+      ? {
+          id: fullResult.id,
+          display_name: fullResult.displayName?.text,
+          address: fullResult.formattedAddress,
+        }
+      : null;
+  } catch (e: any) {
+    out.full_resolve_error = e?.message || String(e);
   }
 
   return NextResponse.json(out);
