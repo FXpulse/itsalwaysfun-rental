@@ -9,61 +9,55 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { DEFAULT_TENANT_ID } from "./resolve";
 
-// Tables that have a tenant_id column.
-// MUST match the lists in supabase/multi_tenant_rls.sql +
-// supabase/multi_tenant_rls_fix.sql. Any change here requires updating
-// those SQL files so RLS and the proxy stay in sync (defense in depth).
+// Tables that have a tenant_id column AND should be auto-scoped by this
+// proxy.  Child tables (booking_*, dispatch_stops, product_*, etc.) are
+// intentionally NOT listed because they don't have a tenant_id column —
+// tenancy is enforced via their FK to a parent table (bookings,
+// dispatch_routes, products, etc.) that IS tenant-scoped.
+//
+// Listing a table here when the column doesn't exist breaks every query:
+//   .select() adds .eq("tenant_id", X) → returns 0 rows
+//   .insert() injects tenant_id field → PostgREST rejects unknown field
+//
+// If you add a new multi-tenant top-level table, list it here. If you add
+// a child table, leave it OFF — its parent's tenant_id is the source of
+// truth and the FK join naturally filters.
 const MULTI_TENANT_TABLES = new Set([
-  // Booking flow
+  // Top-level entities with tenant_id
   "bookings",
-  "booking_expenses",
-  "booking_damages",
-  "booking_proofs",
-  "booking_waivers",
-  "booking_extensions",
-  "coi_requests",
   "dispatch_routes",
-  // dispatch_stops intentionally NOT listed — table has no tenant_id column.
-  // Tenancy is enforced via the route_id FK to dispatch_routes (which IS
-  // tenant-scoped). Adding it here breaks selects (filter on nonexistent
-  // column returns nothing) and inserts (PostgREST rejects unknown field).
-  // Customer-facing
   "customer_profiles",
   "gift_cards",
-  "gift_card_redemptions",
   "gift_card_purchases",
   "quotes",
   "payout_requests",
   "contact_messages",
-  "contact_message_replies",
   "customer_reviews",
   "loyalty_transactions",
-  // Catalog
+  "gift_card_redemptions",
   "products",
-  "product_inventory_requirements",
-  "product_images",
   "categories",
   "setup_surfaces",
   "inventory_items",
-  "inventory_units",
   "inventory_categories",
   "vehicles",
   "trailers",
   "packages",
   "coupons",
-  // Accounting + admin
   "overhead_costs",
   "overhead_categories",
-  "booking_expense_categories",
   "driver_tax_profiles",
   "admin_audit_log",
-  // Settings + content
   "site_settings",
   "email_templates",
   "home_banners",
   "faqs",
-  // Auth
   "user_roles",
+  // Intentionally NOT in this list (tenancy via FK to parent):
+  //   booking_expenses, booking_damages, booking_proofs, booking_waivers,
+  //   booking_extensions, coi_requests, booking_expense_categories,
+  //   dispatch_stops, product_inventory_requirements, product_images,
+  //   inventory_units, contact_message_replies
 ]);
 
 function isMultiTenantTable(name: string): boolean {
