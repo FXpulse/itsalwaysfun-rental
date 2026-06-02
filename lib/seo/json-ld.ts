@@ -42,12 +42,12 @@ export function localBusinessJsonLd({
     : serviceAreaRaw || undefined;
 
   // Geo coordinates (lift "near me" searches if admin has set lat/lon)
-  const lat = (settings as any).geo_latitude;
-  const lon = (settings as any).geo_longitude;
+  const lat = settings.geo_latitude;
+  const lon = settings.geo_longitude;
   const geo = lat && lon ? {
     "@type": "GeoCoordinates",
-    latitude: parseFloat(String(lat)),
-    longitude: parseFloat(String(lon)),
+    latitude: parseFloat(lat),
+    longitude: parseFloat(lon),
   } : undefined;
 
   const result: any = {
@@ -75,7 +75,7 @@ export function localBusinessJsonLd({
     openingHoursSpecification: hours || undefined,
     areaServed,
     sameAs: sameAs.length > 0 ? sameAs : undefined,
-    priceRange: (settings as any).price_range || "$$",
+    priceRange: settings.price_range || "$$",
   };
 
   // Aggregate rating from real reviews — biggest SERP impact (stars in result)
