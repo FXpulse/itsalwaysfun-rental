@@ -122,6 +122,69 @@ export async function GET(_request: Request) {
     }
   }
 
+  // 5a. RAW API test — call searchText directly with the extracted query
+  // so we can see the full response body (the helper returns null silently)
+  if (process.env.GOOGLE_PLACES_API_KEY && out.extracted?.query) {
+    const variants = [
+      { label: "exact_with_bias", query: out.extracted.query, bias: out.extracted.businessLat ? { lat: out.extracted.businessLat, lon: out.extracted.businessLon } : null, radius: 5000 },
+      { label: "exact_no_bias", query: out.extracted.query, bias: null, radius: 0 },
+      { label: "exact_50km_bias", query: out.extracted.query, bias: out.extracted.businessLat ? { lat: out.extracted.businessLat, lon: out.extracted.businessLon } : null, radius: 50000 },
+      { label: "with_city", query: `${out.extracted.query} Jacksonville FL`, bias: null, radius: 0 },
+      { label: "with_state", query: `${out.extracted.query} Florida`, bias: null, radius: 0 },
+      { label: "no_apostrophe_with_city", query: `${out.extracted.query.replace(/['']/g, "")} Jacksonville FL`, bias: null, radius: 0 },
+    ];
+    out.raw_search_variants = [];
+    for (const v of variants) {
+      const body: any = { textQuery: v.query, maxResultCount: 3 };
+      if (v.bias) {
+        body.locationBias = {
+          circle: {
+            center: { latitude: v.bias.lat, longitude: v.bias.lon },
+            radius: v.radius,
+          },
+        };
+      }
+      try {
+        const r = await fetch(`https://places.googleapis.com/v1/places:searchText`, {
+          method: "POST",
+          headers: {
+            "X-Goog-Api-Key": process.env.GOOGLE_PLACES_API_KEY!,
+            "X-Goog-FieldMask": "places.id,places.displayName,places.formattedAddress,places.rating,places.userRatingCount",
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(body),
+        });
+        const txt = await r.text();
+        let parsed: any = null;
+        try { parsed = JSON.parse(txt); } catch { /* not JSON */ }
+        out.raw_search_variants.push({
+          label: v.label,
+          query: v.query,
+          radius: v.radius,
+          status: r.status,
+          ok: r.ok,
+          place_count: parsed?.places?.length || 0,
+          first_match: parsed?.places?.[0]
+            ? {
+                id: parsed.places[0].id,
+                name: parsed.places[0].displayName?.text,
+                address: parsed.places[0].formattedAddress,
+                rating: parsed.places[0].rating,
+                reviews: parsed.places[0].userRatingCount,
+              }
+            : null,
+          all_matches: (parsed?.places || []).map((p: any) => ({
+            name: p.displayName?.text,
+            address: p.formattedAddress,
+          })),
+          raw_body_preview: !r.ok ? txt.slice(0, 400) : undefined,
+        });
+      } catch (e: any) {
+        out.raw_search_variants.push({ label: v.label, query: v.query, error: e?.message || String(e) });
+      }
+    }
+  }
+
   // 5. Run the real search with the extracted query + coords
   if (out.extracted?.query && out.extracted?.businessLat && out.extracted?.businessLon) {
     try {
