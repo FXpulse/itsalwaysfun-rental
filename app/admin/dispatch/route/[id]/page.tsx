@@ -46,18 +46,36 @@ export default async function DriverRouteViewPage({
 
   const r: any = route;
 
-  const { data: stops } = await supabase
+  // Two-step fetch because PostgREST's nested embed (bookings (...)) on
+  // dispatch_stops fails — schema cache doesn't have the FK relationship.
+  const unscopedAdmin = createAdminClient({ unscoped: true });
+  const { data: rawStops, error: stopsErr } = await unscopedAdmin
     .from("dispatch_stops")
-    .select(`
-      id, booking_id, stop_order, delivered_at,
-      bookings (
-        id, customer_first_name, customer_last_name, customer_phone,
-        customer_address, product_name, start_time, end_time,
-        surface_type, needs_power_supply, notes
-      )
-    `)
+    .select("id, booking_id, stop_order, delivered_at")
     .eq("route_id", params.id)
     .order("stop_order");
+  if (stopsErr) {
+    console.error("[driver route view] stops query failed:", stopsErr);
+  }
+
+  const bookingIds = Array.from(new Set(((rawStops as any[]) || []).map((s) => s.booking_id)));
+  let bookingsById = new Map<string, any>();
+  if (bookingIds.length > 0) {
+    const { data: bookingRows } = await supabase
+      .from("bookings")
+      .select(
+        "id, customer_first_name, customer_last_name, customer_phone, customer_address, product_name, start_time, end_time, surface_type, needs_power_supply, notes",
+      )
+      .in("id", bookingIds);
+    for (const b of (bookingRows as any[]) || []) {
+      bookingsById.set(b.id, b);
+    }
+  }
+
+  const stops = ((rawStops as any[]) || []).map((s) => ({
+    ...s,
+    bookings: bookingsById.get(s.booking_id) || null,
+  }));
 
   const load = await getRouteLoad(params.id);
 
