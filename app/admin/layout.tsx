@@ -186,6 +186,11 @@ export default async function AdminLayout({
   // so drivers don't see admin nav links they can't use.
   if (userRole.role === "driver") {
     const allowDriverPaths = ["/admin/dispatch/route/", "/admin/logout"];
+    // Allow drivers on the proof-capture page (per-booking, focused view)
+    const driverProofPattern = /^\/admin\/bookings\/[^/]+\/proof(\/|$|\?)/;
+    if (driverProofPattern.test(requestPath)) {
+      return <>{children}</>;
+    }
     const isAllowed = allowDriverPaths.some((p) => requestPath.startsWith(p));
     if (!isAllowed) {
       redirect("/driver");

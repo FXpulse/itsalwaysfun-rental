@@ -170,7 +170,7 @@ export default async function DriverRouteViewPage({
           No stops assigned to this route yet.
         </div>
       ) : (
-        <DriverRouteClient routeId={r.id} stops={(stops as any[]) || []} />
+        <DriverRouteClient routeId={r.id} routeType={r.route_type} stops={(stops as any[]) || []} />
       )}
     </div>
   );

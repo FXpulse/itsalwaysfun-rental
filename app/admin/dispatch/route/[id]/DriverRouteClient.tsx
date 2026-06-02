@@ -47,9 +47,11 @@ const SURFACE_BADGES: Record<string, string> = {
 
 export function DriverRouteClient({
   routeId,
+  routeType = "delivery",
   stops,
 }: {
   routeId: string;
+  routeType?: "delivery" | "pickup";
   stops: StopRow[];
 }) {
   const router = useRouter();
@@ -181,11 +183,11 @@ export function DriverRouteClient({
             {/* Action row */}
             <div className="flex gap-2">
               <Link
-                href={`/admin/bookings/${b.id}`}
+                href={`/admin/bookings/${b.id}/proof?phase=${routeType}&route=${routeId}`}
                 className="flex-1 inline-flex items-center justify-center gap-1 border border-slate-300 rounded-md py-2 text-sm text-slate-700 hover:bg-slate-50"
               >
                 <Camera className="h-4 w-4" />
-                Capture proof / open
+                Capture proof
               </Link>
               {delivered ? (
                 <button
