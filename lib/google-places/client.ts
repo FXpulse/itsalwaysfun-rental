@@ -33,35 +33,66 @@ export function isPlacesConfigured(): boolean {
  *  Some of these (g.page, maps.app.goo.gl) are short URLs — we follow the
  *  redirect to get the canonical URL, then parse.
  */
-export async function extractPlaceIdentifier(url: string): Promise<{ placeId?: string; cid?: string; query?: string } | null> {
+export interface ExtractedIdentifier {
+  placeId?: string;
+  cid?: string;
+  query?: string;
+  /** Actual business coordinates (from !3d!4d in long URL) — most precise. */
+  businessLat?: number;
+  businessLon?: number;
+  /** Viewport center coordinates from @lat,lon — fallback location bias. */
+  viewportLat?: number;
+  viewportLon?: number;
+}
+
+export async function extractPlaceIdentifier(url: string): Promise<ExtractedIdentifier | null> {
   if (!url) return null;
   let finalUrl = url.trim();
 
-  // Follow short URL redirects (g.page, maps.app.goo.gl) once
+  // Follow short URL redirects (g.page, maps.app.goo.gl) once.
+  // Use GET so the final URL is the redirected canonical (HEAD sometimes
+  // rejected). We capture res.url and discard the body.
   if (/g\.page|maps\.app\.goo\.gl/.test(finalUrl)) {
     try {
-      const res = await fetch(finalUrl, { method: "HEAD", redirect: "follow" });
+      const res = await fetch(finalUrl, { method: "GET", redirect: "follow" });
       finalUrl = res.url;
     } catch {
       // ignore, parse what we have
     }
   }
 
-  // 1. ?cid=<digits>
-  const cidMatch = finalUrl.match(/[?&]cid=(\d+)/);
-  if (cidMatch) return { cid: cidMatch[1] };
-
-  // 2. place_id:XYZ
+  // place_id:XYZ — most explicit, no ambiguity
   const placeIdMatch = finalUrl.match(/place_id:([A-Za-z0-9_-]+)/);
   if (placeIdMatch) return { placeId: placeIdMatch[1] };
 
-  // 3. URL path /place/<name>/@... — extract name + maybe coords for a text search
-  const nameMatch = finalUrl.match(/\/place\/([^/]+)\/?/);
-  if (nameMatch) {
-    const name = decodeURIComponent(nameMatch[1].replace(/\+/g, " "));
-    return { query: name };
+  const out: ExtractedIdentifier = {};
+
+  // ?cid=<digits>
+  const cidMatch = finalUrl.match(/[?&]cid=(\d+)/);
+  if (cidMatch) out.cid = cidMatch[1];
+
+  // Long URL coordinates:
+  //   @<lat>,<lon>,<zoom>   = viewport center where map was framed
+  //   !3d<lat>!4d<lon>      = actual business pin (much more precise)
+  // Business coords are inside the data segment after !8m2!3d!4d.
+  const viewportMatch = finalUrl.match(/@(-?\d+\.\d+),(-?\d+\.\d+),/);
+  if (viewportMatch) {
+    out.viewportLat = parseFloat(viewportMatch[1]);
+    out.viewportLon = parseFloat(viewportMatch[2]);
+  }
+  const businessCoordsMatch = finalUrl.match(/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/);
+  if (businessCoordsMatch) {
+    out.businessLat = parseFloat(businessCoordsMatch[1]);
+    out.businessLon = parseFloat(businessCoordsMatch[2]);
   }
 
+  // /place/<name>/...
+  const nameMatch = finalUrl.match(/\/place\/([^/]+)\/?/);
+  if (nameMatch) {
+    out.query = decodeURIComponent(nameMatch[1].replace(/\+/g, " "));
+  }
+
+  if (out.placeId || out.cid || out.query) return out;
   return null;
 }
 
@@ -115,9 +146,25 @@ export async function getPlaceDetails(placeId: string): Promise<PlaceDetails | n
 }
 
 /** Text search — used when we only have a business name (parsed from URL).
- *  Returns the most likely matching place. */
-export async function searchPlaceByText(query: string): Promise<PlaceDetails | null> {
+ *  Returns the most likely matching place. When `locationBias` is set, the
+ *  Places API narrows results to a 5km radius around it — critical when the
+ *  business name is generic (multiple businesses share "It's Always Fun"). */
+export async function searchPlaceByText(
+  query: string,
+  locationBias?: { lat: number; lon: number; radiusMeters?: number },
+): Promise<PlaceDetails | null> {
   if (!isPlacesConfigured() || !query) return null;
+
+  const body: any = { textQuery: query, maxResultCount: 1 };
+  if (locationBias) {
+    body.locationBias = {
+      circle: {
+        center: { latitude: locationBias.lat, longitude: locationBias.lon },
+        radius: locationBias.radiusMeters || 5000,
+      },
+    };
+  }
+
   const res = await fetch(`${PLACES_API}/places:searchText`, {
     method: "POST",
     headers: {
@@ -125,7 +172,7 @@ export async function searchPlaceByText(query: string): Promise<PlaceDetails | n
       "X-Goog-FieldMask": `places.${PLACE_DETAILS_FIELDS.split(",").join(",places.")}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ textQuery: query, maxResultCount: 1 }),
+    body: JSON.stringify(body),
   });
   if (!res.ok) {
     console.error("[Places API] text search failed", res.status, await res.text().catch(() => ""));
@@ -138,18 +185,35 @@ export async function searchPlaceByText(query: string): Promise<PlaceDetails | n
 /** CID lookup via Place ID Finder isn't a direct Places API call — we use
  *  a text search of "google maps cid:<n>" which Google resolves. As a
  *  fallback the user can just paste a place_id directly. */
-export async function resolveCid(cid: string): Promise<PlaceDetails | null> {
-  return searchPlaceByText(`google cid:${cid}`);
+export async function resolveCid(
+  cid: string,
+  locationBias?: { lat: number; lon: number },
+): Promise<PlaceDetails | null> {
+  return searchPlaceByText(`google cid:${cid}`, locationBias);
 }
 
 /** Top-level helper: take whatever the tenant pasted and return place details.
- *  Returns null if API isn't configured or URL is unparseable. */
+ *  Returns null if API isn't configured or URL is unparseable. Uses business
+ *  coordinates from the URL (if present) as a location bias on text searches
+ *  — eliminates ambiguity when a name matches multiple businesses globally. */
 export async function resolveBusinessFromUrl(url: string): Promise<PlaceDetails | null> {
   if (!isPlacesConfigured()) return null;
   const parsed = await extractPlaceIdentifier(url);
   if (!parsed) return null;
+
+  // place_id is unambiguous — use directly
   if (parsed.placeId) return getPlaceDetails(parsed.placeId);
-  if (parsed.cid) return resolveCid(parsed.cid);
-  if (parsed.query) return searchPlaceByText(parsed.query);
+
+  // Build a location bias: prefer business coordinates (precise pin),
+  // fall back to viewport center if pin coords aren't in the URL.
+  const bias =
+    parsed.businessLat && parsed.businessLon
+      ? { lat: parsed.businessLat, lon: parsed.businessLon }
+      : parsed.viewportLat && parsed.viewportLon
+      ? { lat: parsed.viewportLat, lon: parsed.viewportLon }
+      : undefined;
+
+  if (parsed.cid) return resolveCid(parsed.cid, bias);
+  if (parsed.query) return searchPlaceByText(parsed.query, bias);
   return null;
 }
