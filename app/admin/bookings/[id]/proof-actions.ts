@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { requireStaffOrAdmin } from "@/lib/auth/roles";
+import { requireStaffOrAdmin, requireDriverOrAbove } from "@/lib/auth/roles";
 import { uploadImage } from "@/lib/storage/upload";
 import { z } from "zod";
 
@@ -27,7 +27,8 @@ export async function uploadProofPhoto(
   phase: "delivery" | "pickup",
   formData: FormData,
 ) {
-  const me = await requireStaffOrAdmin();
+  // Drivers need to upload photos from the field — allow any logged-in role
+  const me = await requireDriverOrAbove();
   const file = formData.get("photo") as File | null;
   if (!file || file.size === 0) return { error: "No file" };
 
@@ -44,7 +45,8 @@ export async function uploadProofPhoto(
 /** Save the full proof — photos + signature + notes. Upserts the booking_proofs
  *  row uniquely keyed on (booking_id, phase). */
 export async function saveProof(formData: FormData) {
-  const me = await requireStaffOrAdmin();
+  // Drivers save proofs after a delivery/pickup is complete
+  const me = await requireDriverOrAbove();
 
   const parsed = SaveProofSchema.safeParse({
     booking_id: String(formData.get("booking_id") || ""),
@@ -129,7 +131,8 @@ export async function saveProof(formData: FormData) {
 }
 
 export async function deleteProof(proofId: string, bookingId: string) {
-  await requireStaffOrAdmin();
+  // Drivers can delete a proof to retake (e.g. blurry photo)
+  await requireDriverOrAbove();
   const supabase = createAdminClient();
   const { error } = await supabase.from("booking_proofs").delete().eq("id", proofId);
   if (error) return { error: error.message };

@@ -157,16 +157,44 @@ export async function deleteRoute(routeId: string, routeDate: string) {
 }
 
 export async function updateRouteStatus(routeId: string, routeDate: string, status: string) {
-  await requireStaffOrAdmin();
+  // Drivers update route status from the field (out → completed)
+  await requireDriverOrAbove();
   const valid = ["planned", "loaded", "out", "completed", "cancelled"];
   if (!valid.includes(status)) return { error: "Invalid status" };
-  const supabase = createAdminClient();
-  const { error } = await supabase
+  const supabase = createAdminClient({ unscoped: true });
+
+  const { data: route, error } = await supabase
     .from("dispatch_routes")
     .update({ status })
-    .eq("id", routeId);
+    .eq("id", routeId)
+    .select("route_type")
+    .maybeSingle();
   if (error) return { error: error.message };
+
+  // When a route is marked completed, propagate to all its bookings:
+  //   delivery route → bookings "confirmed" become "delivered"
+  //   pickup route   → bookings "delivered" become "completed"
+  if (status === "completed" && route?.route_type) {
+    const { data: stops } = await supabase
+      .from("dispatch_stops")
+      .select("booking_id")
+      .eq("route_id", routeId);
+    const bookingIds = Array.from(new Set(((stops as any[]) || []).map((s) => s.booking_id)));
+    if (bookingIds.length > 0) {
+      const newStatus = route.route_type === "pickup" ? "completed" : "delivered";
+      const allowedPrior = route.route_type === "pickup"
+        ? ["delivered", "confirmed"]
+        : ["confirmed"];
+      await supabase
+        .from("bookings")
+        .update({ booking_status: newStatus })
+        .in("id", bookingIds)
+        .in("booking_status", allowedPrior);
+    }
+  }
+
   revalidatePath(`/admin/dispatch/${routeDate}`);
+  revalidatePath(`/admin/dispatch/route/${routeId}`);
   return { success: true };
 }
 
@@ -362,24 +390,51 @@ export async function unassignBookingFromRoute(
 
 export async function markStopDelivered(stopId: string, routeId: string) {
   await requireDriverOrAbove();
-  const supabase = createAdminClient();
-  const { error } = await supabase
+  const supabase = createAdminClient({ unscoped: true });
+  const { data: stop, error } = await supabase
     .from("dispatch_stops")
     .update({ delivered_at: new Date().toISOString() })
-    .eq("id", stopId);
+    .eq("id", stopId)
+    .select("booking_id, route_id")
+    .maybeSingle();
   if (error) return { error: error.message };
+
+  // Propagate to the booking based on route type
+  if (stop?.booking_id && stop?.route_id) {
+    const { data: route } = await supabase
+      .from("dispatch_routes")
+      .select("route_type")
+      .eq("id", stop.route_id)
+      .maybeSingle();
+    if (route) {
+      // delivery route → booking goes to "delivered" (only if currently confirmed)
+      // pickup route   → booking goes to "completed" (only if currently delivered/confirmed)
+      const newStatus = route.route_type === "pickup" ? "completed" : "delivered";
+      const allowedPrior = route.route_type === "pickup"
+        ? ["delivered", "confirmed"]
+        : ["confirmed"];
+      await supabase
+        .from("bookings")
+        .update({ booking_status: newStatus })
+        .eq("id", stop.booking_id)
+        .in("booking_status", allowedPrior);
+    }
+  }
+
   revalidatePath(`/admin/dispatch/route/${routeId}`);
   return { success: true };
 }
 
 export async function clearStopDelivered(stopId: string, routeId: string) {
   await requireDriverOrAbove();
-  const supabase = createAdminClient();
+  const supabase = createAdminClient({ unscoped: true });
   const { error } = await supabase
     .from("dispatch_stops")
     .update({ delivered_at: null })
     .eq("id", stopId);
   if (error) return { error: error.message };
+  // Intentionally do NOT revert the booking status — admin may have updated
+  // it manually; "undo delivered" is just a clerical fix on the stop.
   revalidatePath(`/admin/dispatch/route/${routeId}`);
   return { success: true };
 }
