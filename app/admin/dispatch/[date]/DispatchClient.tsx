@@ -187,16 +187,21 @@ export function DispatchClient({
   function handleAssign(bookingId: string, routeId: string) {
     startTransition(async () => {
       const r = await assignBookingToRoute(bookingId, routeId, routeDate);
-      if (r.error) {
-        toast.error(r.error);
+      if ((r as any).error) {
+        toast.error((r as any).error);
+        console.error("[assign error]", r);
         return;
       }
-      if (r.pickup_mirrored) {
+      if ((r as any).already) {
+        toast.info("Already assigned to this route");
+      } else if ((r as any).pickup_mirrored) {
         toast.success(
-          r.pickup_mirrored.created
-            ? `Assigned + pickup route auto-created for ${r.pickup_mirrored.route_date}`
-            : `Assigned + added to existing pickup route (${r.pickup_mirrored.route_date})`,
+          (r as any).pickup_mirrored.created
+            ? `Assigned + pickup route auto-created for ${(r as any).pickup_mirrored.route_date}`
+            : `Assigned + added to existing pickup route (${(r as any).pickup_mirrored.route_date})`,
         );
+      } else {
+        toast.success("Booking assigned to route");
       }
       refresh();
     });

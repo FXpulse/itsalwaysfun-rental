@@ -175,47 +175,70 @@ export async function assignBookingToRoute(
   routeId: string,
   routeDate: string,
 ) {
-  await requireStaffOrAdmin();
-  const supabase = createAdminClient();
+  try {
+    await requireStaffOrAdmin();
+    const supabase = createAdminClient();
 
-  // Get target route_type + the rest of its config so we can mirror to pickup later
-  const { data: targetRoute } = await supabase
-    .from("dispatch_routes")
-    .select("route_type, vehicle_id, trailer_id, driver_name")
-    .eq("id", routeId)
-    .single();
-  if (!targetRoute) return { error: "Route not found" };
-  const targetType = targetRoute.route_type;
+    // Get target route_type + the rest of its config so we can mirror to pickup later
+    const { data: targetRoute, error: routeErr } = await supabase
+      .from("dispatch_routes")
+      .select("route_type, vehicle_id, trailer_id, driver_name")
+      .eq("id", routeId)
+      .single();
+    if (routeErr || !targetRoute) {
+      console.error("[assignBookingToRoute] route lookup failed:", routeErr);
+      return { error: routeErr?.message || "Route not found" };
+    }
+    const targetType = targetRoute.route_type;
 
-  // Find existing stops for this booking + their route_type
-  const { data: existingStops } = await supabase
-    .from("dispatch_stops")
-    .select("id, dispatch_routes!inner(route_type)")
-    .eq("booking_id", bookingId);
+    // Find existing stops for this booking + their route_type
+    const { data: existingStops, error: stopsErr } = await supabase
+      .from("dispatch_stops")
+      .select("id, route_id, dispatch_routes!inner(route_type)")
+      .eq("booking_id", bookingId);
+    if (stopsErr) {
+      console.error("[assignBookingToRoute] existingStops lookup failed:", stopsErr);
+      return { error: stopsErr.message };
+    }
 
-  const sameTypeIds = ((existingStops as any[]) || [])
-    .filter((s) => s.dispatch_routes?.route_type === targetType)
-    .map((s) => s.id);
-  if (sameTypeIds.length > 0) {
-    await supabase.from("dispatch_stops").delete().in("id", sameTypeIds);
-  }
+    // If the booking is ALREADY in this exact route, nothing to do
+    const alreadyInRoute = ((existingStops as any[]) || []).find((s) => s.route_id === routeId);
+    if (alreadyInRoute) {
+      revalidatePath(`/admin/dispatch/${routeDate}`);
+      return { success: true, already: true };
+    }
 
-  // Get the max order in this route + 1
-  const { data: maxRow } = await supabase
-    .from("dispatch_stops")
-    .select("stop_order")
-    .eq("route_id", routeId)
-    .order("stop_order", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  const nextOrder = (maxRow?.stop_order ?? -1) + 1;
+    // Delete same-type stops in OTHER routes (move booking, not duplicate)
+    const sameTypeIds = ((existingStops as any[]) || [])
+      .filter((s) => s.dispatch_routes?.route_type === targetType && s.route_id !== routeId)
+      .map((s) => s.id);
+    if (sameTypeIds.length > 0) {
+      const { error: delErr } = await supabase.from("dispatch_stops").delete().in("id", sameTypeIds);
+      if (delErr) {
+        console.error("[assignBookingToRoute] delete same-type failed:", delErr);
+        return { error: delErr.message };
+      }
+    }
 
-  const { error } = await supabase.from("dispatch_stops").insert({
-    route_id: routeId,
-    booking_id: bookingId,
-    stop_order: nextOrder,
-  });
-  if (error) return { error: error.message };
+    // Get the max order in this route + 1
+    const { data: maxRow } = await supabase
+      .from("dispatch_stops")
+      .select("stop_order")
+      .eq("route_id", routeId)
+      .order("stop_order", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    const nextOrder = (maxRow?.stop_order ?? -1) + 1;
+
+    const { error } = await supabase.from("dispatch_stops").insert({
+      route_id: routeId,
+      booking_id: bookingId,
+      stop_order: nextOrder,
+    });
+    if (error) {
+      console.error("[assignBookingToRoute] insert failed:", error);
+      return { error: error.message };
+    }
 
   // Auto-mirror to a pickup route when assigning to a DELIVERY route.
   // - Find/create a pickup route on the booking's end date with same vehicle+driver
@@ -229,8 +252,12 @@ export async function assignBookingToRoute(
     }
   }
 
-  revalidatePath(`/admin/dispatch/${routeDate}`);
-  return { success: true, pickup_mirrored: mirrored };
+    revalidatePath(`/admin/dispatch/${routeDate}`);
+    return { success: true, pickup_mirrored: mirrored };
+  } catch (e: any) {
+    console.error("[assignBookingToRoute] threw:", e);
+    return { error: e?.message || String(e) };
+  }
 }
 
 /** Find or create the pickup route on the booking's end date with the same
