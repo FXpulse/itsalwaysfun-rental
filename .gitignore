@@ -41,3 +41,7 @@ public/fallback-*.js.map
 
 # Test coverage
 coverage/
+
+# AI agent skills (installed via `npx skills add ...` — not source code)
+.agents/
+graphify-out/
