@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getCurrentTenantId } from "@/lib/tenant/db";
 import { requireAdmin } from "@/lib/auth/roles";
 import { isEmailConfigured } from "@/lib/email/send";
 import { sendTemplated } from "@/lib/email/send-template";
@@ -64,10 +65,28 @@ export async function createQuote(input: z.infer<typeof QuoteInputSchema>) {
   }
 
   const supabase = createAdminClient();
+  const tenantId = getCurrentTenantId();
 
-  // Generate quote number + token
-  const { data: numRow } = await supabase.rpc("next_quote_number");
+  // Generate quote number + token. Number is tenant-scoped to avoid
+  // collisions across tenants and uses MAX+1 (not count) so deletes
+  // don't regenerate existing numbers.
   const { data: tokRow } = await supabase.rpc("new_quote_token");
+
+  // Retry up to 3 times to handle the rare race condition where two
+  // simultaneous inserts compute the same MAX before either commits.
+  let numRow: any = null;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const { data } = await supabase.rpc("next_quote_number", { p_tenant_id: tenantId });
+    numRow = data;
+    // Check the number isn't already taken by a concurrent insert
+    const { data: existing } = await supabase
+      .from("quotes")
+      .select("id")
+      .eq("tenant_id", tenantId)
+      .eq("quote_number", numRow)
+      .maybeSingle();
+    if (!existing) break;
+  }
 
   const { lineItems, subtotal, total } = computeTotals(
     parsed.data.line_items,
