@@ -100,6 +100,7 @@ export function DispatchClient({
   routes,
   vehicles,
   trailers,
+  drivers = [],
   bookingRouteMap,
   routeUnits = {},
 }: {
@@ -109,6 +110,7 @@ export function DispatchClient({
   routes: RouteWithLoad[];
   vehicles: Vehicle[];
   trailers: Trailer[];
+  drivers?: { user_id: string; name: string; email: string }[];
   bookingRouteMap: Record<string, string>;
   routeUnits?: RouteUnitsMap;
 }) {
@@ -278,14 +280,47 @@ export function DispatchClient({
               </select>
             </div>
             <div>
-              <label className="block text-xs text-slate-600 mb-1">Driver</label>
-              <input
-                type="text"
-                value={driverName}
-                onChange={(e) => setDriverName(e.target.value)}
-                placeholder="e.g. Mike, John"
-                className="input"
-              />
+              <label className="block text-xs text-slate-600 mb-1">
+                Driver {drivers.length > 0 && <span className="text-slate-400">({drivers.length} available)</span>}
+              </label>
+              {drivers.length > 0 ? (
+                <select
+                  value={driverName}
+                  onChange={(e) => setDriverName(e.target.value)}
+                  className="input"
+                >
+                  <option value="">Select a driver…</option>
+                  {drivers.map((d) => (
+                    <option key={d.user_id} value={d.name}>
+                      {d.name}{d.email ? ` (${d.email})` : ""}
+                    </option>
+                  ))}
+                  <option value="__manual__">— Type a name instead —</option>
+                </select>
+              ) : (
+                <input
+                  type="text"
+                  value={driverName}
+                  onChange={(e) => setDriverName(e.target.value)}
+                  placeholder="e.g. Mike, John"
+                  className="input"
+                />
+              )}
+              {driverName === "__manual__" && (
+                <input
+                  type="text"
+                  autoFocus
+                  value=""
+                  onChange={(e) => setDriverName(e.target.value)}
+                  placeholder="Type driver name…"
+                  className="input mt-2"
+                />
+              )}
+              {drivers.length === 0 && (
+                <p className="text-[10px] text-slate-400 mt-1">
+                  Tip: invite drivers as staff users at <a href="/admin/team" className="text-indigo-600 hover:underline">/admin/team</a> so they show up here.
+                </p>
+              )}
             </div>
             <div>
               <label className="block text-xs text-slate-600 mb-1">Notes</label>

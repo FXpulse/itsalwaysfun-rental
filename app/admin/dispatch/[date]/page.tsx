@@ -47,22 +47,60 @@ export default async function DispatchDatePage({
           .neq("booking_status", "cancelled")
           .order("end_time", { ascending: true, nullsFirst: false });
 
-  const [{ data: bookings }, { data: routes }, { data: vehicles }, { data: trailers }] =
-    await Promise.all([
-      bookingsQuery,
-      supabase
-        .from("dispatch_routes")
-        .select(`
-          id, vehicle_id, trailer_id, driver_name, notes, status, route_type, created_at,
-          vehicles (id, name, vehicle_type, requires_trailer),
-          trailers (id, name)
-        `)
-        .eq("route_date", params.date)
-        .eq("route_type", routeType)
-        .order("created_at"),
-      supabase.from("vehicles").select("*").eq("is_active", true).order("name"),
-      supabase.from("trailers").select("*").eq("is_active", true).order("name"),
-    ]);
+  const [
+    { data: bookings },
+    { data: routes },
+    { data: vehicles },
+    { data: trailers },
+    { data: driverRoles },
+  ] = await Promise.all([
+    bookingsQuery,
+    supabase
+      .from("dispatch_routes")
+      .select(`
+        id, vehicle_id, trailer_id, driver_name, notes, status, route_type, created_at,
+        vehicles (id, name, vehicle_type, requires_trailer),
+        trailers (id, name)
+      `)
+      .eq("route_date", params.date)
+      .eq("route_type", routeType)
+      .order("created_at"),
+    supabase.from("vehicles").select("*").eq("is_active", true).order("name"),
+    supabase.from("trailers").select("*").eq("is_active", true).order("name"),
+    supabase
+      .from("user_roles")
+      .select("user_id")
+      .eq("role", "driver")
+      .eq("is_active", true),
+  ]);
+
+  // Resolve driver names from auth.users metadata
+  let drivers: { user_id: string; name: string; email: string }[] = [];
+  const driverUserIds = (driverRoles as any[] || []).map((r) => r.user_id);
+  if (driverUserIds.length > 0) {
+    try {
+      const adminClient = createAdminClient({ unscoped: true });
+      const { data: usersPage } = await adminClient.auth.admin.listUsers({ perPage: 1000 });
+      const userMap = new Map((usersPage?.users || []).map((u) => [u.id, u]));
+      for (const uid of driverUserIds) {
+        const u = userMap.get(uid);
+        if (!u) continue;
+        const md = (u.user_metadata || {}) as any;
+        const first = md.first_name?.trim() || "";
+        const last = md.last_name?.trim() || "";
+        const fullName = [first, last].filter(Boolean).join(" ");
+        const display = fullName || (u.email?.split("@")[0] || "Driver");
+        drivers.push({
+          user_id: uid,
+          name: display,
+          email: u.email || "",
+        });
+      }
+      drivers.sort((a, b) => a.name.localeCompare(b.name));
+    } catch (e) {
+      console.error("[failed to load drivers]", e);
+    }
+  }
 
   // For each route, fetch stops + compute load
   const routeIds = (routes || []).map((r: any) => r.id);
@@ -250,6 +288,7 @@ export default async function DispatchDatePage({
         }
         vehicles={(vehicles as any[]) || []}
         trailers={(trailers as any[]) || []}
+        drivers={drivers}
         bookingRouteMap={Object.fromEntries(bookingRouteMap)}
         routeUnits={routeUnits}
       />
