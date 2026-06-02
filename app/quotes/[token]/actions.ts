@@ -361,7 +361,7 @@ export async function approveQuote(token: string, input: ApproveInput) {
       needs_power_supply: parsed.data.needs_power_supply,
       damage_protection_purchased: protectionAccepted,
       damage_protection_cents: protectionCents,
-      addons: bookingAddons.length > 0 ? bookingAddons : null,
+      addons: bookingAddons,
       stripe_payment_status: "pending",
       booking_status: "pending_payment",
       hold_expires_at: holdExpiresAt,
