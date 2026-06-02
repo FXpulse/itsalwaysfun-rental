@@ -228,28 +228,12 @@ export async function updateQuote(id: string, input: z.infer<typeof QuoteInputSc
   return { success: true };
 }
 
-/** Mark as sent. Optionally fire GHL webhook with the quote link.
- *  Even without webhook config, this marks the quote as sent so admin
- *  can copy the link manually. */
-export async function sendQuote(id: string) {
-  await requireAdmin();
+/** Internal: deliver the quote email + fire the GHL webhook for a quote
+ *  that's already been persisted. Used by sendQuote (first send) and
+ *  resendQuote (subsequent re-sends). */
+async function deliverQuoteEmail(q: any) {
   const supabase = createAdminClient();
-
-  const { data: q } = await supabase
-    .from("quotes")
-    .select("*")
-    .eq("id", id)
-    .single();
-  if (!q) return { error: "Quote not found" };
-  if (q.status !== "draft") return { error: "Only draft quotes can be sent" };
-
-  const { error } = await supabase
-    .from("quotes")
-    .update({ status: "sent", sent_at: new Date().toISOString() })
-    .eq("id", id);
-  if (error) return { error: error.message };
-
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://itsalwaysfun-rental.vercel.app";
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://itsalwaysfun.net";
   const quoteUrl = `${baseUrl}/quotes/${q.token}`;
 
   // 1. Best-effort GHL webhook (for CRM sync — contact tag/notes/custom fields)
@@ -338,9 +322,69 @@ export async function sendQuote(id: string) {
     }
   }
 
+  return { quote_url: quoteUrl };
+}
+
+/** Mark a draft quote as sent + fire GHL + send the customer email. */
+export async function sendQuote(id: string) {
+  await requireAdmin();
+  const supabase = createAdminClient();
+
+  const { data: q } = await supabase
+    .from("quotes")
+    .select("*")
+    .eq("id", id)
+    .single();
+  if (!q) return { error: "Quote not found" };
+  if (q.status !== "draft") return { error: "Only draft quotes can be sent" };
+
+  const { error } = await supabase
+    .from("quotes")
+    .update({ status: "sent", sent_at: new Date().toISOString() })
+    .eq("id", id);
+  if (error) return { error: error.message };
+
+  const { quote_url } = await deliverQuoteEmail(q);
+
   revalidatePath("/admin/quotes");
   revalidatePath(`/admin/quotes/${id}`);
-  return { success: true, quote_url: quoteUrl };
+  return { success: true, quote_url };
+}
+
+/** Resend the quote email — works for any non-converted, non-cancelled quote.
+ *  Doesn't change status (keeps approved/viewed where they are) but updates
+ *  sent_at so admin can see when the last delivery happened. */
+export async function resendQuote(id: string) {
+  await requireAdmin();
+  const supabase = createAdminClient();
+
+  const { data: q } = await supabase
+    .from("quotes")
+    .select("*")
+    .eq("id", id)
+    .single();
+  if (!q) return { error: "Quote not found" };
+  if (q.status === "draft") {
+    return { error: "Quote is a draft — use Send instead" };
+  }
+  if (q.status === "converted") {
+    return { error: "Quote was already paid — nothing to resend" };
+  }
+  if (q.status === "declined") {
+    return { error: "Quote was declined by the customer" };
+  }
+
+  // Update sent_at so admin sees the last resend timestamp
+  await supabase
+    .from("quotes")
+    .update({ sent_at: new Date().toISOString() })
+    .eq("id", id);
+
+  const { quote_url } = await deliverQuoteEmail(q);
+
+  revalidatePath("/admin/quotes");
+  revalidatePath(`/admin/quotes/${id}`);
+  return { success: true, quote_url };
 }
 
 export async function cancelQuote(id: string) {

@@ -3,8 +3,8 @@
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
-import { Send, Copy, Check, X, Trash2, RefreshCw } from "lucide-react";
-import { sendQuote, cancelQuote, deleteQuote, regeneratePaymentLink } from "../actions";
+import { Send, Copy, Check, X, Trash2, RefreshCw, Mail } from "lucide-react";
+import { sendQuote, cancelQuote, deleteQuote, regeneratePaymentLink, resendQuote } from "../actions";
 
 export function QuoteActions({
   quoteId,
@@ -75,6 +75,19 @@ export function QuoteActions({
     });
   }
 
+  function handleResend() {
+    if (!confirm("Resend the quote email to the customer? This sends the same link they got before.")) return;
+    startTransition(async () => {
+      const r = await resendQuote(quoteId);
+      if ((r as any).error) {
+        toast.error((r as any).error);
+        return;
+      }
+      toast.success("Quote email resent to customer");
+      router.refresh();
+    });
+  }
+
   function handleRegenerate() {
     if (!confirm(
       "Cancel the old payment link and create a new one?\n\n" +
@@ -120,6 +133,14 @@ export function QuoteActions({
           >
             {copied ? <Check className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
             {copied ? "Copied!" : "Copy customer link"}
+          </button>
+          <button
+            onClick={handleResend}
+            disabled={pending}
+            className="inline-flex items-center gap-2 text-sm bg-violet-50 border border-violet-300 text-violet-700 hover:bg-violet-100 rounded-md px-3 py-2"
+            title="Email the quote link to the customer again"
+          >
+            <Mail className="h-4 w-4" /> Resend email
           </button>
           <code className="text-xs text-slate-500 truncate max-w-md">{quoteUrl}</code>
           {status === "approved" && convertedBookingId && (
