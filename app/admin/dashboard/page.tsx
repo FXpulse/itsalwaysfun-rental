@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { formatCurrency, formatDate } from "@/lib/utils";
+import { getTenantInfo } from "@/lib/tenant/business";
+import { formatDateTimeInTz, formatDateInTz } from "@/lib/tenant/timezone";
 import {
   AlertCircle,
   ArrowRight,
@@ -18,6 +20,8 @@ export const dynamic = "force-dynamic";
 
 export default async function AdminDashboardPage() {
   const supabase = createAdminClient();
+  const tenant = await getTenantInfo();
+  const tz = tenant.timezone;
 
   const todayDt = new Date();
   const today = todayDt.toISOString().split("T")[0];
@@ -236,7 +240,7 @@ export default async function AdminDashboardPage() {
                   </div>
                 )}
                 <div className="text-[10px] text-slate-400 mt-0.5">
-                  {new Date(m.created_at).toLocaleString()}
+                  {formatDateTimeInTz(m.created_at, tz)}
                 </div>
               </div>
               <ArrowRight className="h-4 w-4 text-slate-400 flex-shrink-0" />
@@ -271,7 +275,7 @@ export default async function AdminDashboardPage() {
                 </div>
                 <div className="text-xs text-slate-500">
                   Event: {formatDate(b.event_date)} · Created{" "}
-                  {new Date(b.created_at).toLocaleString()}
+                  {formatDateTimeInTz(b.created_at, tz)}
                 </div>
               </div>
               <div className="flex items-center gap-3 ml-3">
@@ -307,7 +311,7 @@ export default async function AdminDashboardPage() {
                   {d.description}
                 </div>
                 <div className="text-xs text-slate-500">
-                  Recorded {new Date(d.recorded_at).toLocaleDateString()}
+                  Recorded {formatDateInTz(d.recorded_at, tz)}
                   {d.customer_responsible && !d.charged_to_customer && (
                     <span className="text-amber-700 font-semibold ml-2">
                       · chargeable to customer
@@ -346,8 +350,8 @@ export default async function AdminDashboardPage() {
                   {q.customer_first_name} {q.customer_last_name}
                 </div>
                 <div className="text-xs text-slate-500">
-                  Sent {q.sent_at && new Date(q.sent_at).toLocaleDateString()} · Expires{" "}
-                  {q.expires_at && new Date(q.expires_at).toLocaleDateString()}
+                  Sent {q.sent_at && formatDateInTz(q.sent_at, tz)} · Expires{" "}
+                  {q.expires_at && formatDateInTz(q.expires_at, tz)}
                 </div>
               </div>
               <div className="flex items-center gap-3 ml-3">

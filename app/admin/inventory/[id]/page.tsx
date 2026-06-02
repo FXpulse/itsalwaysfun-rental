@@ -3,6 +3,8 @@ import { notFound, redirect } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUserRole } from "@/lib/auth/roles";
 import { formatCurrency } from "@/lib/utils";
+import { getTenantInfo } from "@/lib/tenant/business";
+import { formatDateInTz } from "@/lib/tenant/timezone";
 import { ArrowLeft, Package, Wrench } from "lucide-react";
 import { MaintenanceLog } from "./MaintenanceLog";
 import { UnitsPanel, type UnitRow } from "./UnitsPanel";
@@ -26,6 +28,8 @@ export default async function InventoryDetailPage({
   if (!me) redirect("/admin/login");
 
   const supabase = createAdminClient();
+  const tenant = await getTenantInfo();
+  const tz = tenant.timezone;
   const [{ data: item }, { data: history }, { data: allUnits }] = await Promise.all([
     supabase.from("inventory_items").select("*").eq("id", params.id).single(),
     supabase
@@ -124,7 +128,7 @@ export default async function InventoryDetailPage({
             {formatCurrency(item.purchase_cost_cents)}
             {item.purchase_date && (
               <span className="text-slate-500 ml-2">
-                acquired {new Date(item.purchase_date).toLocaleDateString()}
+                acquired {formatDateInTz(item.purchase_date, tz)}
               </span>
             )}
             {totalSpent > 0 && (

@@ -3,6 +3,8 @@ import Link from "next/link";
 import { Megaphone, Plus, CheckCircle2, AlertTriangle, Eye, Clock } from "lucide-react";
 import { getCurrentUserRole } from "@/lib/auth/roles";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getTenantInfo } from "@/lib/tenant/business";
+import { formatDateTimeInTz } from "@/lib/tenant/timezone";
 
 export const dynamic = "force-dynamic";
 
@@ -11,6 +13,8 @@ export default async function CampaignsPage() {
   if (!me || me.role !== "admin") redirect("/admin/login");
 
   const supabase = createAdminClient();
+  const tenant = await getTenantInfo();
+  const tz = tenant.timezone;
   const { data: campaigns } = await supabase
     .from("campaigns")
     .select("id, name, subject, status, recipient_count, sent_count, failed_count, sent_at, scheduled_at, created_at")
@@ -73,9 +77,9 @@ export default async function CampaignsPage() {
                     <StatusBadge status={c.status} />
                   </td>
                   <td className="px-3 py-2 text-xs text-slate-500">
-                    {c.sent_at ? new Date(c.sent_at).toLocaleString()
+                    {c.sent_at ? formatDateTimeInTz(c.sent_at, tz)
                       : c.scheduled_at
-                        ? <span className="inline-flex items-center gap-1 text-violet-700"><Clock className="h-3 w-3" /> {new Date(c.scheduled_at).toLocaleString()}</span>
+                        ? <span className="inline-flex items-center gap-1 text-violet-700"><Clock className="h-3 w-3" /> {formatDateTimeInTz(c.scheduled_at, tz)}</span>
                         : <span className="text-slate-400">—</span>}
                   </td>
                 </tr>

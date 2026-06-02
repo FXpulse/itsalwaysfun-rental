@@ -3,6 +3,8 @@ import { redirect, notFound } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUserRole } from "@/lib/auth/roles";
 import { getRouteLoad } from "@/lib/dispatch-aggregator";
+import { getTenantInfo } from "@/lib/tenant/business";
+import { formatDateLongInTz } from "@/lib/tenant/timezone";
 import { ArrowLeft, Truck, Link as LinkIcon, Package } from "lucide-react";
 import { DriverRouteClient } from "./DriverRouteClient";
 
@@ -79,12 +81,9 @@ export default async function DriverRouteViewPage({
 
   const load = await getRouteLoad(params.id);
 
-  const dateObj = new Date(r.route_date + "T00:00:00");
-  const dateLabel = dateObj.toLocaleDateString("en-US", {
-    weekday: "long",
-    month: "long",
-    day: "numeric",
-  });
+  const tenant = await getTenantInfo();
+  const tz = tenant.timezone;
+  const dateLabel = formatDateLongInTz(r.route_date + "T12:00:00Z", tz);
 
   // Back link target depends on role:
   // - Drivers go back to /driver (they don't have access to the full dispatch page)

@@ -4,6 +4,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUserRole } from "@/lib/auth/roles";
 import { getLoyaltySettings } from "@/lib/loyalty";
 import { formatCurrency } from "@/lib/utils";
+import { getTenantInfo } from "@/lib/tenant/business";
+import { formatDateInTz } from "@/lib/tenant/timezone";
 import {
   Sparkles,
   Gift,
@@ -22,6 +24,8 @@ export default async function AdminLoyaltyPage() {
   if (!me || me.role !== "admin") redirect("/admin/dashboard");
 
   const supabase = createAdminClient();
+  const tenant = await getTenantInfo();
+  const tz = tenant.timezone;
   const settings = await getLoyaltySettings();
 
   // Read threshold from site_settings
@@ -183,7 +187,7 @@ export default async function AdminLoyaltyPage() {
                     <td className="px-4 py-3">
                       <div className="font-medium">{email}</div>
                       <div className="text-[10px] text-slate-400">
-                        Joined {new Date(p.created_at).toLocaleDateString()}
+                        Joined {formatDateInTz(p.created_at, tz)}
                       </div>
                     </td>
                     <td className="px-4 py-3 font-mono text-xs">{p.referral_code}</td>

@@ -1,6 +1,8 @@
 import { redirect } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUserRole } from "@/lib/auth/roles";
+import { getTenantInfo } from "@/lib/tenant/business";
+import { formatDateTimeInTz } from "@/lib/tenant/timezone";
 import { History, Filter } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -31,6 +33,8 @@ export default async function AdminAuditLogPage({
   if (!me) redirect("/admin/login");
 
   const supabase = createAdminClient();
+  const tenant = await getTenantInfo();
+  const tz = tenant.timezone;
   let query = supabase
     .from("admin_audit_log")
     .select("*")
@@ -120,7 +124,7 @@ export default async function AdminAuditLogPage({
               {list.map((r: any) => (
                 <tr key={r.id} className="hover:bg-slate-50">
                   <td className="px-4 py-2 text-xs text-slate-500 whitespace-nowrap">
-                    {new Date(r.created_at).toLocaleString()}
+                    {formatDateTimeInTz(r.created_at, tz)}
                   </td>
                   <td className="px-4 py-2 text-xs">
                     <div className="font-medium text-brand-navy">{r.user_email}</div>

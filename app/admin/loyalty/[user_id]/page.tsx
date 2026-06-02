@@ -3,6 +3,8 @@ import { notFound, redirect } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUserRole } from "@/lib/auth/roles";
 import { formatCurrency } from "@/lib/utils";
+import { getTenantInfo } from "@/lib/tenant/business";
+import { formatDateInTz, formatDateTimeInTz } from "@/lib/tenant/timezone";
 import { ArrowLeft, Sparkles, DollarSign, Gift } from "lucide-react";
 import { PayoutForm, AdjustForm } from "./Forms";
 
@@ -33,6 +35,8 @@ export default async function AdminLoyaltyDetailPage({
   if (!me || me.role !== "admin") redirect("/admin/dashboard");
 
   const supabase = createAdminClient();
+  const tenant = await getTenantInfo();
+  const tz = tenant.timezone;
   const { data: profile } = await supabase
     .from("customer_profiles")
     .select("*")
@@ -242,7 +246,7 @@ export default async function AdminLoyaltyDetailPage({
                   <tr key={r.email}>
                     <td className="px-4 py-3">{r.email}</td>
                     <td className="px-4 py-3 text-xs text-slate-500">
-                      {new Date(r.created_at).toLocaleDateString()}
+                      {formatDateInTz(r.created_at, tz)}
                     </td>
                   </tr>
                 ))}
@@ -276,7 +280,7 @@ export default async function AdminLoyaltyDetailPage({
               {ledger.map((t: any) => (
                 <tr key={t.id}>
                   <td className="px-4 py-3 text-xs text-slate-500">
-                    {new Date(t.created_at).toLocaleString()}
+                    {formatDateTimeInTz(t.created_at, tz)}
                   </td>
                   <td className="px-4 py-3">
                     <span

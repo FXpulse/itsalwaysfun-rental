@@ -3,6 +3,8 @@ import { redirect } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUserRole } from "@/lib/auth/roles";
 import { formatCurrency } from "@/lib/utils";
+import { getTenantInfo } from "@/lib/tenant/business";
+import { formatDateInTz } from "@/lib/tenant/timezone";
 import { Plus, FileText } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -26,6 +28,8 @@ export default async function AdminQuotesPage({
   if (!me || me.role !== "admin") redirect("/admin/dashboard");
 
   const supabase = createAdminClient();
+  const tenant = await getTenantInfo();
+  const tz = tenant.timezone;
   let query = supabase
     .from("quotes")
     .select(
@@ -143,7 +147,7 @@ export default async function AdminQuotesPage({
                     </span>
                   </td>
                   <td className="px-4 py-3 text-xs text-slate-500">
-                    {q.sent_at ? new Date(q.sent_at).toLocaleDateString() : "—"}
+                    {q.sent_at ? formatDateInTz(q.sent_at, tz) : "—"}
                   </td>
                   <td className="px-4 py-3 text-right">
                     <Link

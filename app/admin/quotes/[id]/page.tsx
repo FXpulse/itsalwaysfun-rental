@@ -8,6 +8,7 @@ import { QuoteEditor } from "../QuoteEditor";
 import { QuoteActions } from "./QuoteActions";
 import { getSiteSettings } from "@/lib/site-settings";
 import { getTenantInfo, getTenantPublicUrl } from "@/lib/tenant/business";
+import { formatDateTimeInTz } from "@/lib/tenant/timezone";
 import { buildDefaultQuoteMessage } from "../message-template";
 import { loadQuoteCustomers } from "../load-customers";
 
@@ -32,6 +33,8 @@ export default async function AdminQuoteDetailPage({
   if (!me || me.role !== "admin") redirect("/admin/dashboard");
 
   const supabase = createAdminClient();
+  const headerTenant = await getTenantInfo();
+  const tz = headerTenant.timezone;
   const { data: quote } = await supabase
     .from("quotes")
     .select("*")
@@ -167,7 +170,7 @@ export default async function AdminQuoteDetailPage({
             </span>
           </div>
           <p className="text-sm text-slate-500">
-            Created {new Date(quote.created_at).toLocaleString()}
+            Created {formatDateTimeInTz(quote.created_at, tz)}
           </p>
         </div>
       </div>
@@ -313,21 +316,21 @@ export default async function AdminQuoteDetailPage({
           Lifecycle
         </h2>
         <ul className="text-xs space-y-1 text-slate-600">
-          <li>Created: {new Date(quote.created_at).toLocaleString()}</li>
-          {quote.sent_at && <li>Sent: {new Date(quote.sent_at).toLocaleString()}</li>}
-          {quote.viewed_at && <li>Viewed by customer: {new Date(quote.viewed_at).toLocaleString()}</li>}
+          <li>Created: {formatDateTimeInTz(quote.created_at, tz)}</li>
+          {quote.sent_at && <li>Sent: {formatDateTimeInTz(quote.sent_at, tz)}</li>}
+          {quote.viewed_at && <li>Viewed by customer: {formatDateTimeInTz(quote.viewed_at, tz)}</li>}
           {quote.approved_at && (
             <li className="text-green-700">
-              Approved: {new Date(quote.approved_at).toLocaleString()}
+              Approved: {formatDateTimeInTz(quote.approved_at, tz)}
             </li>
           )}
           {quote.declined_at && (
             <li className="text-red-700">
-              Declined: {new Date(quote.declined_at).toLocaleString()}
+              Declined: {formatDateTimeInTz(quote.declined_at, tz)}
               {quote.decline_reason && ` — ${quote.decline_reason}`}
             </li>
           )}
-          <li>Expires: {new Date(quote.expires_at).toLocaleString()}</li>
+          <li>Expires: {formatDateTimeInTz(quote.expires_at, tz)}</li>
         </ul>
       </div>
 
