@@ -185,6 +185,123 @@ export async function GET(_request: Request) {
     }
   }
 
+  // 5b. ALTERNATE LOOKUP STRATEGIES — text search failed, so try:
+  //   - Autocomplete (often finds listings text-search misses)
+  //   - Direct GET places/<FTID> (FTID extracted from !1s param in URL)
+  //   - Direct GET places/<GMID> (/g/... from !16s param in URL)
+  //   - Nearby search (200m radius around the pin)
+  if (process.env.GOOGLE_PLACES_API_KEY) {
+    const apiKey = process.env.GOOGLE_PLACES_API_KEY!;
+    out.alt_lookups = {};
+
+    // Extract FTID and GMID from the saved URL
+    const ftidMatch = savedUrl.match(/!1s(0x[0-9a-f]+:0x[0-9a-f]+)/i);
+    const gmidMatch = savedUrl.match(/!16s%2F([^%/?&!]+)%2F([^%/?&!]+)/);
+    out.alt_lookups.ftid = ftidMatch?.[1] || null;
+    out.alt_lookups.gmid = gmidMatch ? `/${gmidMatch[1]}/${gmidMatch[2]}` : null;
+
+    // Test 1: Autocomplete with bias (often surfaces niche listings)
+    if (out.extracted?.query) {
+      try {
+        const acBody: any = {
+          input: out.extracted.query,
+          includedPrimaryTypes: [],
+        };
+        if (out.extracted.businessLat) {
+          acBody.locationBias = {
+            circle: {
+              center: { latitude: out.extracted.businessLat, longitude: out.extracted.businessLon },
+              radius: 10000,
+            },
+          };
+        }
+        const r = await fetch(`https://places.googleapis.com/v1/places:autocomplete`, {
+          method: "POST",
+          headers: { "X-Goog-Api-Key": apiKey, "Content-Type": "application/json" },
+          body: JSON.stringify(acBody),
+        });
+        const txt = await r.text();
+        let parsed: any = null;
+        try { parsed = JSON.parse(txt); } catch {}
+        out.alt_lookups.autocomplete = {
+          status: r.status,
+          suggestion_count: parsed?.suggestions?.length || 0,
+          first_5: (parsed?.suggestions || []).slice(0, 5).map((s: any) => ({
+            place_id: s?.placePrediction?.placeId,
+            text: s?.placePrediction?.text?.text,
+            structured: s?.placePrediction?.structuredFormat?.mainText?.text,
+          })),
+          raw_preview: !r.ok ? txt.slice(0, 400) : undefined,
+        };
+      } catch (e: any) {
+        out.alt_lookups.autocomplete_error = e?.message || String(e);
+      }
+    }
+
+    // Test 2: Direct GET with FTID
+    if (out.alt_lookups.ftid) {
+      try {
+        const r = await fetch(
+          `https://places.googleapis.com/v1/places/${encodeURIComponent(out.alt_lookups.ftid)}?languageCode=en`,
+          {
+            headers: {
+              "X-Goog-Api-Key": apiKey,
+              "X-Goog-FieldMask": "id,displayName,formattedAddress,rating,userRatingCount",
+            },
+          },
+        );
+        const txt = await r.text();
+        out.alt_lookups.ftid_direct = {
+          status: r.status,
+          ok: r.ok,
+          body_preview: txt.slice(0, 600),
+        };
+      } catch (e: any) {
+        out.alt_lookups.ftid_direct_error = e?.message || String(e);
+      }
+    }
+
+    // Test 3: Nearby search around the pin (very small radius — should
+    // surface every business within 200m, including this one)
+    if (out.extracted?.businessLat) {
+      try {
+        const r = await fetch(`https://places.googleapis.com/v1/places:searchNearby`, {
+          method: "POST",
+          headers: {
+            "X-Goog-Api-Key": apiKey,
+            "X-Goog-FieldMask": "places.id,places.displayName,places.formattedAddress",
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            locationRestriction: {
+              circle: {
+                center: { latitude: out.extracted.businessLat, longitude: out.extracted.businessLon },
+                radius: 500,
+              },
+            },
+            maxResultCount: 20,
+          }),
+        });
+        const txt = await r.text();
+        let parsed: any = null;
+        try { parsed = JSON.parse(txt); } catch {}
+        out.alt_lookups.nearby = {
+          status: r.status,
+          ok: r.ok,
+          place_count: parsed?.places?.length || 0,
+          places: (parsed?.places || []).map((p: any) => ({
+            id: p.id,
+            name: p.displayName?.text,
+            address: p.formattedAddress,
+          })),
+          raw_preview: !r.ok ? txt.slice(0, 400) : undefined,
+        };
+      } catch (e: any) {
+        out.alt_lookups.nearby_error = e?.message || String(e);
+      }
+    }
+  }
+
   // 5. Run the real search with the extracted query + coords
   if (out.extracted?.query && out.extracted?.businessLat && out.extracted?.businessLon) {
     try {
