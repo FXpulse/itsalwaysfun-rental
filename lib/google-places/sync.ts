@@ -28,13 +28,14 @@ export async function syncPlaceDataForTenant(
         tenant_id: tenantId,
         source_url: gbpUrl,
         last_synced_at: new Date().toISOString(),
-        last_sync_status: "not_found",
-        last_sync_error: "Could not resolve URL to a Google Place",
+        last_sync_status: "pending_index",
+        last_sync_error:
+          "Listing not yet in Google's Places API index. Common for newly-verified GBPs — propagation typically takes 1-4 weeks after GBP verification. Daily cron will keep retrying automatically; reviews appear here as soon as Google indexes you.",
       }, { onConflict: "tenant_id" });
     return {
       ok: false,
       error:
-        "Could not resolve URL. Most common causes: (1) 'Places API (New)' not enabled — go to Google Cloud Console → APIs & Services → Library → search 'Places API (New)' → click Enable. It's separate from the legacy Places API. (2) API key restrictions don't include Places API (New). Check Vercel function logs for '[Places API]' lines to see exactly which step failed.",
+        "Listing not in Places API index yet — common after GBP verification (1-4 week delay). Daily auto-retry is on; you can add reviews manually meanwhile in /admin/reviews.",
     };
   }
 

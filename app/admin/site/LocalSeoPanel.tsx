@@ -29,7 +29,7 @@ interface Initial {
 interface PlacesStatus {
   configured: boolean;
   cached: null | {
-    place_id: string;
+    place_id: string | null;
     display_name: string | null;
     rating: number | null;
     review_count: number;
@@ -81,7 +81,11 @@ export function LocalSeoPanel({
       }
       setSaved(true);
       const placesErr = (res as any).placesSyncError;
-      if (placesErr) {
+      // "pending index" isn't an error worth a red toast — green confirmation,
+      // panel below shows the friendly "waiting for Google" state
+      if (placesErr && /not in places api index/i.test(placesErr)) {
+        toast.success("Local SEO saved. Google Places indexing in progress — see panel below.");
+      } else if (placesErr) {
         toast.warning(`Saved, but Google Places sync had an issue: ${placesErr}`);
       } else {
         toast.success("Local SEO settings saved");
@@ -280,10 +284,16 @@ export function LocalSeoPanel({
             </div>
           )}
 
-          {/* Places API sync status — shown only when API is configured */}
+          {/* Places API sync status — shown only when API is configured.
+              Three states:
+                1. cached + place_id + sync_status === "ok"  → green Synced card
+                2. cached + sync_status === "pending_index"  → blue "indexing" card
+                                                               (GBP verified but not yet
+                                                                in Places API — normal delay)
+                3. no cache                                  → neutral "not yet synced" prompt */}
           {placesStatus?.configured && (
             <div className="mt-3 pt-3 border-t border-blue-200">
-              {placesStatus.cached ? (
+              {placesStatus.cached?.place_id && placesStatus.cached.sync_status === "ok" ? (
                 <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3">
                   <div className="flex items-center justify-between mb-2">
                     <div className="text-xs font-bold text-emerald-900 inline-flex items-center gap-1">
@@ -311,8 +321,39 @@ export function LocalSeoPanel({
                     </div>
                   </div>
                   <p className="text-[10px] text-emerald-700 mt-2">
-                    Synced daily at 10am UTC. Cached data feeds the LocalBusiness schema on your homepage so Google shows stars in search results.
+                    Synced daily at 14:00 UTC. Cached data feeds the LocalBusiness schema on your homepage so Google shows stars in search results.
                   </p>
+                </div>
+              ) : placesStatus.cached?.sync_status === "pending_index" ? (
+                <div className="bg-sky-50 border border-sky-200 rounded-lg p-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="text-xs font-bold text-sky-900 inline-flex items-center gap-1">
+                      <RefreshCw className="h-3.5 w-3.5" /> Waiting for Google to index your listing
+                    </div>
+                    <SyncNowButton />
+                  </div>
+                  <p className="text-[11px] text-sky-900 leading-relaxed">
+                    Your Google Business Profile <strong>is verified</strong> (we can see the listing), but it&apos;s
+                    not in Google&apos;s Places API index yet. This is normal — propagation
+                    takes <strong>1-4 weeks</strong> after GBP verification, sometimes faster for
+                    profiles with active reviews.
+                  </p>
+                  <div className="mt-2 pt-2 border-t border-sky-200 text-[10px] text-sky-800 space-y-1">
+                    <div>
+                      ✓ <strong>Daily auto-retry is on</strong> — reviews appear here automatically the
+                      day Google finishes indexing.
+                    </div>
+                    <div>
+                      ✓ <strong>Add reviews manually meanwhile</strong> →{" "}
+                      <a href="/admin/reviews" className="text-sky-700 underline font-semibold">
+                        /admin/reviews
+                      </a>{" "}
+                      → + Add review. Mismo SEO benefit, mismo display público.
+                    </div>
+                    <div className="text-sky-600">
+                      Last retry: {new Date(placesStatus.cached.last_synced_at).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
+                    </div>
+                  </div>
                 </div>
               ) : (
                 <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 flex items-start gap-2">
@@ -379,7 +420,12 @@ function SyncNowButton() {
     startTransition(async () => {
       const res = await refreshPlacesCache();
       if (!res.ok) {
-        toast.error(res.error || "Sync failed");
+        // "Not in index yet" is informational, not a failure
+        if (res.error && /not in places api index/i.test(res.error)) {
+          toast.info("Still not indexed by Google. Auto-retry runs daily.");
+        } else {
+          toast.error(res.error || "Sync failed");
+        }
         return;
       }
       toast.success("Synced — refresh to see updates");
