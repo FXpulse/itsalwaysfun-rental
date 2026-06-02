@@ -18,8 +18,9 @@ import {
   unmarkYearFiled,
 } from "./actions";
 import type { NinetyNineRow, NinetyNineSummary } from "@/lib/reports-1099";
+import { formatDateInTz } from "@/lib/tenant/timezone";
 
-export function NinetyNineNECManager({ summary }: { summary: NinetyNineSummary }) {
+export function NinetyNineNECManager({ summary, tz = "America/New_York" }: { summary: NinetyNineSummary; tz?: string }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [editing, setEditing] = useState<NinetyNineRow | null>(null);
@@ -158,7 +159,7 @@ export function NinetyNineNECManager({ summary }: { summary: NinetyNineSummary }
                     {r.w9_received_at ? (
                       <span className="inline-flex items-center gap-1 text-emerald-700">
                         <CheckCircle2 className="h-3 w-3" />{" "}
-                        {new Date(r.w9_received_at).toLocaleDateString()}
+                        {formatDateInTz(r.w9_received_at, tz)}
                       </span>
                     ) : r.qualifies ? (
                       <span className="inline-flex items-center gap-1 text-red-600">
@@ -194,7 +195,7 @@ export function NinetyNineNECManager({ summary }: { summary: NinetyNineSummary }
                         title="Click to unmark"
                       >
                         <CheckCircle2 className="h-3 w-3" />{" "}
-                        {new Date(r.filed_at).toLocaleDateString()}
+                        {formatDateInTz(r.filed_at, tz)}
                       </span>
                     ) : r.qualifies ? (
                       <button

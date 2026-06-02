@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Plus, Trash2, Edit, X, Layers } from "lucide-react";
 import Link from "next/link";
+import { formatDateInTz } from "@/lib/tenant/timezone";
 import {
   createCoupon,
   updateCoupon,
@@ -28,7 +29,7 @@ interface Coupon {
   referrer_email: string | null;        // resolved at fetch time
 }
 
-export function CouponsManager({ coupons }: { coupons: Coupon[] }) {
+export function CouponsManager({ coupons, tz = "America/New_York" }: { coupons: Coupon[]; tz?: string }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [showAdd, setShowAdd] = useState(false);
@@ -151,7 +152,7 @@ export function CouponsManager({ coupons }: { coupons: Coupon[] }) {
                   </td>
                   <td className="px-4 py-3 text-xs">
                     {c.expires_at
-                      ? new Date(c.expires_at).toLocaleDateString()
+                      ? formatDateInTz(c.expires_at, tz)
                       : <span className="text-slate-400">Never</span>}
                   </td>
                   <td className="px-4 py-3">

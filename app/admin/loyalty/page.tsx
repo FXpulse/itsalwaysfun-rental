@@ -102,7 +102,7 @@ export default async function AdminLoyaltyPage() {
       </div>
 
       {/* Payout requests panel — only renders if there are any */}
-      <PayoutRequestsPanel requests={payoutRequests} />
+      <PayoutRequestsPanel requests={payoutRequests} tz={tz} />
 
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">

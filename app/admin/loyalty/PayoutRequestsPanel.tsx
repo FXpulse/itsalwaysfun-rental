@@ -19,6 +19,7 @@ import {
   getW9SignedUrl,
 } from "./payout-admin-actions";
 import { formatCurrency } from "@/lib/utils";
+import { formatDateTimeInTz } from "@/lib/tenant/timezone";
 
 interface PayoutRequest {
   id: string;
@@ -35,7 +36,7 @@ interface PayoutRequest {
   admin_notes: string | null;
 }
 
-export function PayoutRequestsPanel({ requests }: { requests: PayoutRequest[] }) {
+export function PayoutRequestsPanel({ requests, tz = "America/New_York" }: { requests: PayoutRequest[]; tz?: string }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [actioningId, setActioningId] = useState<string | null>(null);
@@ -164,7 +165,7 @@ export function PayoutRequestsPanel({ requests }: { requests: PayoutRequest[] })
                     </button>
                   )}
                   <div className="text-[10px] text-slate-400 mt-1">
-                    Requested {new Date(r.requested_at).toLocaleString()}
+                    Requested {formatDateTimeInTz(r.requested_at, tz)}
                   </div>
                 </div>
                 <div className="text-right">

@@ -1,9 +1,13 @@
 import Link from "next/link";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getTenantInfo } from "@/lib/tenant/business";
+import { formatDateTimeInTz } from "@/lib/tenant/timezone";
 import { Database, Download, Clock } from "lucide-react";
 
 export async function BackupPanel() {
   const supabase = createAdminClient();
+  const tenant = await getTenantInfo();
+  const tz = tenant.timezone;
 
   // Most recent backup in the bucket (if any)
   const { data: files } = await supabase.storage.from("backups").list("", {
@@ -55,7 +59,7 @@ export async function BackupPanel() {
             <p className="text-xs text-slate-500 mb-2">
               Latest: <strong>{latest.name}</strong> ·{" "}
               {latest.created_at
-                ? new Date(latest.created_at).toLocaleString()
+                ? formatDateTimeInTz(latest.created_at, tz)
                 : "?"}
             </p>
             <ul className="text-[11px] space-y-0.5 font-mono">

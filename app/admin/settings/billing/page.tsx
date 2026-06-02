@@ -12,6 +12,7 @@ import {
   sumPaidThisYear,
 } from "@/lib/stripe/billing-data";
 import { BillingPanel } from "./BillingPanel";
+import { getTenantInfo } from "@/lib/tenant/business";
 
 export const dynamic = "force-dynamic";
 
@@ -21,6 +22,8 @@ export default async function BillingPage() {
 
   const tenantId = getCurrentTenantId();
   const supabase = createAdminClient({ unscoped: true });
+  const tenantInfo = await getTenantInfo();
+  const tz = tenantInfo.timezone;
   const { data: tenant } = await supabase
     .from("tenants")
     .select(
@@ -70,6 +73,7 @@ export default async function BillingPage() {
         upcomingCharge={upcomingCharge}
         subscriptionMeta={subscriptionMeta}
         paidThisYearCents={paidThisYearCents}
+        tz={tz}
       />
     </div>
   );

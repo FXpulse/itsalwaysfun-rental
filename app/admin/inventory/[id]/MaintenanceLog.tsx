@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Plus, Trash2, Wrench, DollarSign } from "lucide-react";
 import { logMaintenance, deleteMaintenance } from "../actions";
 import { formatCurrency } from "@/lib/utils";
+import { formatDateInTz } from "@/lib/tenant/timezone";
 
 interface Entry {
   id: string;
@@ -22,11 +23,13 @@ export function MaintenanceLog({
   itemName,
   entries,
   typeStyles,
+  tz = "America/New_York",
 }: {
   itemId: string;
   itemName: string;
   entries: Entry[];
   typeStyles: Record<string, string>;
+  tz?: string;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -218,7 +221,7 @@ export function MaintenanceLog({
                     {e.type}
                   </span>
                   <span className="text-xs text-slate-500">
-                    {new Date(e.performed_at + "T00:00:00").toLocaleDateString()}
+                    {formatDateInTz(e.performed_at + "T12:00:00Z", tz)}
                   </span>
                   {e.performed_by && (
                     <span className="text-xs text-slate-500">· by {e.performed_by}</span>

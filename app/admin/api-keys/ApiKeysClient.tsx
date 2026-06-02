@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Plus, Copy, X, Trash2, ShieldAlert, CheckCircle2, Clock } from "lucide-react";
 import { createApiKey, revokeApiKey } from "./actions";
+import { formatDateInTz } from "@/lib/tenant/timezone";
 
 interface ApiKey {
   id: string;
@@ -26,7 +27,7 @@ const SCOPE_OPTIONS = [
   { value: "*", label: "All scopes (current + future)" },
 ];
 
-export function ApiKeysClient({ keys }: { keys: ApiKey[] }) {
+export function ApiKeysClient({ keys, tz = "America/New_York" }: { keys: ApiKey[]; tz?: string }) {
   const [showForm, setShowForm] = useState(false);
   const [createdKey, setCreatedKey] = useState<{ full_key: string; key_prefix: string } | null>(null);
   const [pending, startTransition] = useTransition();
@@ -171,7 +172,7 @@ export function ApiKeysClient({ keys }: { keys: ApiKey[] }) {
         ) : (
           <div className="divide-y divide-slate-100">
             {active.map((k) => (
-              <KeyRow key={k.id} k={k} onRevoke={() => handleRevoke(k.id, k.name)} />
+              <KeyRow key={k.id} k={k} onRevoke={() => handleRevoke(k.id, k.name)} tz={tz} />
             ))}
           </div>
         )}
@@ -185,7 +186,7 @@ export function ApiKeysClient({ keys }: { keys: ApiKey[] }) {
           </summary>
           <div className="mt-3 divide-y divide-slate-100">
             {revoked.map((k) => (
-              <KeyRow key={k.id} k={k} onRevoke={null} />
+              <KeyRow key={k.id} k={k} onRevoke={null} tz={tz} />
             ))}
           </div>
         </details>
@@ -195,8 +196,8 @@ export function ApiKeysClient({ keys }: { keys: ApiKey[] }) {
 }
 
 function KeyRow({
-  k, onRevoke,
-}: { k: ApiKey; onRevoke: (() => void) | null }) {
+  k, onRevoke, tz,
+}: { k: ApiKey; onRevoke: (() => void) | null; tz: string }) {
   return (
     <div className="px-4 py-3 flex items-center gap-3">
       <div className="flex-1 min-w-0">
@@ -212,18 +213,18 @@ function KeyRow({
         <div className="text-[10px] text-slate-400 mt-1 flex items-center gap-2 flex-wrap">
           {k.last_used_at ? (
             <span className="inline-flex items-center gap-1">
-              <Clock className="h-3 w-3" /> Last used {new Date(k.last_used_at).toLocaleDateString()}
+              <Clock className="h-3 w-3" /> Last used {formatDateInTz(k.last_used_at, tz)}
             </span>
           ) : (
             <span>Never used</span>
           )}
           {k.expires_at && (
-            <span>· Expires {new Date(k.expires_at).toLocaleDateString()}</span>
+            <span>· Expires {formatDateInTz(k.expires_at, tz)}</span>
           )}
-          <span>· Created {new Date(k.created_at).toLocaleDateString()}</span>
+          <span>· Created {formatDateInTz(k.created_at, tz)}</span>
           {k.revoked_at && (
             <span className="text-rose-600 inline-flex items-center gap-1">
-              <ShieldAlert className="h-3 w-3" /> Revoked {new Date(k.revoked_at).toLocaleDateString()}
+              <ShieldAlert className="h-3 w-3" /> Revoked {formatDateInTz(k.revoked_at, tz)}
             </span>
           )}
         </div>

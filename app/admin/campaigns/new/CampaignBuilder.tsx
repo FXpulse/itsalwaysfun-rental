@@ -5,8 +5,9 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Send, Eye, Users, Mail, Tag, DollarSign, Calendar, Clock, Loader2, Zap } from "lucide-react";
 import { sendCampaign, previewCampaignAudience, type CampaignFilter } from "../actions";
+import { formatDateTimeInTz } from "@/lib/tenant/timezone";
 
-export function CampaignBuilder({ availableTags }: { availableTags: string[] }) {
+export function CampaignBuilder({ availableTags, tz = "America/New_York" }: { availableTags: string[]; tz?: string }) {
   const router = useRouter();
   const [name, setName] = useState("");
   const [subject, setSubject] = useState("");
@@ -98,7 +99,7 @@ export function CampaignBuilder({ availableTags }: { availableTags: string[] }) 
         return;
       }
       if (r.scheduled) {
-        toast.success(`Scheduled for ${new Date(scheduledIso!).toLocaleString()}`);
+        toast.success(`Scheduled for ${formatDateTimeInTz(scheduledIso!, tz)}`);
       } else {
         toast.success(`Sent ${r.sent} · failed ${r.failed}`);
       }
@@ -320,7 +321,7 @@ We've got a special offer just for you...
         <div className="text-sm text-slate-700">
           {preview && preview.count > 0
             ? sendMode === "later" && scheduledAt
-              ? <><strong>Ready:</strong> schedule for {new Date(scheduledAt).toLocaleString()} → {preview.count} customer{preview.count === 1 ? "" : "s"}.</>
+              ? <><strong>Ready:</strong> schedule for {formatDateTimeInTz(scheduledAt, tz)} → {preview.count} customer{preview.count === 1 ? "" : "s"}.</>
               : <><strong>Ready:</strong> send to {preview.count} customer{preview.count === 1 ? "" : "s"}.</>
             : <span className="text-slate-500">Adjust filters to see recipients.</span>}
         </div>

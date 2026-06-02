@@ -2,6 +2,8 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUserRole } from "@/lib/auth/roles";
+import { getTenantInfo } from "@/lib/tenant/business";
+import { formatDateTimeInTz } from "@/lib/tenant/timezone";
 import { Mail, ArrowRight, AlertCircle } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -11,6 +13,8 @@ export default async function AdminEmailTemplatesPage() {
   if (!me || me.role !== "admin") redirect("/admin/dashboard");
 
   const supabase = createAdminClient();
+  const tenant = await getTenantInfo();
+  const tz = tenant.timezone;
   const { data: templates } = await supabase
     .from("email_templates")
     .select("key, label, description, is_active, updated_at")
@@ -67,7 +71,7 @@ export default async function AdminEmailTemplatesPage() {
                 <p className="text-sm text-slate-600">{t.description || "—"}</p>
                 <div className="text-xs text-slate-400 mt-1">
                   Key: <code>{t.key}</code> · Last edit{" "}
-                  {new Date(t.updated_at).toLocaleString()}
+                  {formatDateTimeInTz(t.updated_at, tz)}
                 </div>
               </div>
               <ArrowRight className="h-4 w-4 text-slate-400 flex-shrink-0" />

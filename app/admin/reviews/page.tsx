@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUserRole } from "@/lib/auth/roles";
 import { Star, ExternalLink } from "lucide-react";
 import { ReviewsManager } from "./ReviewsManager";
+import { getTenantInfo } from "@/lib/tenant/business";
 
 export const dynamic = "force-dynamic";
 
@@ -27,6 +28,8 @@ export default async function AdminReviewsPage() {
   if (!me || me.role !== "admin") redirect("/admin/dashboard");
 
   const supabase = createAdminClient();
+  const tenant = await getTenantInfo();
+  const tz = tenant.timezone;
   const [{ data: reviews }, { data: settingsRows }] = await Promise.all([
     supabase
       .from("customer_reviews")
@@ -90,7 +93,7 @@ export default async function AdminReviewsPage() {
         </div>
       )}
 
-      <ReviewsManager reviews={list} />
+      <ReviewsManager reviews={list} tz={tz} />
     </div>
   );
 }

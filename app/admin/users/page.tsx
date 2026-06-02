@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUserRole } from "@/lib/auth/roles";
 import { UsersManager } from "./UsersManager";
+import { getTenantInfo } from "@/lib/tenant/business";
 
 export const dynamic = "force-dynamic";
 
@@ -25,6 +26,8 @@ export default async function AdminUsersPage() {
   // via the proxy wrap (lib/tenant/scope.ts). So this only returns
   // user_roles for THIS tenant — no cross-tenant leaks.
   const admin = createAdminClient();
+  const tenant = await getTenantInfo();
+  const tz = tenant.timezone;
   const { data: roles } = await admin
     .from("user_roles")
     .select("user_id, role, is_active, created_at")
@@ -72,7 +75,7 @@ export default async function AdminUsersPage() {
         Inventory, Availability, and Dashboard.
       </p>
 
-      <UsersManager users={rows} orphans={[]} currentUserId={me.id} />
+      <UsersManager users={rows} orphans={[]} currentUserId={me.id} tz={tz} />
     </div>
   );
 }

@@ -6,6 +6,7 @@ import { Gift } from "lucide-react";
 import { GiftCardsManager } from "./GiftCardsManager";
 import { PublicSalesToggle } from "./PublicSalesToggle";
 import { isGiftCardSalesEnabled } from "@/lib/gift-cards";
+import { getTenantInfo } from "@/lib/tenant/business";
 
 export const dynamic = "force-dynamic";
 
@@ -14,6 +15,8 @@ export default async function AdminGiftCardsPage() {
   if (!me || me.role !== "admin") redirect("/admin/dashboard");
 
   const supabase = createAdminClient();
+  const tenant = await getTenantInfo();
+  const tz = tenant.timezone;
   const { data: cards } = await supabase
     .from("gift_cards")
     .select("*")
@@ -47,7 +50,7 @@ export default async function AdminGiftCardsPage() {
         <Stat label="Redeemed" value={formatCurrency(totalRedeemed)} />
       </div>
 
-      <GiftCardsManager cards={list} />
+      <GiftCardsManager cards={list} tz={tz} />
     </div>
   );
 }

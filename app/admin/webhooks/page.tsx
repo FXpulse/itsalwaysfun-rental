@@ -3,6 +3,7 @@ import { getCurrentUserRole } from "@/lib/auth/roles";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { Webhook, Sparkles, Code } from "lucide-react";
 import { WebhooksClient } from "./WebhooksClient";
+import { getTenantInfo } from "@/lib/tenant/business";
 
 export const dynamic = "force-dynamic";
 
@@ -24,6 +25,8 @@ export default async function AdminWebhooksPage() {
   if (!me || me.role !== "admin") redirect("/admin/login");
 
   const supabase = createAdminClient();
+  const tenant = await getTenantInfo();
+  const tz = tenant.timezone;
   const { data: hooks } = await supabase
     .from("tenant_webhooks")
     .select("*")
@@ -87,7 +90,7 @@ export default async function AdminWebhooksPage() {
         </div>
       </div>
 
-      <WebhooksClient hooks={list} />
+      <WebhooksClient hooks={list} tz={tz} />
     </div>
   );
 }

@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUserRole } from "@/lib/auth/roles";
+import { getTenantInfo } from "@/lib/tenant/business";
 import { Inbox } from "lucide-react";
 import { InboxClient } from "./InboxClient";
 
@@ -40,6 +41,8 @@ export default async function AdminInboxPage() {
   if (!me) redirect("/admin/login");
 
   const supabase = createAdminClient();
+  const tenant = await getTenantInfo();
+  const tz = tenant.timezone;
   const { data: messages } = await supabase
     .from("contact_messages")
     .select(`*, replies:contact_message_replies(id, body, sent_by, send_error, sent_at)`)
@@ -75,7 +78,7 @@ export default async function AdminInboxPage() {
         <Stat label="Total" value={String(list.length)} />
       </div>
 
-      <InboxClient messages={list} isAdmin={me.role === "admin"} />
+      <InboxClient messages={list} isAdmin={me.role === "admin"} tz={tz} />
     </div>
   );
 }

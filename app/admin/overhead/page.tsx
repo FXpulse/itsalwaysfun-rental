@@ -4,6 +4,7 @@ import { getCurrentUserRole } from "@/lib/auth/roles";
 import { formatCurrency } from "@/lib/utils";
 import { Calculator } from "lucide-react";
 import { OverheadManager } from "./OverheadManager";
+import { getTenantInfo } from "@/lib/tenant/business";
 
 export const dynamic = "force-dynamic";
 
@@ -30,6 +31,8 @@ export default async function AdminOverheadPage() {
   if (!me || me.role !== "admin") redirect("/admin/dashboard");
 
   const supabase = createAdminClient();
+  const tenant = await getTenantInfo();
+  const tz = tenant.timezone;
   const [{ data: rows }, { data: cats }] = await Promise.all([
     supabase
       .from("overhead_costs")
@@ -86,7 +89,7 @@ export default async function AdminOverheadPage() {
         </div>
       </div>
 
-      <OverheadManager rows={list} categories={categories} />
+      <OverheadManager rows={list} categories={categories} tz={tz} />
 
       <div className="mt-6 bg-blue-50 border border-blue-200 rounded p-3 text-xs text-blue-900">
         💡 <strong>How allocation works:</strong> in the P&L report, monthly

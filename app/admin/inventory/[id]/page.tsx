@@ -166,6 +166,7 @@ export default async function InventoryDetailPage({
         itemName={item.name}
         entries={entries}
         typeStyles={TYPE_STYLES}
+        tz={tz}
       />
     </div>
   );

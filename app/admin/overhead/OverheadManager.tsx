@@ -11,15 +11,18 @@ import {
   deleteOverhead,
 } from "./actions";
 import { formatCurrency } from "@/lib/utils";
+import { formatDateInTz } from "@/lib/tenant/timezone";
 import type { OverheadRow, CategoryRow } from "./page";
 import { CategoryManager } from "./CategoryManager";
 
 export function OverheadManager({
   rows,
   categories,
+  tz = "America/New_York",
 }: {
   rows: OverheadRow[];
   categories: CategoryRow[];
+  tz?: string;
 }) {
   // Active categories drive the dropdown; full list (incl. inactive) drives the
   // label lookup so historical rows still resolve a friendly name.
@@ -289,7 +292,7 @@ export function OverheadManager({
                           {formatCurrency(r.monthly_cents)}
                         </td>
                         <td className="px-4 py-2 text-xs text-slate-500">
-                          {new Date(r.effective_from).toLocaleDateString()}
+                          {formatDateInTz(r.effective_from, tz)}
                         </td>
                         <td className="px-4 py-2 text-right space-x-2">
                           <button

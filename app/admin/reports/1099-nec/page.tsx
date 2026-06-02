@@ -4,6 +4,7 @@ import { ChevronLeft, FileText, Download } from "lucide-react";
 import { getCurrentUserRole } from "@/lib/auth/roles";
 import { compute1099Year } from "@/lib/reports-1099";
 import { NinetyNineNECManager } from "./NinetyNineNECManager";
+import { getTenantInfo } from "@/lib/tenant/business";
 
 export const dynamic = "force-dynamic";
 
@@ -22,6 +23,8 @@ export default async function NinetyNineNECPage({
       : currentYear;
 
   const summary = await compute1099Year(year);
+  const tenant = await getTenantInfo();
+  const tz = tenant.timezone;
   const yearOptions = [currentYear, currentYear - 1, currentYear - 2, currentYear - 3];
 
   return (
@@ -101,7 +104,7 @@ export default async function NinetyNineNECPage({
         />
       </div>
 
-      <NinetyNineNECManager summary={summary} />
+      <NinetyNineNECManager summary={summary} tz={tz} />
     </div>
   );
 }

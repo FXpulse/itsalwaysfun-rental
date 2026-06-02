@@ -12,6 +12,7 @@ import {
   resetUserPassword,
 } from "./actions";
 import type { UserRow } from "./page";
+import { formatDateTimeInTz, formatDateInTz } from "@/lib/tenant/timezone";
 
 interface Orphan {
   user_id: string;
@@ -24,10 +25,12 @@ export function UsersManager({
   users,
   orphans,
   currentUserId,
+  tz = "America/New_York",
 }: {
   users: UserRow[];
   orphans: Orphan[];
   currentUserId: string;
+  tz?: string;
 }) {
   const router = useRouter();
   const [showCreate, setShowCreate] = useState(false);
@@ -177,7 +180,7 @@ export function UsersManager({
                     </td>
                     <td className="px-4 py-3 text-slate-500 text-xs">
                       {u.last_sign_in_at
-                        ? new Date(u.last_sign_in_at).toLocaleString()
+                        ? formatDateTimeInTz(u.last_sign_in_at, tz)
                         : "never"}
                     </td>
                     <td className="px-4 py-3 text-right space-x-2">
@@ -236,7 +239,7 @@ export function UsersManager({
                   <tr key={o.user_id}>
                     <td className="px-4 py-3">{o.email}</td>
                     <td className="px-4 py-3 text-xs text-slate-500">
-                      {new Date(o.created_at).toLocaleDateString()}
+                      {formatDateInTz(o.created_at, tz)}
                     </td>
                     <td className="px-4 py-3 text-right">
                       <button

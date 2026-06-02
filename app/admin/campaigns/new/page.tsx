@@ -4,6 +4,7 @@ import { ChevronLeft, Megaphone } from "lucide-react";
 import { getCurrentUserRole } from "@/lib/auth/roles";
 import { listExistingTags } from "../../customers/[email]/tag-actions";
 import { CampaignBuilder } from "./CampaignBuilder";
+import { getTenantInfo } from "@/lib/tenant/business";
 
 export const dynamic = "force-dynamic";
 
@@ -12,6 +13,8 @@ export default async function NewCampaignPage() {
   if (!me || me.role !== "admin") redirect("/admin/login");
 
   const availableTags = await listExistingTags();
+  const tenant = await getTenantInfo();
+  const tz = tenant.timezone;
 
   return (
     <div className="max-w-3xl space-y-5">
@@ -29,7 +32,7 @@ export default async function NewCampaignPage() {
         </p>
       </div>
 
-      <CampaignBuilder availableTags={availableTags} />
+      <CampaignBuilder availableTags={availableTags} tz={tz} />
     </div>
   );
 }

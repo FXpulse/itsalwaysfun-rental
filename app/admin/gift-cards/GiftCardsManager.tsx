@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Plus, Gift, X, Copy, Check } from "lucide-react";
 import { issueGiftCard, toggleGiftCardActive } from "./actions";
 import { formatCurrency } from "@/lib/utils";
+import { formatDateInTz } from "@/lib/tenant/timezone";
 
 interface GiftCardRow {
   id: string;
@@ -23,7 +24,7 @@ interface GiftCardRow {
   created_at: string;
 }
 
-export function GiftCardsManager({ cards }: { cards: GiftCardRow[] }) {
+export function GiftCardsManager({ cards, tz = "America/New_York" }: { cards: GiftCardRow[]; tz?: string }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [issuing, setIssuing] = useState(false);
@@ -147,7 +148,7 @@ export function GiftCardsManager({ cards }: { cards: GiftCardRow[] }) {
                       )}
                     </td>
                     <td className="px-4 py-3 text-xs text-slate-500">
-                      {new Date(c.created_at).toLocaleDateString()}
+                      {formatDateInTz(c.created_at, tz)}
                     </td>
                     <td className="px-4 py-3 text-right">
                       <button

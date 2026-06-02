@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getTenantInfo } from "@/lib/tenant/business";
 import { CouponsManager } from "./CouponsManager";
 
 export const dynamic = "force-dynamic";
@@ -19,6 +20,8 @@ interface Coupon {
 
 export default async function AdminCouponsPage() {
   const supabase = createAdminClient();
+  const tenant = await getTenantInfo();
+  const tz = tenant.timezone;
   const { data: coupons } = await supabase
     .from("coupons")
     .select("*")
@@ -48,7 +51,7 @@ export default async function AdminCouponsPage() {
       <p className="text-sm text-slate-500 mb-6">
         Discount codes customers can apply at checkout. Assign a coupon to a customer to track referrals + pay commission automatically.
       </p>
-      <CouponsManager coupons={enriched} />
+      <CouponsManager coupons={enriched} tz={tz} />
     </div>
   );
 }

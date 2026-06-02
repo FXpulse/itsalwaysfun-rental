@@ -15,6 +15,7 @@ import {
   X,
 } from "lucide-react";
 import { markResolved, reopenMessage, deleteMessage, replyToMessage } from "./actions";
+import { formatDateTimeInTz } from "@/lib/tenant/timezone";
 import type { ContactMessage } from "./page";
 
 import { Send, MessageSquare } from "lucide-react";
@@ -22,9 +23,11 @@ import { Send, MessageSquare } from "lucide-react";
 export function InboxClient({
   messages,
   isAdmin,
+  tz = "America/New_York",
 }: {
   messages: ContactMessage[];
   isAdmin: boolean;
+  tz?: string;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -158,7 +161,7 @@ export function InboxClient({
                       <Phone className="h-3 w-3" /> {m.phone}
                     </a>
                   )}
-                  <span>· {new Date(m.created_at).toLocaleString()}</span>
+                  <span>· {formatDateTimeInTz(m.created_at, tz)}</span>
                 </div>
               </div>
               <div className="flex gap-1">
@@ -203,7 +206,7 @@ export function InboxClient({
                   >
                     <div className="text-[10px] text-slate-500 mb-1 flex items-center gap-2 flex-wrap">
                       <strong>{r.sent_by}</strong>
-                      <span>· {new Date(r.sent_at).toLocaleString()}</span>
+                      <span>· {formatDateTimeInTz(r.sent_at, tz)}</span>
                       {r.send_error && (
                         <span className="text-red-700 inline-flex items-center gap-0.5">
                           <AlertTriangle className="h-3 w-3" /> Failed: {r.send_error}
@@ -322,7 +325,7 @@ export function InboxClient({
                 {m.resolved_by && (
                   <span className="block text-[10px] text-slate-500 mt-1">
                     Resolved by {m.resolved_by} on{" "}
-                    {m.resolved_at && new Date(m.resolved_at).toLocaleString()}
+                    {m.resolved_at && formatDateTimeInTz(m.resolved_at, tz)}
                   </span>
                 )}
               </div>

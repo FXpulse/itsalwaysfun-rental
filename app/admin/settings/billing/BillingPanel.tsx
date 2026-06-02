@@ -38,6 +38,7 @@ import type {
   SubscriptionMeta,
 } from "@/lib/stripe/billing-data";
 import { formatCurrency } from "@/lib/utils";
+import { formatDateInTz } from "@/lib/tenant/timezone";
 
 export function BillingPanel({
   tenant,
@@ -47,6 +48,7 @@ export function BillingPanel({
   upcomingCharge,
   subscriptionMeta,
   paidThisYearCents = 0,
+  tz = "America/New_York",
 }: {
   tenant: {
     plan: "starter" | "pro" | "enterprise" | "founder";
@@ -62,6 +64,7 @@ export function BillingPanel({
   upcomingCharge?: UpcomingCharge | null;
   subscriptionMeta?: SubscriptionMeta | null;
   paidThisYearCents?: number;
+  tz?: string;
 }) {
   const [pending, startTransition] = useTransition();
   const [signupCadence, setSignupCadence] = useState<Cadence>("monthly");
@@ -85,7 +88,7 @@ export function BillingPanel({
         toast.error(r.error);
         return;
       }
-      toast.success(`Paused until ${new Date(r.paused_until!).toLocaleDateString()}`);
+      toast.success(`Paused until ${formatDateInTz(r.paused_until!, tz)}`);
       window.location.reload();
     });
   }
@@ -180,11 +183,7 @@ export function BillingPanel({
                   <p className="text-sm text-violet-800 mt-1">
                     Billing resumes automatically on{" "}
                     <strong>
-                      {new Date(subscriptionMeta!.paused_until!).toLocaleDateString("en-US", {
-                        month: "long",
-                        day: "numeric",
-                        year: "numeric",
-                      })}
+                      {formatDateInTz(subscriptionMeta!.paused_until!, tz)}
                     </strong>
                     . You're not being charged during the pause.
                   </p>
@@ -218,12 +217,12 @@ export function BillingPanel({
                 {tenant.current_period_end && (
                   <p className="text-xs text-slate-600 mt-1">
                     {tenant.cancel_at_period_end ? "Cancels" : "Renews"} on{" "}
-                    {new Date(tenant.current_period_end).toLocaleDateString()}
+                    {formatDateInTz(tenant.current_period_end, tz)}
                   </p>
                 )}
                 {tenant.subscription_status === "trialing" && tenant.trial_ends_at && (
                   <p className="text-xs text-blue-700 mt-1">
-                    Trial ends {new Date(tenant.trial_ends_at).toLocaleDateString()}
+                    Trial ends {formatDateInTz(tenant.trial_ends_at, tz)}
                   </p>
                 )}
               </div>
@@ -328,7 +327,7 @@ export function BillingPanel({
               </div>
               {upcomingCharge.next_payment_at && (
                 <div className="text-xs text-slate-500 mt-1">
-                  on {new Date(upcomingCharge.next_payment_at).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
+                  on {formatDateInTz(upcomingCharge.next_payment_at, tz)}
                 </div>
               )}
             </div>
@@ -444,17 +443,12 @@ export function BillingPanel({
                 {invoices.map((inv) => (
                   <tr key={inv.id}>
                     <td className="px-4 py-3 text-xs text-slate-600 font-mono">
-                      {new Date(inv.created_at).toLocaleDateString("en-US", {
-                        month: "short",
-                        day: "numeric",
-                        year: "numeric",
-                      })}
+                      {formatDateInTz(inv.created_at, tz)}
                     </td>
                     <td className="px-4 py-3 text-xs text-slate-500">
                       {inv.period_start && inv.period_end ? (
                         <>
-                          {new Date(inv.period_start).toLocaleDateString("en-US", { month: "short", day: "numeric" })} –{" "}
-                          {new Date(inv.period_end).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                          {formatDateInTz(inv.period_start, tz)} – {formatDateInTz(inv.period_end, tz)}
                         </>
                       ) : (
                         "—"

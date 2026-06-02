@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getCurrentUserRole } from "@/lib/auth/roles";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getTenantInfo } from "@/lib/tenant/business";
 import { Key, Sparkles, BookOpen } from "lucide-react";
 import { ApiKeysClient } from "./ApiKeysClient";
 
@@ -24,6 +25,8 @@ export default async function AdminApiKeysPage() {
   if (!me || me.role !== "admin") redirect("/admin/login");
 
   const supabase = createAdminClient();
+  const tenant = await getTenantInfo();
+  const tz = tenant.timezone;
   const { data: keys } = await supabase
     .from("tenant_api_keys")
     .select("*")
@@ -80,7 +83,7 @@ export default async function AdminApiKeysPage() {
         </p>
       </div>
 
-      <ApiKeysClient keys={list} />
+      <ApiKeysClient keys={list} tz={tz} />
     </div>
   );
 }

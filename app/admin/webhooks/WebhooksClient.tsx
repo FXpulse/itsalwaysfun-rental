@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Plus, Copy, X, Trash2, Power, Send, CheckCircle2, AlertTriangle } from "lucide-react";
 import { createWebhook, toggleWebhook, deleteWebhook, testWebhook } from "./actions";
+import { formatDateTimeInTz } from "@/lib/tenant/timezone";
 
 interface Hook {
   id: string;
@@ -23,7 +24,7 @@ const EVENT_OPTIONS = [
   "customer.created", "quote.sent", "quote.approved", "*",
 ];
 
-export function WebhooksClient({ hooks }: { hooks: Hook[] }) {
+export function WebhooksClient({ hooks, tz = "America/New_York" }: { hooks: Hook[]; tz?: string }) {
   const [showForm, setShowForm] = useState(false);
   const [newSecret, setNewSecret] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -135,7 +136,7 @@ export function WebhooksClient({ hooks }: { hooks: Hook[] }) {
         ) : (
           <div className="divide-y divide-slate-100">
             {hooks.map((h) => (
-              <HookRow key={h.id} h={h} />
+              <HookRow key={h.id} h={h} tz={tz} />
             ))}
           </div>
         )}
@@ -144,7 +145,7 @@ export function WebhooksClient({ hooks }: { hooks: Hook[] }) {
   );
 }
 
-function HookRow({ h }: { h: Hook }) {
+function HookRow({ h, tz }: { h: Hook; tz: string }) {
   const [pending, startTransition] = useTransition();
   const lastOk = h.last_delivery_status && h.last_delivery_status >= 200 && h.last_delivery_status < 300;
 
@@ -187,7 +188,7 @@ function HookRow({ h }: { h: Hook }) {
         {h.last_delivery_at && (
           <div className={`text-[10px] mt-1 inline-flex items-center gap-1 ${lastOk ? "text-emerald-700" : "text-rose-700"}`}>
             {lastOk ? <CheckCircle2 className="h-3 w-3" /> : <AlertTriangle className="h-3 w-3" />}
-            Last delivery {new Date(h.last_delivery_at).toLocaleString()} · HTTP {h.last_delivery_status}
+            Last delivery {formatDateTimeInTz(h.last_delivery_at, tz)} · HTTP {h.last_delivery_status}
           </div>
         )}
       </div>

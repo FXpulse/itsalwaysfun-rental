@@ -14,6 +14,7 @@ import {
   EyeOff,
   Award,
 } from "lucide-react";
+import { formatDateInTz } from "@/lib/tenant/timezone";
 import {
   createReview,
   updateReview,
@@ -33,7 +34,7 @@ const SOURCES = [
   { value: "manual", label: "Other / Manual", icon: "✍️" },
 ];
 
-export function ReviewsManager({ reviews }: { reviews: ReviewRow[] }) {
+export function ReviewsManager({ reviews, tz = "America/New_York" }: { reviews: ReviewRow[]; tz?: string }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [editing, setEditing] = useState<ReviewRow | null>(null);
@@ -129,6 +130,7 @@ export function ReviewsManager({ reviews }: { reviews: ReviewRow[] }) {
               onToggleFeatured={() => handleToggleFeatured(r)}
               onToggleActive={() => handleToggleActive(r)}
               pending={pending}
+              tz={tz}
             />
           ))}
         </div>
@@ -164,6 +166,7 @@ function ReviewCard({
   onToggleFeatured,
   onToggleActive,
   pending,
+  tz,
 }: {
   review: ReviewRow;
   onEdit: () => void;
@@ -171,6 +174,7 @@ function ReviewCard({
   onToggleFeatured: () => void;
   onToggleActive: () => void;
   pending: boolean;
+  tz: string;
 }) {
   const source = SOURCES.find((s) => s.value === review.source);
   return (
@@ -214,7 +218,7 @@ function ReviewCard({
             {review.customer_location && <>{review.customer_location} · </>}
             <span title={source?.label}>{source?.icon}</span>
             {review.reviewed_at && (
-              <span>· {new Date(review.reviewed_at).toLocaleDateString()}</span>
+              <span>· {formatDateInTz(review.reviewed_at, tz)}</span>
             )}
           </div>
         </div>
