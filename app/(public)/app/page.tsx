@@ -1,12 +1,25 @@
 import { Truck, Zap, WifiOff, Camera, MapPin, Clock } from "lucide-react";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { getTenantInfo } from "@/lib/tenant/business";
 import { InstallButton } from "./InstallButton";
 
-export const metadata = {
-  title: "Get the It's Always Fun app",
-  description: "Install the It's Always Fun driver + customer app on your phone. Works offline, full-screen, fast.",
-};
+export const dynamic = "force-dynamic";
 
-export const dynamic = "force-static";
+export async function generateMetadata() {
+  try {
+    const tenant = await getTenantInfo();
+    const name = tenant.business_name || "Get the app";
+    return {
+      title: `Get the ${name} app`,
+      description: `Install the ${name} driver app on your phone. Works offline, full-screen, fast.`,
+    };
+  } catch {
+    return {
+      title: "Get the app",
+      description: "Install the driver app on your phone.",
+    };
+  }
+}
 
 const FEATURES = [
   {
@@ -41,7 +54,33 @@ const FEATURES = [
   },
 ];
 
-export default function GetAppPage() {
+export default async function GetAppPage() {
+  // Pull tenant branding so the install card uses the tenant's logo, not RentalFlow's
+  let businessName = "It's Always Fun";
+  let logoUrl: string | null = null;
+  try {
+    const tenant = await getTenantInfo();
+    businessName = tenant.business_name || businessName;
+    const branding = (tenant.branding as Record<string, any>) || {};
+    if (branding.logo_url) {
+      logoUrl = String(branding.logo_url);
+    }
+  } catch {
+    // Outside tenant context — keep defaults
+  }
+
+  if (!logoUrl) {
+    try {
+      const supabase = createAdminClient();
+      const { data: row } = await supabase
+        .from("site_settings")
+        .select("value")
+        .eq("key", "logo_url")
+        .maybeSingle();
+      if (row?.value) logoUrl = String(row.value);
+    } catch {}
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white py-12 px-4">
       <div className="max-w-2xl mx-auto">
@@ -51,7 +90,7 @@ export default function GetAppPage() {
             DRIVER APP
           </div>
           <h1 className="text-4xl sm:text-5xl font-bold text-brand-navy mb-3">
-            Get the It's Always Fun app
+            Get the {businessName} app
           </h1>
           <p className="text-lg text-slate-600">
             Manage today's deliveries from your phone. Works offline, captures
@@ -61,7 +100,7 @@ export default function GetAppPage() {
 
         {/* Install card */}
         <div className="mb-10">
-          <InstallButton />
+          <InstallButton businessName={businessName} logoUrl={logoUrl} />
         </div>
 
         {/* Features */}

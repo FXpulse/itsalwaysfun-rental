@@ -26,7 +26,13 @@ function detectDevice(): Device {
   return "desktop";
 }
 
-export function InstallButton() {
+export function InstallButton({
+  businessName = "It's Always Fun",
+  logoUrl = null,
+}: {
+  businessName?: string;
+  logoUrl?: string | null;
+}) {
   const [installEvent, setInstallEvent] = useState<BeforeInstallPromptEvent | null>(null);
   const [device, setDevice] = useState<Device>("desktop");
   const [installed, setInstalled] = useState(false);
@@ -94,17 +100,23 @@ export function InstallButton() {
     <>
       {/* Always-visible install card */}
       <div className="bg-gradient-to-br from-brand-navy via-indigo-900 to-violet-900 text-white rounded-2xl p-6 text-center shadow-2xl">
-        <div className="inline-block bg-white rounded-2xl p-3 mb-4 shadow-lg">
-          <img
-            src="/icons/icon-192.png"
-            alt="It's Always Fun"
-            className="h-16 w-16 rounded-xl"
-            onError={(e) => {
-              (e.target as HTMLImageElement).style.display = "none";
-            }}
-          />
-        </div>
-        <h2 className="text-2xl font-bold mb-2">It's Always Fun</h2>
+        {logoUrl ? (
+          <div className="inline-block bg-white rounded-2xl p-3 mb-4 shadow-lg">
+            <img
+              src={logoUrl}
+              alt={businessName}
+              className="h-16 w-auto max-w-[180px] object-contain"
+              onError={(e) => {
+                (e.target as HTMLImageElement).style.display = "none";
+              }}
+            />
+          </div>
+        ) : (
+          <div className="inline-block bg-brand-yellow text-brand-navy rounded-2xl p-4 mb-4 shadow-lg font-bold text-2xl">
+            {businessName.split(" ").map((w) => w[0]).join("").slice(0, 3)}
+          </div>
+        )}
+        <h2 className="text-2xl font-bold mb-2">{businessName}</h2>
         <p className="text-sm text-white/80 mb-5">
           Tap below to add the app to your home screen
         </p>
