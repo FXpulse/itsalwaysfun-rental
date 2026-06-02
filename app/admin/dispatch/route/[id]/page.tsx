@@ -86,13 +86,24 @@ export default async function DriverRouteViewPage({
     day: "numeric",
   });
 
+  // Back link target depends on role:
+  // - Drivers go back to /driver (they don't have access to the full dispatch page)
+  // - Admin/staff go back to the full dispatch list for that date
+  const isDriver = me.role === "driver";
+  const backHref = isDriver
+    ? "/driver"
+    : `/admin/dispatch/${r.route_date}${r.route_type === "pickup" ? "?type=pickup" : ""}`;
+  const backLabel = isDriver
+    ? "Back to my routes"
+    : `Back to ${r.route_type === "pickup" ? "pickup" : "delivery"} dispatch`;
+
   return (
     <div className="max-w-2xl">
       <Link
-        href={`/admin/dispatch/${r.route_date}${r.route_type === "pickup" ? "?type=pickup" : ""}`}
+        href={backHref}
         className="text-sm text-slate-500 hover:text-brand-navy inline-flex items-center gap-1 mb-3"
       >
-        <ArrowLeft className="h-3 w-3" /> Back to {r.route_type === "pickup" ? "pickup" : "delivery"} dispatch
+        <ArrowLeft className="h-3 w-3" /> {backLabel}
       </Link>
 
       {/* Header */}
