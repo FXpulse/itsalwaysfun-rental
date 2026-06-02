@@ -1,8 +1,8 @@
 {
-  "name": "It's Always Fun Driver",
-  "short_name": "IAF Driver",
-  "description": "Driver app for It's Always Fun rentals — today's routes, deliveries, proof + signatures.",
-  "start_url": "/driver",
+  "name": "RentalFlow",
+  "short_name": "RentalFlow",
+  "description": "All-in-one rental management software for party + event rentals.",
+  "start_url": "/admin/dashboard",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
@@ -40,14 +40,6 @@
       "sizes": "180x180",
       "type": "image/png",
       "purpose": "any"
-    }
-  ],
-  "shortcuts": [
-    {
-      "name": "Today's Routes",
-      "short_name": "Today",
-      "url": "/driver",
-      "description": "Jump straight to today's driver routes"
     }
   ]
 }

@@ -70,6 +70,10 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     title: name,
     description: `${name} — book online, manage rentals.`,
+    // Dynamic per-tenant manifest — served by app/manifest.webmanifest/route.ts
+    // with the tenant's business_name + logo so the install card shows
+    // their branding (not RentalFlow's).
+    manifest: "/manifest.webmanifest",
     appleWebApp: {
       capable: true,
       statusBarStyle: "default",
