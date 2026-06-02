@@ -79,37 +79,28 @@ async function checkLineItemsAvailability(
     productsById.set(p.id, { name: p.name, stock: Number(p.stock) || 0 });
   }
 
-  // Pull ALL active bookings that overlap the date window, regardless of
+  // Pull PAID bookings that overlap the date window, regardless of
   // their primary product — we need to scan their addons too.
+  // Pending payment bookings are intentionally excluded so abandoned
+  // carts don't block other customers from buying.
   let query = supabase
     .from("bookings")
     .select(
-      "id, event_date, event_end_date, booking_status, hold_expires_at, product_id, addons",
+      "id, event_date, event_end_date, booking_status, product_id, addons",
     )
     .lte("event_date", endDate)
     .or(
       `event_end_date.gte.${startDate},and(event_end_date.is.null,event_date.gte.${startDate})`,
     )
-    .in("booking_status", ["pending_payment", "confirmed", "delivered"]);
+    .in("booking_status", ["confirmed", "delivered"]);
   if (excludeBookingId) {
     query = query.neq("id", excludeBookingId);
   }
   const { data: existingBookings } = await query;
 
-  const nowISO = new Date().toISOString();
-
   // occupied[productId][day] = total units occupied that day
   const occupied: Record<string, Record<string, number>> = {};
   for (const b of (existingBookings as any[]) || []) {
-    // Skip expired holds — those slots are free
-    if (
-      b.booking_status === "pending_payment" &&
-      b.hold_expires_at &&
-      b.hold_expires_at < nowISO
-    ) {
-      continue;
-    }
-
     // Build list of {productId, quantity} occupied by this booking
     const itemsHeld: Array<{ pid: string; qty: number }> = [];
     if (b.product_id) itemsHeld.push({ pid: b.product_id, qty: 1 });
