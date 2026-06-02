@@ -49,10 +49,11 @@ export async function extractPlaceIdentifier(url: string): Promise<ExtractedIden
   if (!url) return null;
   let finalUrl = url.trim();
 
-  // Follow short URL redirects (g.page, maps.app.goo.gl) once.
-  // Google sometimes serves different HTML / refuses redirect for non-browser
-  // user-agents, so we present as a real browser. We capture res.url and
-  // discard the body.
+  // Follow short URL redirects (g.page, maps.app.goo.gl).
+  // Google often doesn't issue an HTTP redirect for these — they serve an
+  // HTML page that does JavaScript-based navigation. So we fetch the body,
+  // look for the canonical Maps URL embedded in meta tags + scripts, and
+  // use that as finalUrl.
   if (/g\.page|maps\.app\.goo\.gl/.test(finalUrl)) {
     try {
       const res = await fetch(finalUrl, {
@@ -65,8 +66,22 @@ export async function extractPlaceIdentifier(url: string): Promise<ExtractedIden
           "Accept-Language": "en-US,en;q=0.5",
         },
       });
-      finalUrl = res.url;
-      console.log("[Places] redirect resolved", url, "→", finalUrl);
+
+      // If fetch followed an HTTP redirect, res.url is the destination
+      if (res.url && res.url !== finalUrl) {
+        finalUrl = res.url;
+        console.log("[Places] HTTP redirect", url, "→", finalUrl);
+      } else {
+        // No HTTP redirect — parse the HTML for the canonical URL
+        const body = await res.text();
+        const extracted = extractCanonicalMapsUrlFromHtml(body);
+        if (extracted) {
+          finalUrl = extracted;
+          console.log("[Places] HTML extracted canonical", url, "→", finalUrl);
+        } else {
+          console.warn("[Places] no redirect, no canonical found in body", url);
+        }
+      }
     } catch (e: any) {
       console.error("[Places] redirect follow failed", url, e?.message);
     }
@@ -245,4 +260,60 @@ export async function resolveBusinessFromUrl(url: string): Promise<PlaceDetails 
   if (parsed.cid) return resolveCid(parsed.cid, bias);
   if (parsed.query) return searchPlaceByText(parsed.query, bias);
   return null;
+}
+
+/** Extract the canonical Google Maps URL from a short-URL response body.
+ *  Google's `maps.app.goo.gl` and `g.page` short URLs return an HTML page
+ *  with the destination encoded in several places. We try, in order:
+ *
+ *  1. <meta http-equiv="refresh" content="0; URL=https://www.google.com/maps/...">
+ *  2. <link rel="canonical" href="https://www.google.com/maps/...">
+ *  3. <meta property="og:url" content="https://www.google.com/maps/...">
+ *  4. window.APP_INITIALIZATION_STATE = [...] — long JSON containing the URL
+ *  5. Any plain text /maps/place/...@<coords>... URL in the body
+ */
+function extractCanonicalMapsUrlFromHtml(html: string): string | null {
+  if (!html) return null;
+
+  // 1. meta refresh
+  const refresh = html.match(/<meta[^>]+http-equiv=["']?refresh["']?[^>]+content=["'][^"']*url=([^"'>]+)["']/i);
+  if (refresh && /maps/.test(refresh[1])) {
+    return decodeHtml(refresh[1]);
+  }
+
+  // 2. canonical link
+  const canonical = html.match(/<link[^>]+rel=["']?canonical["']?[^>]+href=["']([^"']+)["']/i);
+  if (canonical && /\/maps\//.test(canonical[1])) {
+    return decodeHtml(canonical[1]);
+  }
+
+  // 3. og:url
+  const ogUrl = html.match(/<meta[^>]+property=["']?og:url["']?[^>]+content=["']([^"']+)["']/i);
+  if (ogUrl && /\/maps\//.test(ogUrl[1])) {
+    return decodeHtml(ogUrl[1]);
+  }
+
+  // 4. Plain text /place/<name>/@<coords>... anywhere in the body
+  const placeUrl = html.match(/https?:\/\/(?:www\.)?google\.com\/maps\/place\/[^"'<>\s]+/);
+  if (placeUrl) {
+    return decodeHtml(placeUrl[0]);
+  }
+
+  // 5. Any !3d!4d coordinate string — we can rebuild a usable URL
+  const dataUrl = html.match(/https?:\/\/(?:www\.)?google\.com\/maps[^"'<>\s]*!3d[-\d.]+!4d[-\d.]+[^"'<>\s]*/);
+  if (dataUrl) {
+    return decodeHtml(dataUrl[0]);
+  }
+
+  return null;
+}
+
+function decodeHtml(s: string): string {
+  return s
+    .replace(/&amp;/g, "&")
+    .replace(/&quot;/g, '"')
+    .replace(/&#x27;/g, "'")
+    .replace(/&#39;/g, "'")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">");
 }
