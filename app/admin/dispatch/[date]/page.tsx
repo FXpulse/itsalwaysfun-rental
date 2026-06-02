@@ -103,29 +103,41 @@ export default async function DispatchDatePage({
   }
 
   // For each route, fetch stops + compute load.
-  // Use the unscoped admin client to bypass any leftover proxy
-  // injection — dispatch_stops has no tenant_id column, tenancy is
-  // enforced via the route_id FK to dispatch_routes (already scoped).
+  // PostgREST's nested embed (bookings (...)) fails on dispatch_stops
+  // because the schema cache doesn't have the FK relationship. Do two
+  // separate queries and join in code.
   const routeIds = (routes || []).map((r: any) => r.id);
   let stopsByRoute = new Map<string, any[]>();
   if (routeIds.length > 0) {
     const unscopedAdmin = createAdminClient({ unscoped: true });
     const { data: stops, error: stopsErr } = await unscopedAdmin
       .from("dispatch_stops")
-      .select(`
-        id, route_id, booking_id, stop_order,
-        bookings (id, customer_first_name, customer_last_name, product_name, start_time, end_time, customer_address)
-      `)
+      .select("id, route_id, booking_id, stop_order")
       .in("route_id", routeIds)
       .order("stop_order");
     if (stopsErr) {
       console.error("[dispatch page] stops query failed:", stopsErr, "routeIds:", routeIds);
-    } else {
-      console.log("[dispatch page] stops loaded:", (stops as any[])?.length || 0, "for routeIds:", routeIds);
     }
+
+    const bookingIds = Array.from(new Set(((stops as any[]) || []).map((s) => s.booking_id)));
+    let bookingsById = new Map<string, any>();
+    if (bookingIds.length > 0) {
+      const { data: bookingRows, error: bErr } = await supabase
+        .from("bookings")
+        .select("id, customer_first_name, customer_last_name, product_name, start_time, end_time, customer_address")
+        .in("id", bookingIds);
+      if (bErr) {
+        console.error("[dispatch page] bookings join query failed:", bErr);
+      }
+      for (const b of (bookingRows as any[]) || []) {
+        bookingsById.set(b.id, b);
+      }
+    }
+
     for (const s of (stops as any[]) || []) {
+      const enriched = { ...s, bookings: bookingsById.get(s.booking_id) || null };
       if (!stopsByRoute.has(s.route_id)) stopsByRoute.set(s.route_id, []);
-      stopsByRoute.get(s.route_id)!.push(s);
+      stopsByRoute.get(s.route_id)!.push(enriched);
     }
   }
 
