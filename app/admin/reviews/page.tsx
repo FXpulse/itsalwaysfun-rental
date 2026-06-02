@@ -4,6 +4,9 @@ import { getCurrentUserRole } from "@/lib/auth/roles";
 import { Star, ExternalLink } from "lucide-react";
 import { ReviewsManager } from "./ReviewsManager";
 import { getTenantInfo } from "@/lib/tenant/business";
+import { getCurrentTenantId } from "@/lib/tenant/db";
+import { getCachedPlaceData } from "@/lib/google-places/sync";
+import { GooglePlacesPanel } from "./GooglePlacesPanel";
 
 export const dynamic = "force-dynamic";
 
@@ -30,7 +33,8 @@ export default async function AdminReviewsPage() {
   const supabase = createAdminClient();
   const tenant = await getTenantInfo();
   const tz = tenant.timezone;
-  const [{ data: reviews }, { data: settingsRows }] = await Promise.all([
+  const tenantId = getCurrentTenantId();
+  const [{ data: reviews }, { data: settingsRows }, placeCache] = await Promise.all([
     supabase
       .from("customer_reviews")
       .select("*")
@@ -40,18 +44,44 @@ export default async function AdminReviewsPage() {
     supabase
       .from("site_settings")
       .select("key, value")
-      .eq("key", "google_review_url"),
+      .in("key", ["google_review_url", "google_business_profile_url"]),
+    getCachedPlaceData(tenantId).catch(() => null),
   ]);
 
   const list = (reviews as ReviewRow[]) || [];
+
+  // Build a set of imported google review texts (text+author) so the panel
+  // can show ✓ "Already on site" instead of the Import button
+  const alreadyImportedTexts = new Set(
+    list
+      .filter((r) => r.source === "google")
+      .map((r) => r.review_text.trim()),
+  );
+
+  // Convert cached place data → typed shape the panel expects
+  const cachedPlace = placeCache
+    ? {
+        place_id: (placeCache as any).place_id,
+        display_name: (placeCache as any).display_name,
+        rating: (placeCache as any).rating ? Number((placeCache as any).rating) : null,
+        user_rating_count: (placeCache as any).user_rating_count || 0,
+        reviews: ((placeCache as any).reviews as any[]) || [],
+        google_maps_uri: (placeCache as any).google_maps_uri,
+        last_synced_at: (placeCache as any).last_synced_at,
+        last_sync_status: (placeCache as any).last_sync_status,
+        last_sync_error: (placeCache as any).last_sync_error,
+      }
+    : null;
   const featuredCount = list.filter((r) => r.is_featured && r.is_active).length;
   const activeCount = list.filter((r) => r.is_active).length;
   const avgRating = activeCount
     ? (list.filter((r) => r.is_active).reduce((s, r) => s + r.rating, 0) / activeCount).toFixed(1)
     : "—";
 
-  const googleReviewUrl =
-    ((settingsRows as any[])?.[0]?.value as string) || "";
+  const settingsMap = new Map<string, string>(
+    ((settingsRows as any[]) || []).map((r) => [r.key, r.value || ""]),
+  );
+  const googleReviewUrl = settingsMap.get("google_review_url") || "";
 
   return (
     <div className="max-w-6xl">
@@ -92,6 +122,15 @@ export default async function AdminReviewsPage() {
           </div>
         </div>
       )}
+
+      {/* Live Google reviews from Places API (works as soon as
+          GOOGLE_PLACES_API_KEY env var is set and tenant pastes their GBP URL
+          in /admin/site). Each cached review has an "Import to site" button. */}
+      <GooglePlacesPanel
+        place={cachedPlace}
+        alreadyImportedTexts={alreadyImportedTexts}
+        reviewWriteUrl={googleReviewUrl}
+      />
 
       <ReviewsManager reviews={list} tz={tz} />
     </div>
