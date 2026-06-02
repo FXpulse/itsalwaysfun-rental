@@ -1,7 +1,8 @@
 import Link from "next/link";
-import { Sparkles, ArrowRight } from "lucide-react";
+import { Sparkles, ArrowRight, MapPin } from "lucide-react";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { SiteSettingsForm } from "./SiteSettingsForm";
+import { LocalSeoPanel } from "./LocalSeoPanel";
 
 export const dynamic = "force-dynamic";
 
@@ -22,9 +23,12 @@ export default async function AdminSitePage() {
 
   // Group by category — explicit Record<string, SettingRow[]> so TS is happy
   const grouped: Record<string, SettingRow[]> = {};
+  // Flat lookup by key for the LocalSeoPanel below
+  const settingsMap = new Map<string, string>();
   for (const s of (settings as SettingRow[] | null) || []) {
     if (!grouped[s.category]) grouped[s.category] = [];
     grouped[s.category]!.push(s);
+    if (s.value !== null) settingsMap.set(s.key, s.value);
   }
 
   return (
@@ -57,6 +61,22 @@ export default async function AdminSitePage() {
           <ArrowRight className="h-5 w-5 text-emerald-600 group-hover:translate-x-1 transition-transform" />
         </div>
       </Link>
+
+      {/* Local SEO + Google Business — dedicated panel above the bulk editor.
+          Shows the most impactful SEO fields with helpful UI (lookup links,
+          format hints, validation). The bulk settings form below still
+          renders these same keys so power users can edit them there too. */}
+      <LocalSeoPanel
+        initial={{
+          business_address: settingsMap.get("business_address") || "",
+          service_area: settingsMap.get("service_area") || "",
+          geo_latitude: settingsMap.get("geo_latitude") || "",
+          geo_longitude: settingsMap.get("geo_longitude") || "",
+          price_range: settingsMap.get("price_range") || "",
+          google_business_profile_url: settingsMap.get("google_business_profile_url") || "",
+          seo_google_verification: settingsMap.get("seo_google_verification") || "",
+        }}
+      />
 
       <SiteSettingsForm groupedSettings={grouped} />
     </div>
