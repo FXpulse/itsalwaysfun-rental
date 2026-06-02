@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentTenantId } from "@/lib/tenant/db";
+import { getStripe, isStripeConfigured } from "@/lib/stripe/server";
 import { requireAdmin } from "@/lib/auth/roles";
 import { isEmailConfigured } from "@/lib/email/send";
 import { sendTemplated } from "@/lib/email/send-template";
@@ -362,6 +363,100 @@ export async function cancelQuote(id: string) {
   revalidatePath("/admin/quotes");
   revalidatePath(`/admin/quotes/${id}`);
   return { success: true };
+}
+
+/** Regenerate the Stripe PaymentIntent for an approved-but-unpaid quote.
+ *  Useful when the customer hits an error mid-payment and the original
+ *  intent is in a bad state, or when the 24h hold expired.
+ *  - Cancels the old intent (best-effort, doesn't fail if already gone).
+ *  - Creates a fresh intent with the same amount + metadata.
+ *  - Resets booking hold_expires_at to +24h.
+ *  Returns the quote URL the admin can re-send to the customer. */
+export async function regeneratePaymentLink(quoteId: string): Promise<
+  { success: true; quote_url: string; payment_intent_id: string }
+  | { error: string }
+> {
+  try {
+    await requireAdmin();
+    const supabase = createAdminClient();
+
+    const { data: quote } = await supabase
+      .from("quotes")
+      .select("*")
+      .eq("id", quoteId)
+      .single();
+    if (!quote) return { error: "Quote not found" };
+
+    if (quote.status === "converted") {
+      return { error: "Quote already paid — no need to regenerate" };
+    }
+    if (quote.status !== "approved" || !quote.converted_booking_id) {
+      return { error: "Quote must be approved (customer accepted) before regenerating the payment link" };
+    }
+
+    const { data: booking } = await supabase
+      .from("bookings")
+      .select("id, total_amount, stripe_payment_status, stripe_payment_intent_id, product_name")
+      .eq("id", quote.converted_booking_id)
+      .single();
+    if (!booking) return { error: "Booking row not found" };
+
+    if (booking.stripe_payment_status === "paid") {
+      return { error: "Booking already paid — refresh the page" };
+    }
+
+    if (!isStripeConfigured()) {
+      return { error: "Stripe not configured for this tenant" };
+    }
+
+    const stripe = getStripe();
+
+    // Cancel the old intent if it exists (best-effort — don't fail the action)
+    if (booking.stripe_payment_intent_id) {
+      try {
+        await stripe.paymentIntents.cancel(booking.stripe_payment_intent_id);
+      } catch (e: any) {
+        // Already cancelled / succeeded / not found — fine, move on
+        console.warn("[regeneratePaymentLink] old intent cancel failed (non-fatal):", e?.message);
+      }
+    }
+
+    // Create a fresh intent with the current booking amount
+    const intent = await stripe.paymentIntents.create({
+      amount: Number(booking.total_amount),
+      currency: "usd",
+      automatic_payment_methods: { enabled: true },
+      description: `Quote ${quote.quote_number} — ${booking.product_name} (regenerated)`,
+      metadata: {
+        booking_id: booking.id,
+        quote_id: quote.id,
+        quote_number: quote.quote_number,
+        customer_email: quote.customer_email,
+        regenerated: "true",
+      },
+      receipt_email: quote.customer_email,
+    });
+
+    // Reset the hold so the customer has 24h again
+    const newHold = new Date(Date.now() + 24 * 60 * 60_000).toISOString();
+    await supabase
+      .from("bookings")
+      .update({
+        stripe_payment_intent_id: intent.id,
+        hold_expires_at: newHold,
+      })
+      .eq("id", booking.id);
+
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://itsalwaysfun.net";
+    const quoteUrl = `${baseUrl}/quotes/${quote.token}`;
+
+    revalidatePath(`/admin/quotes/${quoteId}`);
+    revalidatePath(`/quotes/${quote.token}`);
+    return { success: true, quote_url: quoteUrl, payment_intent_id: intent.id };
+  } catch (e: any) {
+    console.error("regeneratePaymentLink threw:", e);
+    return { error: e?.message || String(e) };
+  }
 }
 
 export async function deleteQuote(id: string) {

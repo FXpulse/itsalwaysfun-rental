@@ -3,8 +3,8 @@
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
-import { Send, Copy, Check, X, Trash2 } from "lucide-react";
-import { sendQuote, cancelQuote, deleteQuote } from "../actions";
+import { Send, Copy, Check, X, Trash2, RefreshCw } from "lucide-react";
+import { sendQuote, cancelQuote, deleteQuote, regeneratePaymentLink } from "../actions";
 
 export function QuoteActions({
   quoteId,
@@ -75,6 +75,22 @@ export function QuoteActions({
     });
   }
 
+  function handleRegenerate() {
+    if (!confirm(
+      "Cancel the old payment link and create a new one?\n\n" +
+      "Use this if the customer hits an error paying. The booking stays the same — only the Stripe payment session is reset, with a fresh 24h hold.",
+    )) return;
+    startTransition(async () => {
+      const r = await regeneratePaymentLink(quoteId);
+      if ((r as any).error) {
+        toast.error((r as any).error);
+        return;
+      }
+      toast.success("New payment link generated — copy and send to customer");
+      router.refresh();
+    });
+  }
+
   return (
     <div className="card flex flex-wrap gap-2 items-center">
       {status === "draft" && (
@@ -96,7 +112,7 @@ export function QuoteActions({
         </>
       )}
 
-      {(status === "sent" || status === "viewed" || status === "approved") && !convertedBookingId && (
+      {(status === "sent" || status === "viewed" || status === "approved") && (
         <>
           <button
             onClick={handleCopy}
@@ -106,6 +122,16 @@ export function QuoteActions({
             {copied ? "Copied!" : "Copy customer link"}
           </button>
           <code className="text-xs text-slate-500 truncate max-w-md">{quoteUrl}</code>
+          {status === "approved" && convertedBookingId && (
+            <button
+              onClick={handleRegenerate}
+              disabled={pending}
+              className="inline-flex items-center gap-2 text-sm bg-indigo-50 border border-indigo-300 text-indigo-700 hover:bg-indigo-100 rounded-md px-3 py-2"
+              title="Cancel old Stripe intent + create a fresh one. Use when customer hits an error paying."
+            >
+              <RefreshCw className="h-4 w-4" /> Regenerate payment link
+            </button>
+          )}
           {status !== "approved" && (
             <button
               onClick={handleCancel}
