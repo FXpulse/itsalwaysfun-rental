@@ -137,7 +137,24 @@ export async function createQuote(input: z.infer<typeof QuoteInputSchema>) {
     .single();
 
   if (error) return { error: error.message };
+
+  // Save the customer for /admin/customers + future portal access.
+  // Best-effort — quote creation should not fail if this errors.
+  try {
+    const { createCustomerManually } = await import("@/app/admin/customers/new/actions");
+    await createCustomerManually({
+      email: parsed.data.customer_email.toLowerCase().trim(),
+      first_name: parsed.data.customer_first_name,
+      last_name: parsed.data.customer_last_name,
+      phone: parsed.data.customer_phone,
+      send_invite: false, // customer gets the quote email separately
+    });
+  } catch (e) {
+    console.error("[quote → customer sync failed, non-fatal]", e);
+  }
+
   revalidatePath("/admin/quotes");
+  revalidatePath("/admin/customers");
   return { success: true, quote };
 }
 

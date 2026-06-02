@@ -44,16 +44,26 @@ export default async function AdminCustomersPage({
 
   const supabase = createAdminClient();
 
-  // Pull ALL bookings (limit 5000 — when we cross that, paginate)
-  const { data: rawBookings } = await supabase
-    .from("bookings")
-    .select(
-      "customer_email, customer_first_name, customer_last_name, customer_phone, event_date, total_amount, stripe_payment_status, booking_status, created_at",
-    )
-    .order("created_at", { ascending: false })
-    .limit(5000);
+  // Pull bookings + quotes in parallel (limit 5000 each)
+  const [{ data: rawBookings }, { data: rawQuotes }] = await Promise.all([
+    supabase
+      .from("bookings")
+      .select(
+        "customer_email, customer_first_name, customer_last_name, customer_phone, event_date, total_amount, stripe_payment_status, booking_status, created_at",
+      )
+      .order("created_at", { ascending: false })
+      .limit(5000),
+    supabase
+      .from("quotes")
+      .select(
+        "customer_email, customer_first_name, customer_last_name, customer_phone, event_date, created_at",
+      )
+      .order("created_at", { ascending: false })
+      .limit(5000),
+  ]);
 
   const bookings: BookingRow[] = (rawBookings as BookingRow[]) || [];
+  const quotes = (rawQuotes as any[]) || [];
 
   // Aggregate by email (lowercase)
   const map = new Map<string, CustomerSummary>();
@@ -83,6 +93,33 @@ export default async function AdminCustomersPage({
       if (b.event_date < existing.first_booking_date) existing.first_booking_date = b.event_date;
       // Latest booking wins for contact info (first iteration is most recent due to ORDER BY)
       // so we keep what's already there
+    }
+  }
+
+  // Also include customers from quotes (even if they have no bookings yet).
+  // If they already exist from bookings, the booking data wins for stats —
+  // we just fill in name/phone from quote if missing.
+  for (const q of quotes) {
+    const key = (q.customer_email || "").toLowerCase().trim();
+    if (!key) continue;
+    const existing = map.get(key);
+    if (!existing) {
+      map.set(key, {
+        email: key,
+        display_email: q.customer_email,
+        first_name: q.customer_first_name || "",
+        last_name: q.customer_last_name || "",
+        phone: q.customer_phone || "",
+        total_bookings: 0,
+        total_spent_cents: 0,
+        last_booking_date: q.event_date || q.created_at?.slice(0, 10) || "",
+        first_booking_date: q.event_date || q.created_at?.slice(0, 10) || "",
+        is_returning: false,
+      });
+    } else {
+      if (!existing.first_name && q.customer_first_name) existing.first_name = q.customer_first_name;
+      if (!existing.last_name && q.customer_last_name) existing.last_name = q.customer_last_name;
+      if (!existing.phone && q.customer_phone) existing.phone = q.customer_phone;
     }
   }
 
@@ -126,7 +163,7 @@ export default async function AdminCustomersPage({
         <div>
           <h1 className="text-2xl font-bold text-brand-navy mb-1">Customers</h1>
           <p className="text-sm text-slate-500">
-            Aggregated from bookings (grouped by email). Add manually below for portal-only customers.
+            Aggregated from bookings + quotes (grouped by email). Add manually below for portal-only customers.
           </p>
         </div>
         <div className="flex gap-2 flex-wrap">
