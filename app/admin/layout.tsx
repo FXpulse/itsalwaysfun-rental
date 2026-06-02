@@ -179,9 +179,18 @@ export default async function AdminLayout({
     redirect("/admin/login?error=no_role");
   }
 
-  // Drivers go to their dedicated /driver landing — NOT the admin shell
+  // Drivers go to their dedicated /driver landing — NOT the admin shell.
+  // EXCEPTION: the per-route driver view at /admin/dispatch/route/[id] is
+  // intentionally accessible to drivers (it's the page they open after
+  // clicking a route from /driver). Render it bare (without admin sidebar)
+  // so drivers don't see admin nav links they can't use.
   if (userRole.role === "driver") {
-    redirect("/driver");
+    const allowDriverPaths = ["/admin/dispatch/route/", "/admin/logout"];
+    const isAllowed = allowDriverPaths.some((p) => requestPath.startsWith(p));
+    if (!isAllowed) {
+      redirect("/driver");
+    }
+    return <>{children}</>;
   }
 
   // Brand-new tenants land on the onboarding wizard until they finish it
