@@ -30,8 +30,14 @@ export async function generateMetadata(): Promise<Metadata> {
     settings.seo_default_description ||
     settings.footer_description ||
     `${settings.hero_subtitle} Serving ${settings.service_area}.`;
+  // OG image fallback chain:
+  //   1. Admin-set seo_og_image_url (tenant uploads a custom branded card)
+  //   2. Dynamic /opengraph-image — auto-generated per-tenant with logo +
+  //      business_name + tagline on the tenant's brand-color gradient.
+  // The dynamic one replaces the old /og-default.png that was
+  // RentalFlow-branded for every tenant.
   const ogImage =
-    settings.seo_og_image_url || settings.logo_url || `${baseUrl}/og-default.png`;
+    settings.seo_og_image_url || `${baseUrl}/opengraph-image`;
 
   return {
     title,
