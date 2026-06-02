@@ -47,6 +47,10 @@
     {
       "path": "/api/cron/campaign-sender",
       "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/google-places-sync",
+      "schedule": "0 10 * * *"
     }
   ]
 }

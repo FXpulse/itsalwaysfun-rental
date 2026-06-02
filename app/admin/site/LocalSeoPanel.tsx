@@ -11,8 +11,10 @@ import {
   CheckCircle2,
   AlertCircle,
   Search,
+  RefreshCw,
+  Star,
 } from "lucide-react";
-import { saveLocalSeo } from "./local-seo-actions";
+import { saveLocalSeo, refreshPlacesCache } from "./local-seo-actions";
 
 interface Initial {
   business_address: string;
@@ -24,7 +26,26 @@ interface Initial {
   seo_google_verification: string;
 }
 
-export function LocalSeoPanel({ initial }: { initial: Initial }) {
+interface PlacesStatus {
+  configured: boolean;
+  cached: null | {
+    place_id: string;
+    display_name: string | null;
+    rating: number | null;
+    review_count: number;
+    last_synced_at: string;
+    sync_status: string;
+    sync_error: string | null;
+  };
+}
+
+export function LocalSeoPanel({
+  initial,
+  placesStatus,
+}: {
+  initial: Initial;
+  placesStatus?: PlacesStatus;
+}) {
   const [serviceArea, setServiceArea] = useState(initial.service_area);
   const [lat, setLat] = useState(initial.geo_latitude);
   const [lon, setLon] = useState(initial.geo_longitude);
@@ -59,7 +80,12 @@ export function LocalSeoPanel({ initial }: { initial: Initial }) {
         return;
       }
       setSaved(true);
-      toast.success("Local SEO settings saved");
+      const placesErr = (res as any).placesSyncError;
+      if (placesErr) {
+        toast.warning(`Saved, but Google Places sync had an issue: ${placesErr}`);
+      } else {
+        toast.success("Local SEO settings saved");
+      }
       setTimeout(() => setSaved(false), 2500);
     });
   }
@@ -253,6 +279,55 @@ export function LocalSeoPanel({ initial }: { initial: Initial }) {
               </a>
             </div>
           )}
+
+          {/* Places API sync status — shown only when API is configured */}
+          {placesStatus?.configured && (
+            <div className="mt-3 pt-3 border-t border-blue-200">
+              {placesStatus.cached ? (
+                <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="text-xs font-bold text-emerald-900 inline-flex items-center gap-1">
+                      <CheckCircle2 className="h-3.5 w-3.5" /> Synced with Google Places
+                    </div>
+                    <SyncNowButton />
+                  </div>
+                  <div className="grid grid-cols-3 gap-2 text-xs">
+                    <div>
+                      <div className="text-emerald-700">Rating</div>
+                      <div className="font-bold text-emerald-900 inline-flex items-center gap-0.5">
+                        <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
+                        {placesStatus.cached.rating?.toFixed(1) || "—"}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-emerald-700">Reviews</div>
+                      <div className="font-bold text-emerald-900">{placesStatus.cached.review_count}</div>
+                    </div>
+                    <div>
+                      <div className="text-emerald-700">Last sync</div>
+                      <div className="font-bold text-emerald-900 text-[10px]">
+                        {new Date(placesStatus.cached.last_synced_at).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
+                      </div>
+                    </div>
+                  </div>
+                  <p className="text-[10px] text-emerald-700 mt-2">
+                    Synced daily at 10am UTC. Cached data feeds the LocalBusiness schema on your homepage so Google shows stars in search results.
+                  </p>
+                </div>
+              ) : (
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 flex items-start gap-2">
+                  <AlertCircle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
+                  <div className="flex-1">
+                    <div className="text-xs font-bold text-amber-900">Not synced with Google Places yet</div>
+                    <p className="text-[11px] text-amber-800 mt-0.5">
+                      Save your GBP URL above + click Sync to pull rating + reviews.
+                    </p>
+                  </div>
+                  <SyncNowButton />
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Search Console reminder */}
@@ -295,5 +370,31 @@ export function LocalSeoPanel({ initial }: { initial: Initial }) {
         </div>
       </div>
     </div>
+  );
+}
+
+function SyncNowButton() {
+  const [isPending, startTransition] = useTransition();
+  function handleSync() {
+    startTransition(async () => {
+      const res = await refreshPlacesCache();
+      if (!res.ok) {
+        toast.error(res.error || "Sync failed");
+        return;
+      }
+      toast.success("Synced — refresh to see updates");
+      setTimeout(() => window.location.reload(), 800);
+    });
+  }
+  return (
+    <button
+      type="button"
+      onClick={handleSync}
+      disabled={isPending}
+      className="text-xs bg-white border border-emerald-300 text-emerald-700 hover:bg-emerald-50 rounded px-2 py-1 inline-flex items-center gap-1 font-semibold shrink-0"
+    >
+      <RefreshCw className={`h-3 w-3 ${isPending ? "animate-spin" : ""}`} />
+      {isPending ? "Syncing..." : "Sync now"}
+    </button>
   );
 }

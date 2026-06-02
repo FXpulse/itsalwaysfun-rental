@@ -182,13 +182,33 @@ export default async function HomePage() {
   const proto = h.get("x-forwarded-proto") || "https";
   const baseUrl = `${proto}://${host}`;
 
-  // Aggregate rating from real customer reviews (active only). Critical for
-  // stars + review-count appearing under the result in Google SERPs.
-  const ratingSource = featuredReviews.filter((r: any) => typeof r.rating === "number" && r.rating > 0);
-  const averageRating = ratingSource.length > 0
-    ? ratingSource.reduce((s: number, r: any) => s + r.rating, 0) / ratingSource.length
-    : undefined;
-  const ratingCount = ratingSource.length || undefined;
+  // Aggregate rating sources, in order of preference:
+  //   1. Cached Google Places rating (real GBP reviews from public API).
+  //      This is the gold standard — same data Google itself ranks with.
+  //   2. Internal customer_reviews — what tenants manually curate.
+  // We prefer GBP because it's the same source Google sees, so the rich
+  // snippet matches what Google already knows about the business.
+  const { getCachedPlaceData } = await import("@/lib/google-places/sync");
+  const { getCurrentTenantId } = await import("@/lib/tenant/db");
+  let averageRating: number | undefined;
+  let ratingCount: number | undefined;
+  try {
+    const tenantId = getCurrentTenantId();
+    const placeCache = await getCachedPlaceData(tenantId);
+    if (placeCache && (placeCache as any).rating && (placeCache as any).user_rating_count) {
+      averageRating = Number((placeCache as any).rating);
+      ratingCount = Number((placeCache as any).user_rating_count);
+    }
+  } catch {}
+
+  // Fall back to internal reviews if no cached GBP data
+  if (!averageRating || !ratingCount) {
+    const ratingSource = featuredReviews.filter((r: any) => typeof r.rating === "number" && r.rating > 0);
+    averageRating = ratingSource.length > 0
+      ? ratingSource.reduce((s: number, r: any) => s + r.rating, 0) / ratingSource.length
+      : undefined;
+    ratingCount = ratingSource.length || undefined;
+  }
 
   const jsonLd = localBusinessJsonLd({ settings, baseUrl, averageRating, ratingCount });
 

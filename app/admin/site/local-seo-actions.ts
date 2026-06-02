@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentTenantId } from "@/lib/tenant/db";
 import { requireStaffOrAdmin } from "@/lib/auth/roles";
+import { syncPlaceDataForTenant } from "@/lib/google-places/sync";
+import { isPlacesConfigured } from "@/lib/google-places/client";
 
 const SUPPORTED_KEYS = new Set([
   "service_area",
@@ -60,11 +62,55 @@ export async function saveLocalSeo(input: Record<string, string>): Promise<{ ok:
       return { ok: false, error: error.message };
     }
 
+    // Auto-sync Google Places cache if the GBP URL changed and the API is
+    // configured. Best-effort — don't fail the save if Places lookup errors.
+    let placesSyncResult: { ok: boolean; error?: string } | null = null;
+    if (
+      Object.keys(input).includes("google_business_profile_url") &&
+      isPlacesConfigured()
+    ) {
+      try {
+        placesSyncResult = await syncPlaceDataForTenant(
+          tenantId,
+          input.google_business_profile_url || "",
+        );
+      } catch (e: any) {
+        console.error("[saveLocalSeo] places sync failed", e);
+      }
+    }
+
     revalidatePath("/admin/site");
+    revalidatePath("/admin/reviews");
     revalidatePath("/");
-    return { ok: true };
+    return {
+      ok: true,
+      placesSyncError: placesSyncResult && !placesSyncResult.ok ? placesSyncResult.error : undefined,
+    } as any;
   } catch (e: any) {
     console.error("saveLocalSeo threw:", e);
+    return { ok: false, error: e?.message || String(e) };
+  }
+}
+
+/** Manual trigger to refresh place data (used in admin "Sync now" button). */
+export async function refreshPlacesCache(): Promise<{ ok: boolean; error?: string }> {
+  try {
+    await requireStaffOrAdmin();
+    const tenantId = getCurrentTenantId();
+    const supabase = createAdminClient({ unscoped: true });
+    const { data } = await supabase
+      .from("site_settings")
+      .select("value")
+      .eq("tenant_id", tenantId)
+      .eq("key", "google_business_profile_url")
+      .maybeSingle();
+    const url = (data as any)?.value || "";
+    if (!url) return { ok: false, error: "No Google Business URL configured" };
+    const res = await syncPlaceDataForTenant(tenantId, url);
+    revalidatePath("/admin/site");
+    revalidatePath("/admin/reviews");
+    return res;
+  } catch (e: any) {
     return { ok: false, error: e?.message || String(e) };
   }
 }

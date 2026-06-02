@@ -1,6 +1,9 @@
 import Link from "next/link";
 import { Sparkles, ArrowRight, MapPin } from "lucide-react";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getCurrentTenantId } from "@/lib/tenant/db";
+import { isPlacesConfigured } from "@/lib/google-places/client";
+import { getCachedPlaceData } from "@/lib/google-places/sync";
 import { SiteSettingsForm } from "./SiteSettingsForm";
 import { LocalSeoPanel } from "./LocalSeoPanel";
 
@@ -30,6 +33,25 @@ export default async function AdminSitePage() {
     grouped[s.category]!.push(s);
     if (s.value !== null) settingsMap.set(s.key, s.value);
   }
+
+  // Google Places cache snapshot for the LocalSeoPanel
+  const tenantId = getCurrentTenantId();
+  const placesConfigured = isPlacesConfigured();
+  const cachedPlace = placesConfigured ? await getCachedPlaceData(tenantId) : null;
+  const placesStatus = {
+    configured: placesConfigured,
+    cached: cachedPlace
+      ? {
+          place_id: (cachedPlace as any).place_id,
+          display_name: (cachedPlace as any).display_name,
+          rating: (cachedPlace as any).rating ? Number((cachedPlace as any).rating) : null,
+          review_count: (cachedPlace as any).user_rating_count || 0,
+          last_synced_at: (cachedPlace as any).last_synced_at,
+          sync_status: (cachedPlace as any).last_sync_status,
+          sync_error: (cachedPlace as any).last_sync_error,
+        }
+      : null,
+  };
 
   return (
     <div className="max-w-4xl">
@@ -76,6 +98,7 @@ export default async function AdminSitePage() {
           google_business_profile_url: settingsMap.get("google_business_profile_url") || "",
           seo_google_verification: settingsMap.get("seo_google_verification") || "",
         }}
+        placesStatus={placesStatus}
       />
 
       <SiteSettingsForm groupedSettings={grouped} />
