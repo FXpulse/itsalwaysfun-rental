@@ -3,6 +3,8 @@ import { redirect, notFound } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUserRole } from "@/lib/auth/roles";
 import { getRouteLoad } from "@/lib/dispatch-aggregator";
+import { getTenantInfo } from "@/lib/tenant/business";
+import { formatDateLongInTz } from "@/lib/tenant/timezone";
 import { DispatchClient } from "./DispatchClient";
 import { ArrowLeft } from "lucide-react";
 
@@ -246,13 +248,9 @@ export default async function DispatchDatePage({
     for (const s of stops) bookingRouteMap.set(s.booking_id, routeId);
   }
 
-  const dateObj = new Date(params.date + "T00:00:00");
-  const dateLabel = dateObj.toLocaleDateString("en-US", {
-    weekday: "long",
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-  });
+  const tenant = await getTenantInfo();
+  const tz = tenant.timezone;
+  const dateLabel = formatDateLongInTz(params.date + "T12:00:00Z", tz);
 
   return (
     <div className="max-w-6xl">

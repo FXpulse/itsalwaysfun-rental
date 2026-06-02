@@ -2,6 +2,8 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUserRole } from "@/lib/auth/roles";
+import { getTenantInfo } from "@/lib/tenant/business";
+import { formatDateInTz } from "@/lib/tenant/timezone";
 import { Calendar, Truck, ArrowRight } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -17,6 +19,8 @@ export default async function AdminDispatchPage() {
   if (!me) redirect("/admin/login");
 
   const supabase = createAdminClient();
+  const tenant = await getTenantInfo();
+  const tz = tenant.timezone;
   const today = new Date();
   const todayStr = today.toISOString().split("T")[0];
   const tomorrowStr = dateAddDays(today, 1);
@@ -93,12 +97,8 @@ export default async function AdminDispatchPage() {
           const info = byDate.get(d);
           const routes = routeCounts.get(d) || 0;
           const isToday = d === todayStr;
-          const dateObj = new Date(d + "T00:00:00");
-          const weekday = dateObj.toLocaleDateString("en-US", { weekday: "long" });
-          const monthDay = dateObj.toLocaleDateString("en-US", {
-            month: "short",
-            day: "numeric",
-          });
+          const weekday = new Intl.DateTimeFormat("en-US", { timeZone: tz, weekday: "long" }).format(new Date(d + "T12:00:00Z"));
+          const monthDay = formatDateInTz(d + "T12:00:00Z", tz);
           return (
             <Link
               key={d}
