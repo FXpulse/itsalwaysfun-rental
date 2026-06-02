@@ -15,6 +15,7 @@ import {
   RotateCcw,
 } from "lucide-react";
 import { uploadProofPhoto, saveProof, deleteProof } from "./proof-actions";
+import { formatDateTimeInTz } from "@/lib/tenant/timezone";
 
 interface PhotoSpec {
   url: string;
@@ -38,10 +39,12 @@ export function ProofCapture({
   bookingId,
   phase,
   existing,
+  tz = "America/New_York",
 }: {
   bookingId: string;
   phase: "delivery" | "pickup";
   existing: ProofData | null;
+  tz?: string;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -227,7 +230,7 @@ export function ProofCapture({
             </h3>
             <p className="text-xs text-slate-500 mt-0.5">
               {existing.captured_by || "unknown"} on{" "}
-              {new Date(existing.captured_at).toLocaleString()}
+              {formatDateTimeInTz(existing.captured_at, tz)}
             </p>
           </div>
           <div className="flex gap-1">

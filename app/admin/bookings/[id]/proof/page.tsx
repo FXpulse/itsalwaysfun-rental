@@ -7,6 +7,7 @@ import Link from "next/link";
 import { ArrowLeft, MapPin, Clock, Phone, User } from "lucide-react";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUserRole } from "@/lib/auth/roles";
+import { getTenantInfo } from "@/lib/tenant/business";
 import { ProofCapture } from "../ProofCapture";
 
 export const dynamic = "force-dynamic";
@@ -22,6 +23,8 @@ export default async function BookingProofPage({
   if (!me) redirect("/admin/login");
 
   const supabase = createAdminClient();
+  const tenant = await getTenantInfo();
+  const tz = tenant.timezone;
 
   const { data: booking } = await supabase
     .from("bookings")
@@ -101,6 +104,7 @@ export default async function BookingProofPage({
         bookingId={b.id}
         phase={phase}
         existing={phase === "delivery" ? deliveryProof : pickupProof}
+        tz={tz}
       />
 
       {/* Quick switch between delivery/pickup proof on the same page */}

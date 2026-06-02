@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Plus, Trash2, DollarSign, Receipt, Settings2 } from "lucide-react";
 import { addBookingExpense, deleteBookingExpense } from "./expense-actions";
 import { formatCurrency } from "@/lib/utils";
+import { formatDateInTz } from "@/lib/tenant/timezone";
 import { ExpenseCategoryManager } from "./ExpenseCategoryManager";
 
 export interface ExpenseRow {
@@ -34,12 +35,14 @@ export function ExpensesSection({
   categories,
   defaultDriverRateCents,
   bookingTotalAmount,
+  tz = "America/New_York",
 }: {
   bookingId: string;
   expenses: ExpenseRow[];
   categories: ExpenseCategoryRow[];
   defaultDriverRateCents: number;
   bookingTotalAmount: number;
+  tz?: string;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -319,7 +322,7 @@ export function ExpensesSection({
                     <td className="px-3 py-2 text-xs text-slate-500">
                       <div>{e.recorded_by}</div>
                       <div className="text-[10px] text-slate-400">
-                        {new Date(e.recorded_at).toLocaleDateString()}
+                        {formatDateInTz(e.recorded_at, tz)}
                       </div>
                     </td>
                     <td className="px-3 py-2 text-right">

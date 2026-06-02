@@ -281,12 +281,13 @@ export default async function BookingDetailPage({
         needsPowerSupply={checklist.needsPowerSupply}
         deliveryCheckedAt={b.delivery_checked_at || null}
         deliveryCheckedBy={b.delivery_checked_by || null}
+        tz={tz}
       />
 
       {/* Proofs */}
       <div className="space-y-4 mb-6">
-        <ProofCapture bookingId={b.id} phase="delivery" existing={deliveryProof} />
-        <ProofCapture bookingId={b.id} phase="pickup" existing={pickupProof} />
+        <ProofCapture bookingId={b.id} phase="delivery" existing={deliveryProof} tz={tz} />
+        <ProofCapture bookingId={b.id} phase="pickup" existing={pickupProof} tz={tz} />
       </div>
 
       {/* Damages */}
@@ -297,6 +298,7 @@ export default async function BookingDetailPage({
           inventory={(inventory as any[]) || []}
           hasProtection={!!(b as any).damage_protection_purchased}
           protectionCoverageCents={protectionCoverageCents}
+          tz={tz}
         />
 
         <ExpensesSection
@@ -305,6 +307,7 @@ export default async function BookingDetailPage({
           categories={expenseCategories}
           defaultDriverRateCents={defaultDriverRateCents}
           bookingTotalAmount={b.total_amount || 0}
+          tz={tz}
         />
       </div>
 

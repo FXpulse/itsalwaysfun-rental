@@ -22,6 +22,7 @@ import {
   deleteDamage,
 } from "./proof-actions";
 import { formatCurrency } from "@/lib/utils";
+import { formatDateTimeInTz } from "@/lib/tenant/timezone";
 
 interface InventoryOption {
   id: string;
@@ -58,12 +59,14 @@ export function DamagesSection({
   inventory,
   hasProtection = false,
   protectionCoverageCents = 0,
+  tz = "America/New_York",
 }: {
   bookingId: string;
   damages: DamageRow[];
   inventory: InventoryOption[];
   hasProtection?: boolean;
   protectionCoverageCents?: number;
+  tz?: string;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -381,7 +384,7 @@ export function DamagesSection({
                     <p className="text-xs text-slate-500 mt-1 italic">{d.notes}</p>
                   )}
                   <div className="text-[10px] text-slate-400 mt-1">
-                    Recorded {new Date(d.recorded_at).toLocaleString()}
+                    Recorded {formatDateTimeInTz(d.recorded_at, tz)}
                     {d.recorded_by && ` by ${d.recorded_by}`}
                   </div>
                   {d.photo_url && (

@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { CheckCircle2, RotateCcw, Truck, Package } from "lucide-react";
 import { markDeliveryChecked, clearDeliveryCheck } from "@/app/admin/products/[id]/inventory-actions";
 import type { ChecklistItem } from "@/lib/delivery-checklist";
+import { formatDateTimeInTz } from "@/lib/tenant/timezone";
 
 interface Props {
   bookingId: string;
@@ -14,6 +15,7 @@ interface Props {
   needsPowerSupply: boolean;
   deliveryCheckedAt: string | null;
   deliveryCheckedBy: string | null;
+  tz?: string;
 }
 
 export function DeliveryChecklist({
@@ -23,6 +25,7 @@ export function DeliveryChecklist({
   needsPowerSupply,
   deliveryCheckedAt,
   deliveryCheckedBy,
+  tz = "America/New_York",
 }: Props) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -157,7 +160,7 @@ export function DeliveryChecklist({
         <div className="mt-3 flex items-center justify-between bg-green-50 border border-green-200 rounded p-2 text-sm">
           <div className="text-green-800">
             ✓ Marked ready by <strong>{deliveryCheckedBy || "unknown"}</strong> on{" "}
-            {new Date(deliveryCheckedAt).toLocaleString()}
+            {formatDateTimeInTz(deliveryCheckedAt, tz)}
           </div>
           <button
             onClick={handleReset}
