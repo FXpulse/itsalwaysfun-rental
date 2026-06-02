@@ -261,6 +261,91 @@ export async function GET(_request: Request) {
       }
     }
 
+    // Test 4: LEGACY Places API "Find Place from Text" — different index
+    // than the New API. Often finds small/new listings the New API misses.
+    if (out.extracted?.query) {
+      const params = new URLSearchParams({
+        input: out.extracted.query,
+        inputtype: "textquery",
+        fields: "place_id,name,formatted_address,rating,user_ratings_total",
+        key: apiKey,
+      });
+      if (out.extracted.businessLat) {
+        params.set("locationbias", `circle:5000@${out.extracted.businessLat},${out.extracted.businessLon}`);
+      }
+      try {
+        const r = await fetch(
+          `https://maps.googleapis.com/maps/api/place/findplacefromtext/json?${params.toString()}`,
+        );
+        const j = await r.json().catch(() => ({}));
+        out.alt_lookups.legacy_find_place = {
+          status: r.status,
+          api_status: j.status,
+          error_message: j.error_message,
+          candidate_count: j.candidates?.length || 0,
+          candidates: j.candidates || [],
+        };
+
+        // If legacy found it, also fetch the New API Place Details with that
+        // place_id — proves we can complete the pipeline
+        if (j.candidates?.[0]?.place_id) {
+          const placeId = j.candidates[0].place_id;
+          const detailsRes = await fetch(
+            `https://places.googleapis.com/v1/places/${placeId}?languageCode=en`,
+            {
+              headers: {
+                "X-Goog-Api-Key": apiKey,
+                "X-Goog-FieldMask": "id,displayName,formattedAddress,rating,userRatingCount,reviews",
+              },
+            },
+          );
+          const d = await detailsRes.json().catch(() => null);
+          out.alt_lookups.new_api_details_via_legacy_id = {
+            status: detailsRes.status,
+            place_id: placeId,
+            name: d?.displayName?.text,
+            address: d?.formattedAddress,
+            rating: d?.rating,
+            review_count: d?.userRatingCount,
+            review_preview_count: d?.reviews?.length || 0,
+          };
+        }
+      } catch (e: any) {
+        out.alt_lookups.legacy_find_place_error = e?.message || String(e);
+      }
+    }
+
+    // Test 5: LEGACY Place Details direct via maps URL with CID extracted
+    // (CID is in the FTID after the colon — hex format)
+    if (out.alt_lookups.ftid) {
+      const cidHex = out.alt_lookups.ftid.split(":")[1];
+      if (cidHex) {
+        try {
+          const cidDec = BigInt(cidHex).toString();
+          out.alt_lookups.cid_decimal = cidDec;
+          // Try legacy Places API text search with cid: prefix — Google
+          // sometimes resolves cid:<dec> queries
+          const params = new URLSearchParams({
+            input: `cid:${cidDec}`,
+            inputtype: "textquery",
+            fields: "place_id,name,formatted_address",
+            key: apiKey,
+          });
+          const r = await fetch(
+            `https://maps.googleapis.com/maps/api/place/findplacefromtext/json?${params.toString()}`,
+          );
+          const j = await r.json().catch(() => ({}));
+          out.alt_lookups.cid_lookup = {
+            status: r.status,
+            api_status: j.status,
+            candidates: j.candidates || [],
+          };
+        } catch (e: any) {
+          out.alt_lookups.cid_lookup_error = e?.message || String(e);
+        }
+      }
+    }
+
     // Test 3: Nearby search around the pin (very small radius — should
     // surface every business within 200m, including this one)
     if (out.extracted?.businessLat) {
