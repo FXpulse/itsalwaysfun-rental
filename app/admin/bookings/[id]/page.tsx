@@ -13,6 +13,8 @@ import {
   type ExpenseCategoryRow,
 } from "./ExpensesSection";
 import { getDeliveryChecklist } from "@/lib/delivery-checklist";
+import { getTenantInfo } from "@/lib/tenant/business";
+import { formatDateTimeInTz } from "@/lib/tenant/timezone";
 import type { Booking } from "@/types/database";
 import { z } from "zod";
 
@@ -28,6 +30,8 @@ export default async function BookingDetailPage({
   if (!IdSchema.safeParse(params.id).success) notFound();
 
   const supabase = createAdminClient();
+  const tenant = await getTenantInfo();
+  const tz = tenant.timezone;
   const { data: booking } = await supabase
     .from("bookings")
     .select("*")
@@ -129,7 +133,7 @@ export default async function BookingDetailPage({
             Booking #{b.id.slice(0, 8)}
           </h1>
           <p className="text-sm text-slate-500">
-            Created {new Date(b.created_at).toLocaleString()}
+            Created {formatDateTimeInTz(b.created_at, tz)}
           </p>
         </div>
 

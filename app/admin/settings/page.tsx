@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentTenantId } from "@/lib/tenant/server";
 import { CreditCard, Palette, Receipt, ShieldCheck, ExternalLink, Calendar } from "lucide-react";
 import { CalendarFeed } from "./CalendarFeed";
+import { TimezoneSection } from "./TimezoneSection";
 
 export const dynamic = "force-dynamic";
 
@@ -12,7 +13,7 @@ export default async function AdminSettingsPage() {
 
   const { data: tenant } = await unscoped
     .from("tenants")
-    .select("business_name, owner_email, owner_phone, custom_domain, slug, plan, trial_ends_at, stripe_account_id, calendar_feed_token")
+    .select("business_name, owner_email, owner_phone, custom_domain, slug, plan, trial_ends_at, stripe_account_id, calendar_feed_token, timezone")
     .eq("id", tenantId)
     .maybeSingle();
 
@@ -66,6 +67,9 @@ export default async function AdminSettingsPage() {
           .
         </p>
       </div>
+
+      {/* Timezone */}
+      <TimezoneSection current={(tenant as any)?.timezone || "America/New_York"} />
 
       {/* Account / Plan */}
       <div className="card mb-6">

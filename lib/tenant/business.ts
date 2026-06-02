@@ -15,6 +15,7 @@ export interface TenantInfo {
   custom_domain: string | null;
   slug: string;
   branding?: Record<string, any> | null;
+  timezone: string; // IANA identifier, default "America/New_York"
 }
 
 /** Convert TenantInfo to the EmailBrand shape used by lib/email/templates. */
@@ -52,7 +53,7 @@ export async function getTenantInfo(tenantId?: string): Promise<TenantInfo> {
   const supabase = createAdminClient({ unscoped: true });
   const { data } = await supabase
     .from("tenants")
-    .select("id, business_name, owner_email, owner_phone, custom_domain, slug, branding")
+    .select("id, business_name, owner_email, owner_phone, custom_domain, slug, branding, timezone")
     .eq("id", id)
     .maybeSingle();
 
@@ -63,9 +64,13 @@ export async function getTenantInfo(tenantId?: string): Promise<TenantInfo> {
       owner_email: null,
       custom_domain: null,
       slug: "unknown",
+      timezone: "America/New_York",
     };
   }
-  return data as TenantInfo;
+  // Defensive: tenant might be from a DB that's pre-migration. Default to ET.
+  const row = data as any;
+  if (!row.timezone) row.timezone = "America/New_York";
+  return row as TenantInfo;
 }
 
 /** Convenience: just the business_name. */
