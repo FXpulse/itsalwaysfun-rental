@@ -346,6 +346,99 @@ export async function GET(_request: Request) {
       }
     }
 
+    // Test 6: LEGACY findplacefromtext with PHONE NUMBER — Places API matches
+    // businesses by phone, including listings that fail text search
+    const phoneCandidates: string[] = [];
+    // Pull phone from site_settings
+    const { data: phoneRow } = await supabase
+      .from("site_settings")
+      .select("value")
+      .eq("key", "business_phone")
+      .maybeSingle();
+    if ((phoneRow as any)?.value) {
+      const raw = (phoneRow as any).value;
+      phoneCandidates.push(raw);
+      // Strip everything except digits + leading +
+      const stripped = raw.replace(/[^\d+]/g, "");
+      if (stripped !== raw) phoneCandidates.push(stripped);
+      // Also try +1 prefix
+      if (stripped.length === 10) phoneCandidates.push(`+1${stripped}`);
+    }
+    out.alt_lookups.phone_candidates = phoneCandidates;
+    out.alt_lookups.phone_searches = [];
+    for (const phone of phoneCandidates) {
+      const params = new URLSearchParams({
+        input: phone,
+        inputtype: "phonenumber",
+        fields: "place_id,name,formatted_address",
+        key: apiKey,
+      });
+      try {
+        const r = await fetch(
+          `https://maps.googleapis.com/maps/api/place/findplacefromtext/json?${params.toString()}`,
+        );
+        const j = await r.json().catch(() => ({}));
+        out.alt_lookups.phone_searches.push({
+          phone,
+          api_status: j.status,
+          candidates: j.candidates || [],
+        });
+        // If found, also get New API details
+        if (j.candidates?.[0]?.place_id) {
+          const placeId = j.candidates[0].place_id;
+          const detailsRes = await fetch(
+            `https://places.googleapis.com/v1/places/${placeId}?languageCode=en`,
+            {
+              headers: {
+                "X-Goog-Api-Key": apiKey,
+                "X-Goog-FieldMask": "id,displayName,formattedAddress,rating,userRatingCount,reviews",
+              },
+            },
+          );
+          const d = await detailsRes.json().catch(() => null);
+          out.alt_lookups.phone_match_full_details = {
+            place_id: placeId,
+            name: d?.displayName?.text,
+            address: d?.formattedAddress,
+            rating: d?.rating,
+            review_count: d?.userRatingCount,
+            reviews_returned: d?.reviews?.length || 0,
+          };
+        }
+      } catch (e: any) {
+        out.alt_lookups.phone_searches.push({ phone, error: e?.message || String(e) });
+      }
+    }
+
+    // Test 7: Address search
+    const { data: addrRow } = await supabase
+      .from("site_settings")
+      .select("value")
+      .eq("key", "business_address")
+      .maybeSingle();
+    if ((addrRow as any)?.value) {
+      const addr = (addrRow as any).value;
+      const params = new URLSearchParams({
+        input: addr,
+        inputtype: "textquery",
+        fields: "place_id,name,formatted_address",
+        key: apiKey,
+      });
+      try {
+        const r = await fetch(
+          `https://maps.googleapis.com/maps/api/place/findplacefromtext/json?${params.toString()}`,
+        );
+        const j = await r.json().catch(() => ({}));
+        out.alt_lookups.address_search = {
+          address: addr,
+          api_status: j.status,
+          candidates: j.candidates || [],
+        };
+      } catch (e: any) {
+        out.alt_lookups.address_search_error = e?.message || String(e);
+      }
+    }
+
     // Test 3: Nearby search around the pin (very small radius — should
     // surface every business within 200m, including this one)
     if (out.extracted?.businessLat) {
