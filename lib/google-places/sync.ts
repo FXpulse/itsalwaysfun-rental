@@ -31,7 +31,11 @@ export async function syncPlaceDataForTenant(
         last_sync_status: "not_found",
         last_sync_error: "Could not resolve URL to a Google Place",
       }, { onConflict: "tenant_id" });
-    return { ok: false, error: "Could not resolve URL to a Google Place. Try pasting the full Google Maps URL (with place_id or cid)." };
+    return {
+      ok: false,
+      error:
+        "Could not resolve URL. Most common causes: (1) 'Places API (New)' not enabled — go to Google Cloud Console → APIs & Services → Library → search 'Places API (New)' → click Enable. It's separate from the legacy Places API. (2) API key restrictions don't include Places API (New). Check Vercel function logs for '[Places API]' lines to see exactly which step failed.",
+    };
   }
 
   // Normalize reviews to a compact shape

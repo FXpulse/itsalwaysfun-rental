@@ -50,14 +50,25 @@ export async function extractPlaceIdentifier(url: string): Promise<ExtractedIden
   let finalUrl = url.trim();
 
   // Follow short URL redirects (g.page, maps.app.goo.gl) once.
-  // Use GET so the final URL is the redirected canonical (HEAD sometimes
-  // rejected). We capture res.url and discard the body.
+  // Google sometimes serves different HTML / refuses redirect for non-browser
+  // user-agents, so we present as a real browser. We capture res.url and
+  // discard the body.
   if (/g\.page|maps\.app\.goo\.gl/.test(finalUrl)) {
     try {
-      const res = await fetch(finalUrl, { method: "GET", redirect: "follow" });
+      const res = await fetch(finalUrl, {
+        method: "GET",
+        redirect: "follow",
+        headers: {
+          "User-Agent":
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_5) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Safari/605.1.15",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.5",
+        },
+      });
       finalUrl = res.url;
-    } catch {
-      // ignore, parse what we have
+      console.log("[Places] redirect resolved", url, "→", finalUrl);
+    } catch (e: any) {
+      console.error("[Places] redirect follow failed", url, e?.message);
     }
   }
 
@@ -92,7 +103,11 @@ export async function extractPlaceIdentifier(url: string): Promise<ExtractedIden
     out.query = decodeURIComponent(nameMatch[1].replace(/\+/g, " "));
   }
 
-  if (out.placeId || out.cid || out.query) return out;
+  if (out.placeId || out.cid || out.query) {
+    console.log("[Places] extracted", { ...out, sourceUrl: url, finalUrl });
+    return out;
+  }
+  console.warn("[Places] could not extract anything from URL", { url, finalUrl });
   return null;
 }
 
@@ -139,7 +154,8 @@ export async function getPlaceDetails(placeId: string): Promise<PlaceDetails | n
     },
   });
   if (!res.ok) {
-    console.error("[Places API] details failed", res.status, await res.text().catch(() => ""));
+    const errText = await res.text().catch(() => "");
+    console.error("[Places API] getPlaceDetails failed", res.status, errText.slice(0, 500));
     return null;
   }
   return res.json();
@@ -165,6 +181,7 @@ export async function searchPlaceByText(
     };
   }
 
+  console.log("[Places API] searchText", { query, locationBias });
   const res = await fetch(`${PLACES_API}/places:searchText`, {
     method: "POST",
     headers: {
@@ -175,10 +192,22 @@ export async function searchPlaceByText(
     body: JSON.stringify(body),
   });
   if (!res.ok) {
-    console.error("[Places API] text search failed", res.status, await res.text().catch(() => ""));
+    const errText = await res.text().catch(() => "");
+    console.error("[Places API] searchText failed", res.status, errText.slice(0, 500));
     return null;
   }
   const data = await res.json();
+  if (!data.places || data.places.length === 0) {
+    console.warn("[Places API] searchText returned no results", { query, locationBias });
+  } else {
+    const first = data.places[0];
+    console.log("[Places API] searchText match", {
+      query,
+      matched: first.displayName?.text,
+      address: first.formattedAddress,
+      place_id: first.id,
+    });
+  }
   return data.places?.[0] || null;
 }
 
