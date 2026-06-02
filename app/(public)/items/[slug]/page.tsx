@@ -6,7 +6,7 @@ import { notFound } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getSiteSettings } from "@/lib/site-settings";
 import { formatCurrency } from "@/lib/utils";
-import { productJsonLd } from "@/lib/seo/json-ld";
+import { productJsonLd, breadcrumbJsonLd } from "@/lib/seo/json-ld";
 import { Calendar, Maximize2, Zap, Users, ArrowLeft, ChevronRight } from "lucide-react";
 import type { Product } from "@/types/database";
 import { BookNowButton } from "./BookNowButton";
@@ -128,6 +128,19 @@ export default async function ItemDetailPage({
   const proto = h.get("x-forwarded-proto") || "https";
   const baseUrl = `${proto}://${host}`;
   const settings = await getSiteSettings();
+
+  // Pull active customer reviews for aggregate rating (gets stars in Google)
+  const { data: reviewsForRating } = await supabase
+    .from("customer_reviews")
+    .select("rating")
+    .eq("is_active", true)
+    .gt("rating", 0);
+  const ratingRows = (reviewsForRating as any[]) || [];
+  const averageRating = ratingRows.length > 0
+    ? ratingRows.reduce((s, r) => s + r.rating, 0) / ratingRows.length
+    : undefined;
+  const ratingCount = ratingRows.length || undefined;
+
   const jsonLd = productJsonLd({
     name: p.name,
     description: p.description,
@@ -136,6 +149,17 @@ export default async function ItemDetailPage({
     slug: p.slug,
     baseUrl,
     businessName: settings.business_name,
+    averageRating,
+    ratingCount,
+    inStock: (p.stock ?? 1) > 0,
+  });
+
+  const breadcrumbLd = breadcrumbJsonLd({
+    items: [
+      { name: "Home", url: `${baseUrl}/` },
+      { name: p.category || "Rentals", url: `${baseUrl}/category/${(p.category || "").toLowerCase().replace(/\s+/g, "-")}` },
+      { name: p.name, url: `${baseUrl}/items/${p.slug}` },
+    ],
   });
 
   return (
@@ -143,6 +167,10 @@ export default async function ItemDetailPage({
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbLd) }}
       />
       {/* Breadcrumb */}
       <nav className="text-sm text-slate-500 mb-4 flex items-center gap-1">

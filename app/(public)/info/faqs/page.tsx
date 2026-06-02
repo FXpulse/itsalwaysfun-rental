@@ -1,5 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getSiteSettings } from "@/lib/site-settings";
+import { faqPageJsonLd, breadcrumbJsonLd } from "@/lib/seo/json-ld";
+import { headers } from "next/headers";
 import Link from "next/link";
 
 export const dynamic = "force-dynamic";
@@ -24,8 +26,34 @@ export default async function FAQsPage() {
 
   const list = (faqs as Faq[]) || [];
 
+  // SEO: FAQPage schema → Google shows FAQs as rich snippets in SERP
+  const h = headers();
+  const host = h.get("host") || "itsalwaysfun.net";
+  const proto = h.get("x-forwarded-proto") || "https";
+  const baseUrl = `${proto}://${host}`;
+  const faqJsonLd = list.length > 0
+    ? faqPageJsonLd({ faqs: list.map((f) => ({ question: f.question, answer: f.answer })), baseUrl })
+    : null;
+  const breadcrumbLd = breadcrumbJsonLd({
+    items: [
+      { name: "Home", url: `${baseUrl}/` },
+      { name: "Info", url: `${baseUrl}/info` },
+      { name: "FAQs", url: `${baseUrl}/info/faqs` },
+    ],
+  });
+
   return (
     <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+      {faqJsonLd && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
+        />
+      )}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbLd) }}
+      />
       <div className="text-center mb-10">
         <h1 className="text-4xl font-bold text-brand-navy mb-2">
           Frequently Asked Questions

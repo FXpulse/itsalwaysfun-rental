@@ -175,7 +175,16 @@ export default async function HomePage() {
   const host = h.get("host") || "itsalwaysfun.net";
   const proto = h.get("x-forwarded-proto") || "https";
   const baseUrl = `${proto}://${host}`;
-  const jsonLd = localBusinessJsonLd({ settings, baseUrl });
+
+  // Aggregate rating from real customer reviews (active only). Critical for
+  // stars + review-count appearing under the result in Google SERPs.
+  const ratingSource = featuredReviews.filter((r: any) => typeof r.rating === "number" && r.rating > 0);
+  const averageRating = ratingSource.length > 0
+    ? ratingSource.reduce((s: number, r: any) => s + r.rating, 0) / ratingSource.length
+    : undefined;
+  const ratingCount = ratingSource.length || undefined;
+
+  const jsonLd = localBusinessJsonLd({ settings, baseUrl, averageRating, ratingCount });
 
   return (
     <div>
