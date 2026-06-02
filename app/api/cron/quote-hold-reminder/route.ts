@@ -108,15 +108,15 @@ export async function GET() {
         1,
         Math.round((expiresAt.getTime() - now.getTime()) / 3600_000),
       );
-      const expiryLabel = expiresAt.toLocaleString("en-US", {
+      const tenant = await getTenantInfo(q.tenant_id);
+      const expiryLabel = new Intl.DateTimeFormat("en-US", {
+        timeZone: tenant.timezone,
         weekday: "short",
         month: "short",
         day: "numeric",
         hour: "numeric",
         minute: "2-digit",
-      });
-
-      const tenant = await getTenantInfo(q.tenant_id);
+      }).format(expiresAt);
       const brand = tenant.business_name;
       const replyTo = tenant.owner_email || undefined;
 

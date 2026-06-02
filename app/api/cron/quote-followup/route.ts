@@ -73,12 +73,12 @@ export async function GET() {
     const totalDollars = ((q.total_cents || 0) / 100).toFixed(2);
     const customerName = q.customer_first_name || "there";
     const quoteUrl = `${baseUrl}/quotes/${q.token}`;
-    const expiresLabel = q.expires_at
-      ? new Date(q.expires_at).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })
-      : "";
 
     // Look up this quote's tenant to brand the email
     const tenant = await getTenantInfo(q.tenant_id);
+    const expiresLabel = q.expires_at
+      ? new Intl.DateTimeFormat("en-US", { timeZone: tenant.timezone, month: "long", day: "numeric", year: "numeric" }).format(new Date(q.expires_at))
+      : "";
     const brand = tenant.business_name;
     const replyTo = tenant.owner_email || undefined;
 
