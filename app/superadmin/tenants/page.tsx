@@ -193,6 +193,13 @@ export default async function SuperadminTenantsPage() {
             ⚙ Platform setup
           </Link>
           <Link
+            href="/superadmin/onboarding-playbook"
+            className="text-sm text-slate-600 hover:text-brand-navy inline-flex items-center gap-1"
+            title="Setup checklist for new tenants across Vercel, Resend, Stripe, Twilio, etc."
+          >
+            📋 Playbook
+          </Link>
+          <Link
             href="/superadmin/team"
             className="text-sm text-slate-600 hover:text-brand-navy inline-flex items-center gap-1"
           >
