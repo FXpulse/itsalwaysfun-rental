@@ -102,11 +102,15 @@ export default async function DispatchDatePage({
     }
   }
 
-  // For each route, fetch stops + compute load
+  // For each route, fetch stops + compute load.
+  // Use the unscoped admin client to bypass any leftover proxy
+  // injection — dispatch_stops has no tenant_id column, tenancy is
+  // enforced via the route_id FK to dispatch_routes (already scoped).
   const routeIds = (routes || []).map((r: any) => r.id);
   let stopsByRoute = new Map<string, any[]>();
   if (routeIds.length > 0) {
-    const { data: stops } = await supabase
+    const unscopedAdmin = createAdminClient({ unscoped: true });
+    const { data: stops, error: stopsErr } = await unscopedAdmin
       .from("dispatch_stops")
       .select(`
         id, route_id, booking_id, stop_order,
@@ -114,6 +118,11 @@ export default async function DispatchDatePage({
       `)
       .in("route_id", routeIds)
       .order("stop_order");
+    if (stopsErr) {
+      console.error("[dispatch page] stops query failed:", stopsErr, "routeIds:", routeIds);
+    } else {
+      console.log("[dispatch page] stops loaded:", (stops as any[])?.length || 0, "for routeIds:", routeIds);
+    }
     for (const s of (stops as any[]) || []) {
       if (!stopsByRoute.has(s.route_id)) stopsByRoute.set(s.route_id, []);
       stopsByRoute.get(s.route_id)!.push(s);
