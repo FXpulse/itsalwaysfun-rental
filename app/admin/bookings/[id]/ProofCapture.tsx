@@ -124,22 +124,42 @@ export function ProofCapture({
   function handleFiles(files: FileList | null) {
     if (!files || files.length === 0) return;
     setUploading(true);
+    // Wrap in try/catch so a thrown server action doesn't become an
+    // unhandled promise rejection (the previous IIFE had no .catch, which
+    // is how Sentry was getting `Cannot use 'in' operator on undefined`).
     (async () => {
-      for (const file of Array.from(files)) {
-        const fd = new FormData();
-        fd.append("photo", file);
-        const r = await uploadProofPhoto(bookingId, phase, fd);
-        if ("error" in r) {
-          toast.error(`${file.name}: ${r.error}`);
-        } else if ("url" in r && r.url) {
-          setPhotos((prev) => [
-            ...prev,
-            { url: r.url!, caption: "", sort_order: prev.length },
-          ]);
+      try {
+        for (const file of Array.from(files)) {
+          const fd = new FormData();
+          fd.append("photo", file);
+          let r: any;
+          try {
+            r = await uploadProofPhoto(bookingId, phase, fd);
+          } catch (e: any) {
+            // Server action threw — fall back to a structured error
+            r = { error: e?.message || "Upload failed (network or auth)" };
+          }
+          // r could legitimately be undefined if the action implicitly
+          // returns void on an unexpected path; treat that as a generic error
+          const err = r && typeof r === "object" && "error" in r ? r.error : null;
+          if (err) {
+            toast.error(`${file.name}: ${err}`);
+            continue;
+          }
+          if (r && typeof r === "object" && "url" in r && r.url) {
+            const url = r.url as string;
+            setPhotos((prev) => [
+              ...prev,
+              { url, caption: "", sort_order: prev.length },
+            ]);
+          } else {
+            toast.error(`${file.name}: upload returned no URL`);
+          }
         }
+      } finally {
+        setUploading(false);
+        if (fileRef.current) fileRef.current.value = "";
       }
-      setUploading(false);
-      if (fileRef.current) fileRef.current.value = "";
     })();
   }
 
@@ -167,9 +187,16 @@ export function ProofCapture({
     }
 
     startTransition(async () => {
-      const r = await saveProof(fd);
-      if (r.error) {
-        toast.error(r.error);
+      let r: any;
+      try {
+        r = await saveProof(fd);
+      } catch (e: any) {
+        toast.error(e?.message || "Save failed (network or auth)");
+        return;
+      }
+      const err = r && typeof r === "object" && "error" in r ? r.error : null;
+      if (err) {
+        toast.error(err);
         return;
       }
       toast.success(`${phase === "delivery" ? "Delivery" : "Pickup"} proof saved`);
@@ -183,9 +210,16 @@ export function ProofCapture({
     if (!existing) return;
     if (!confirm(`Delete ${phase} proof? Photos + signature will be removed.`)) return;
     startTransition(async () => {
-      const r = await deleteProof(existing.id, bookingId);
-      if (r.error) {
-        toast.error(r.error);
+      let r: any;
+      try {
+        r = await deleteProof(existing.id, bookingId);
+      } catch (e: any) {
+        toast.error(e?.message || "Delete failed (network or auth)");
+        return;
+      }
+      const err = r && typeof r === "object" && "error" in r ? r.error : null;
+      if (err) {
+        toast.error(err);
         return;
       }
       toast.success("Deleted");
