@@ -52,7 +52,7 @@ export async function bulkImportCustomers(
 
   let businessName = "us";
   try { businessName = await getTenantBusinessName(); } catch {}
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://itsalwaysfun.net";
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://itsalwaysfun.com";
 
   const result: BulkResult = {
     created: 0, existed: 0, invited: 0, failed: 0, errors: [],

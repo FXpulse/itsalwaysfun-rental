@@ -13,7 +13,7 @@ export const revalidate = 3600; // re-generate hourly
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const h = headers();
-  const host = h.get("host") || "itsalwaysfun.net";
+  const host = h.get("host") || "itsalwaysfun.com";
   const proto = h.get("x-forwarded-proto") || "https";
   const baseUrl = `${proto}://${host}`;
 

@@ -1,6 +1,6 @@
 // Dynamic per-tenant PWA manifest. Each tenant gets a manifest with
 // their business_name as the app name and their logo_url as the icon —
-// so when a driver installs the PWA from itsalwaysfun.net they get
+// so when a driver installs the PWA from itsalwaysfun.com they get
 // "It's Always Fun" branding, and from bouncedreams.getrentalflow.com
 // they get "Bounce Dreams" branding, all served by the same codebase.
 //

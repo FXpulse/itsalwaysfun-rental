@@ -1,5 +1,5 @@
 // GET /api/products
-// Returns all active products. Public endpoint (used by itsalwaysfun.net + customer-facing flows).
+// Returns all active products. Public endpoint (used by itsalwaysfun.com + customer-facing flows).
 
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";

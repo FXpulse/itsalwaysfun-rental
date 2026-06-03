@@ -33,7 +33,7 @@ export async function generateMetadata({
 
   const settings = await getSiteSettings();
   const h = headers();
-  const host = h.get("host") || "itsalwaysfun.net";
+  const host = h.get("host") || "itsalwaysfun.com";
   const proto = h.get("x-forwarded-proto") || "https";
   const baseUrl = `${proto}://${host}`;
 
@@ -124,7 +124,7 @@ export default async function ItemDetailPage({
 
   // Product JSON-LD — Google can render price + availability in search results
   const h = headers();
-  const host = h.get("host") || "itsalwaysfun.net";
+  const host = h.get("host") || "itsalwaysfun.com";
   const proto = h.get("x-forwarded-proto") || "https";
   const baseUrl = `${proto}://${host}`;
   const settings = await getSiteSettings();

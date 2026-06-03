@@ -14,6 +14,18 @@ export async function middleware(request: NextRequest) {
   const hostname =
     request.headers.get("host") || request.nextUrl.hostname || "localhost";
 
+  // ─── .NET → .COM PERMANENT MIGRATION (2026-06-03) ──────────────────
+  // Belt-and-suspenders: redirect any itsalwaysfun.net request to .com
+  // here in code, independent of Vercel's domain redirect config. Apex
+  // and www both map to www.itsalwaysfun.com. 308 preserves SEO juice.
+  if (hostname === "itsalwaysfun.net" || hostname === "www.itsalwaysfun.net") {
+    const target = new URL(
+      request.nextUrl.pathname + request.nextUrl.search,
+      "https://www.itsalwaysfun.com",
+    );
+    return NextResponse.redirect(target, 308);
+  }
+
   const tenant = await resolveTenantByHostname(hostname);
 
   // /free-tools/* only lives on the marketing apex. If a tenant subdomain or

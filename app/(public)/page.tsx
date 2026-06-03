@@ -17,7 +17,7 @@ export const revalidate = 60;
 export async function generateMetadata(): Promise<Metadata> {
   const settings = await getSiteSettings();
   const h = headers();
-  const host = h.get("host") || "itsalwaysfun.net";
+  const host = h.get("host") || "itsalwaysfun.com";
   const proto = h.get("x-forwarded-proto") || "https";
   const baseUrl = `${proto}://${host}`;
 
@@ -178,7 +178,7 @@ export default async function HomePage() {
 
   // LocalBusiness JSON-LD — Google reads this to populate local pack + maps
   const h = headers();
-  const host = h.get("host") || "itsalwaysfun.net";
+  const host = h.get("host") || "itsalwaysfun.com";
   const proto = h.get("x-forwarded-proto") || "https";
   const baseUrl = `${proto}://${host}`;
 

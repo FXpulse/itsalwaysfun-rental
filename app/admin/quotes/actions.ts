@@ -233,7 +233,7 @@ export async function updateQuote(id: string, input: z.infer<typeof QuoteInputSc
  *  resendQuote (subsequent re-sends). */
 async function deliverQuoteEmail(q: any) {
   const supabase = createAdminClient();
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://itsalwaysfun.net";
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://itsalwaysfun.com";
   const quoteUrl = `${baseUrl}/quotes/${q.token}`;
 
   // 1. Best-effort GHL webhook (for CRM sync — contact tag/notes/custom fields)
@@ -491,7 +491,7 @@ export async function regeneratePaymentLink(quoteId: string): Promise<
       })
       .eq("id", booking.id);
 
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://itsalwaysfun.net";
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://itsalwaysfun.com";
     const quoteUrl = `${baseUrl}/quotes/${quote.token}`;
 
     revalidatePath(`/admin/quotes/${quoteId}`);

@@ -221,7 +221,7 @@ function AndroidInstructions() {
         <ul className="list-disc list-inside mt-1 space-y-0.5">
           <li>Stay on this page for 30+ seconds first</li>
           <li>Make sure you're using Chrome (not Samsung Internet)</li>
-          <li>Try Chrome → Settings → Site Settings → clear data for itsalwaysfun.net, then come back</li>
+          <li>Try Chrome → Settings → Site Settings → clear data for itsalwaysfun.com, then come back</li>
         </ul>
       </div>
     </div>
@@ -235,7 +235,7 @@ function DesktopInstructions() {
         <Smartphone className="h-10 w-10 mx-auto text-slate-400 mb-2" />
         <p className="text-sm text-slate-700 font-semibold mb-1">Open on your phone</p>
         <p className="text-xs text-slate-600">
-          The app is for mobile use. Open <code className="bg-white px-1.5 py-0.5 rounded">itsalwaysfun.net/app</code> on your phone to install.
+          The app is for mobile use. Open <code className="bg-white px-1.5 py-0.5 rounded">itsalwaysfun.com/app</code> on your phone to install.
         </p>
       </div>
       <p className="text-xs text-slate-500">

@@ -9,7 +9,7 @@ import { headers } from "next/headers";
 
 export default function robots(): MetadataRoute.Robots {
   const h = headers();
-  const host = h.get("host") || "itsalwaysfun.net";
+  const host = h.get("host") || "itsalwaysfun.com";
   const proto = h.get("x-forwarded-proto") || "https";
   const baseUrl = `${proto}://${host}`;
 

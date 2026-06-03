@@ -88,7 +88,7 @@ export async function createCustomerManually(input: CreateInput): Promise<
         type: "magiclink",
         email,
         options: {
-          redirectTo: `${process.env.NEXT_PUBLIC_APP_URL || "https://itsalwaysfun.net"}/portal`,
+          redirectTo: `${process.env.NEXT_PUBLIC_APP_URL || "https://itsalwaysfun.com"}/portal`,
         },
       });
       const magicUrl = linkData?.properties?.action_link;

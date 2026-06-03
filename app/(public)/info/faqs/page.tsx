@@ -28,7 +28,7 @@ export default async function FAQsPage() {
 
   // SEO: FAQPage schema → Google shows FAQs as rich snippets in SERP
   const h = headers();
-  const host = h.get("host") || "itsalwaysfun.net";
+  const host = h.get("host") || "itsalwaysfun.com";
   const proto = h.get("x-forwarded-proto") || "https";
   const baseUrl = `${proto}://${host}`;
   const faqJsonLd = list.length > 0
