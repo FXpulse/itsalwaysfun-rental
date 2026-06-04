@@ -16,8 +16,9 @@ function escapeHtml(s: string): string {
 }
 
 /** Reply to a contact message via Resend.
- *  Sends from EMAIL_FROM, to the customer, reply_to set to the admin
- *  (so if the customer replies, it goes to the admin's inbox, not Resend). */
+ *  Sends from EMAIL_FROM, to the customer, reply_to set to the inbound
+ *  email address (so the customer's next reply lands back in /admin/inbox
+ *  via the Cloudflare Email Worker — NOT in the admin's personal mailbox). */
 export async function replyToMessage(
   messageId: string,
   body: string,
@@ -32,6 +33,11 @@ export async function replyToMessage(
   }
 
   const adminEmail = me.email || process.env.ADMIN_ALERT_EMAIL || "admin@example.com";
+  // Reply-To must point at the inbound-mail address (Cloudflare Worker
+  // forwards to /api/email/inbound → /admin/inbox) so the customer's next
+  // reply stays in the support thread. Falls back to admin email if no
+  // EMAIL_REPLY_TO env is configured (single-mailbox deployments).
+  const replyToHeader = process.env.EMAIL_REPLY_TO || adminEmail;
 
   const supabase = createAdminClient();
   const { data: msg } = await supabase
@@ -58,7 +64,7 @@ export async function replyToMessage(
 
   const res = await sendEmail({
     to: msg.email,
-    replyTo: adminEmail,   // future replies from customer come to admin, not Resend
+    replyTo: replyToHeader,   // → bookings@.net so customer replies land back in /admin/inbox
     subject,
     html: `<div style="font-family:system-ui,sans-serif;max-width:600px;color:#0f172a;">
 <p style="margin:0 0 16px;">Hi ${escapeHtml(msg.first_name)},</p>
