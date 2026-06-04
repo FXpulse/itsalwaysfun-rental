@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { BookingWizard } from "./BookingWizard";
 import { isStripeConfigured } from "@/lib/stripe/server";
 import { ensureCustomerProfile, getLoyaltySettings } from "@/lib/loyalty";
+import { getTenantInfo } from "@/lib/tenant/business";
 import type { Product } from "@/types/database";
 import { Sparkles } from "lucide-react";
 
@@ -17,6 +18,7 @@ interface CategoryRow {
 
 export default async function OrderByDatePage() {
   const supabase = createAdminClient();
+  const tenant = await getTenantInfo();
 
   const [productsResult, categoriesResult] = await Promise.all([
     supabase
@@ -205,6 +207,7 @@ export default async function OrderByDatePage() {
         coiEnabled={coiEnabled}
         surfaceOptions={surfaceOptions}
         taxConfig={taxConfig}
+        businessName={tenant.business_name}
       />
     </div>
   );

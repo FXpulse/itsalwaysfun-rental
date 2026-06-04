@@ -116,6 +116,7 @@ export function BookingWizard({
   coiEnabled = false,
   surfaceOptions = [],
   taxConfig = { enabled: false, ratePercent: 0, label: "Sales tax" },
+  businessName = "our team",
 }: {
   products: Product[];
   categories: Category[];
@@ -134,6 +135,9 @@ export function BookingWizard({
   coiEnabled?: boolean;
   surfaceOptions?: { value: string; label: string }[];
   taxConfig?: { enabled: boolean; ratePercent: number; label: string };
+  /** Tenant brand name — interpolated into the SMS consent copy so the
+   *  language reads "I agree to receive text messages from <Tenant>...". */
+  businessName?: string;
 }) {
   const { item: cartItem, clear } = useCart();
 
@@ -183,6 +187,11 @@ export function BookingWizard({
     surfaceType: "",
     powerSource: "" as "" | "yes" | "no", // yes = has outlet, no = needs power supply add-on
   });
+  // SMS consent — required to be explicit + separate from TOS per Twilio
+  // toll-free verification rules. Defaulted UNCHECKED; customer must
+  // actively opt-in. When opted-in, customer_phone_sms_consent_at gets
+  // stamped on the booking so we have proof for Twilio compliance audits.
+  const [smsConsent, setSmsConsent] = useState(false);
   const [bookingResult, setBookingResult] = useState<BookingResult | null>(null);
   const [couponCode, setCouponCode] = useState("");
   const [giftCardCode, setGiftCardCode] = useState("");
@@ -405,6 +414,7 @@ export function BookingWizard({
               email: customer.email,
               phone: customer.phone,
               address: `${customer.address}, ${customer.city} ${customer.zip}`.trim(),
+              sms_consent: smsConsent,
             },
             surface_type: customer.surfaceType || null,
             needs_power_supply: needsPowerSupply,
@@ -663,6 +673,9 @@ export function BookingWizard({
             surfaceOptions={surfaceOptions}
             taxConfig={taxConfig}
             taxAmount={taxAmount}
+            smsConsent={smsConsent}
+            onSmsConsentChange={setSmsConsent}
+            businessName={businessName}
             onBack={() => goToStep(hasPreSelectedProduct ? "date" : "product")}
             onSubmit={handleSubmit}
             pending={pending}
@@ -1179,6 +1192,9 @@ function CustomerInfoStep({
   surfaceOptions,
   taxConfig,
   taxAmount,
+  smsConsent,
+  onSmsConsentChange,
+  businessName,
   onBack,
   onSubmit,
   pending,
@@ -1240,6 +1256,9 @@ function CustomerInfoStep({
   surfaceOptions: { value: string; label: string }[];
   taxConfig: { enabled: boolean; ratePercent: number; label: string };
   taxAmount: number;
+  smsConsent: boolean;
+  onSmsConsentChange: (b: boolean) => void;
+  businessName: string;
   onBack: () => void;
   onSubmit: () => void;
   pending: boolean;
@@ -1360,6 +1379,31 @@ function CustomerInfoStep({
             />
           </div>
         </div>
+
+        {/* SMS opt-in checkbox — Twilio toll-free verification requires explicit
+            consent language separate from terms of service. Default UNCHECKED. */}
+        <label className="flex items-start gap-3 cursor-pointer p-3 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition select-none">
+          <input
+            type="checkbox"
+            checked={smsConsent}
+            onChange={(e) => onSmsConsentChange(e.target.checked)}
+            className="mt-0.5 w-5 h-5 accent-blue-600 cursor-pointer shrink-0"
+          />
+          <span className="text-sm text-slate-700 leading-relaxed">
+            <strong>Yes, send me SMS text messages about my booking</strong>{" "}
+            <span className="text-slate-500">(optional)</span><br />
+            <span className="text-xs text-slate-600">
+              I agree to receive text messages from{" "}
+              {businessName} at the phone number above, including a confirmation
+              when my booking is paid and a reminder 3 days before my event.{" "}
+              <strong>Message and data rates may apply.</strong> Message frequency
+              varies. Reply <strong>STOP</strong> at any time to unsubscribe, or{" "}
+              <strong>HELP</strong> for help. Consent is not required to book —
+              you can leave this unchecked and we will only call you for booking
+              communication.
+            </span>
+          </span>
+        </label>
 
         <div>
           <label className="block text-sm font-medium text-slate-700 mb-1">Delivery address *</label>

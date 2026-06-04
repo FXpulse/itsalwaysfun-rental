@@ -35,6 +35,10 @@ const BodySchema = z
       email: z.string().email(),
       phone: z.string().max(40).optional(),
       address: z.string().max(500).optional(),
+      // Twilio toll-free verification: explicit SMS opt-in collected at
+      // checkout. When true, server stamps customer_phone_sms_consent_at
+      // on the booking for compliance audit trail.
+      sms_consent: z.boolean().optional(),
     }),
     coupon_code: z.string().max(50).optional(),
     gift_card_code: z.string().max(50).optional(),
@@ -485,6 +489,7 @@ export async function POST(request: Request) {
       customer_email: parsed.data.customer.email,
       customer_phone: parsed.data.customer.phone || null,
       customer_address: parsed.data.customer.address || null,
+      customer_phone_sms_consent_at: parsed.data.customer.sms_consent ? new Date().toISOString() : null,
       event_date: startDate,
       event_end_date: endDate,
       start_time: parsed.data.start_time || null,
