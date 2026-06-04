@@ -1390,17 +1390,15 @@ function CustomerInfoStep({
             className="mt-0.5 w-5 h-5 accent-blue-600 cursor-pointer shrink-0"
           />
           <span className="text-sm text-slate-700 leading-relaxed">
-            <strong>Yes, send me SMS text messages about my booking</strong>{" "}
-            <span className="text-slate-500">(optional)</span><br />
+            <strong>I agree to receive SMS text messages</strong><br />
             <span className="text-xs text-slate-600">
-              I agree to receive text messages from{" "}
-              {businessName} at the phone number above, including a confirmation
-              when my booking is paid and a reminder 3 days before my event.{" "}
-              <strong>Message and data rates may apply.</strong> Message frequency
-              varies. Reply <strong>STOP</strong> at any time to unsubscribe, or{" "}
-              <strong>HELP</strong> for help. Consent is not required to book —
-              you can leave this unchecked and we will only call you for booking
-              communication.
+              By checking this box, I expressly consent to receive text messages
+              from {businessName} at the phone number provided above, including:
+              (1) a booking confirmation when my booking is paid, and (2) a
+              reminder 3 days before my event date.{" "}
+              <strong>Message and data rates may apply.</strong> Message frequency:
+              up to 2 messages per booking. Reply <strong>STOP</strong> to
+              unsubscribe at any time. Reply <strong>HELP</strong> for help.
             </span>
           </span>
         </label>
