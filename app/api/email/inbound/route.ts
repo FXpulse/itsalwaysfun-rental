@@ -25,8 +25,10 @@ import { sendEmail, isEmailConfigured } from "@/lib/email/send";
 export const dynamic = "force-dynamic";
 
 const BodySchema = z.object({
-  // Tenant identifier — required so the email lands in the right inbox.
-  // Either UUID (preferred) or the tenant's slug.
+  // Tenant identifier — optional. If neither is provided, we fall back to
+  // deriving the tenant from the "to" address (look up by custom_domain).
+  // The original Cloudflare Email Worker template didn't pass either of
+  // these, so without the fallback every forwarded email returns 400.
   tenant_id: z.string().uuid().optional(),
   tenant_slug: z.string().regex(/^[a-z0-9][a-z0-9-]*$/).optional(),
   from: z.string().email(),
@@ -36,12 +38,7 @@ const BodySchema = z.object({
   text: z.string().max(100000).optional().nullable(),
   html: z.string().max(500000).optional().nullable(),
   received_at: z.string().optional().nullable(),
-}).refine(
-  (d) => !!(d.tenant_id || d.tenant_slug),
-  {
-    message: "tenant_id or tenant_slug is required so the email lands in the right tenant's inbox",
-  },
-);
+});
 
 /** Strip HTML tags as a basic fallback when there's no plain text. */
 function htmlToText(html: string): string {
@@ -114,7 +111,12 @@ export async function POST(request: Request) {
   const { first, last } = splitName(data.from_name, data.from);
   const supabase = createAdminClient({ unscoped: true });
 
-  // Resolve tenant — UUID wins when both provided.
+  // Resolve tenant — try in order:
+  //   1. tenant_id (UUID) directly
+  //   2. tenant_slug → look up id
+  //   3. "to" address domain → look up by custom_domain
+  //   4. Fallback to the default IAF tenant so legacy worker payloads
+  //      (no tenant fields, addressed at itsalwaysfun.net) still land.
   let tenantId: string | null = data.tenant_id || null;
   if (!tenantId && data.tenant_slug) {
     const { data: tenant } = await supabase
@@ -124,11 +126,36 @@ export async function POST(request: Request) {
       .maybeSingle();
     tenantId = (tenant as any)?.id || null;
   }
+  if (!tenantId && data.to) {
+    // Extract domain from a "to" like "bookings@itsalwaysfun.net" or
+    // RFC2822 "Name <addr@dom>" — try both forms.
+    const m = data.to.match(/@([a-z0-9.-]+)/i);
+    const domain = m?.[1]?.toLowerCase();
+    if (domain) {
+      const { data: tenant } = await supabase
+        .from("tenants")
+        .select("id")
+        .or(`custom_domain.eq.${domain},custom_domain.eq.www.${domain}`)
+        .maybeSingle();
+      tenantId = (tenant as any)?.id || null;
+      // Also accept .net when tenant has .com (handles the migration period
+      // where .net mail is still being forwarded after the canonical switch)
+      if (!tenantId && domain.endsWith(".net")) {
+        const comDomain = domain.replace(/\.net$/, ".com");
+        const { data: tenant2 } = await supabase
+          .from("tenants")
+          .select("id")
+          .eq("custom_domain", comDomain)
+          .maybeSingle();
+        tenantId = (tenant2 as any)?.id || null;
+      }
+    }
+  }
   if (!tenantId) {
-    return NextResponse.json(
-      { error: "Unknown tenant — verify tenant_id or tenant_slug in payload" },
-      { status: 404 },
-    );
+    // Last-resort fallback — single-tenant deployments (the IAF UUID is
+    // seeded by multi_tenant_foundation.sql).
+    tenantId = "11111111-1111-1111-1111-111111111111";
+    console.warn("[inbound-email] no tenant resolved, falling back to default IAF", { to: data.to });
   }
 
   const { data: row, error: insertErr } = await supabase
