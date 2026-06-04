@@ -40,6 +40,51 @@ const BodySchema = z.object({
   received_at: z.string().optional().nullable(),
 });
 
+/** Decode base64 / quoted-printable MIME bodies that the Cloudflare Email
+ *  Worker's basic extractor leaves un-decoded. Real emails (especially
+ *  Outlook replies) come in with Content-Transfer-Encoding: base64 or
+ *  quoted-printable. The worker forwards the encoded bytes as text; we
+ *  decode them here so /admin/inbox shows the actual message instead of
+ *  base64 gibberish. */
+function decodeMimeBody(text: string): string {
+  let body = text;
+
+  // Strip leading MIME headers if the worker passed them through
+  const headerEnd = body.match(/\r?\n\r?\n/);
+  let headers = "";
+  if (headerEnd && /Content-Type:|Content-Transfer-Encoding:/i.test(body.slice(0, headerEnd.index!))) {
+    headers = body.slice(0, headerEnd.index!);
+    body = body.slice(headerEnd.index! + headerEnd[0].length);
+  }
+
+  // Stop at the next MIME boundary if any
+  const boundaryStop = body.match(/\r?\n--[^\r\n]+/);
+  if (boundaryStop) body = body.slice(0, boundaryStop.index);
+
+  const encoding = (headers.match(/Content-Transfer-Encoding:\s*(\S+)/i)?.[1] || "").toLowerCase();
+  const charset = headers.match(/charset="?([^"\s;]+)"?/i)?.[1]?.toLowerCase() || "utf-8";
+
+  if (encoding === "base64") {
+    try {
+      // Strip whitespace inside the base64 blob (it can have line wraps)
+      const clean = body.replace(/\s+/g, "");
+      const decoded = Buffer.from(clean, "base64");
+      // Best-effort charset decoding (Node supports utf-8 + latin1 natively)
+      const safeCharset = ["utf-8", "utf8", "ascii", "latin1"].includes(charset) ? (charset as BufferEncoding) : "utf8";
+      body = decoded.toString(safeCharset as BufferEncoding);
+    } catch (e) {
+      // Decoding failed — leave the original text rather than crashing
+    }
+  } else if (encoding === "quoted-printable") {
+    // Decode RFC 2045 quoted-printable: =XX hex pairs + soft line breaks
+    body = body
+      .replace(/=\r?\n/g, "")
+      .replace(/=([0-9A-F]{2})/gi, (_, hex) => String.fromCharCode(parseInt(hex, 16)));
+  }
+
+  return body.trim();
+}
+
 /** Strip HTML tags as a basic fallback when there's no plain text. */
 function htmlToText(html: string): string {
   return html
@@ -100,7 +145,13 @@ export async function POST(request: Request) {
   }
 
   const data = parsed.data;
-  const messageBody = (data.text || (data.html ? htmlToText(data.html) : "")).trim();
+  // Pre-process: if the Worker forwarded raw MIME (with base64 / quoted-printable
+  // encoded body) the text field still contains gibberish. Decode + clean it
+  // before saving to the inbox.
+  const rawText = data.text || "";
+  const looksLikeRawMime = /Content-Type:\s*text/i.test(rawText) || /Content-Transfer-Encoding:/i.test(rawText);
+  const cleanText = looksLikeRawMime ? decodeMimeBody(rawText) : rawText;
+  const messageBody = (cleanText || (data.html ? htmlToText(data.html) : "")).trim();
   if (!messageBody) {
     return NextResponse.json(
       { error: "Empty message body — need text or html" },
