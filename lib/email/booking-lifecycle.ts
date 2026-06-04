@@ -5,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { sendTemplated } from "@/lib/email/send-template";
 import { isEmailConfigured } from "@/lib/email/send";
 import { formatDateUS } from "@/lib/email/format-date";
+import { getTenantEmailConfig } from "@/lib/email/tenant-email";
 
 const BASE_URL =
   process.env.NEXT_PUBLIC_APP_URL || "https://itsalwaysfun-rental.vercel.app";
@@ -50,7 +51,7 @@ export async function sendBookingRefunded(
   const { data: booking } = await supabase
     .from("bookings")
     .select(
-      "customer_first_name, customer_email, product_name, event_date",
+      "customer_first_name, customer_email, product_name, event_date, tenant_id",
     )
     .eq("id", bookingId)
     .single();
@@ -61,9 +62,12 @@ export async function sendBookingRefunded(
       ? "Credit card (via Stripe)"
       : refundMethod.charAt(0).toUpperCase() + refundMethod.slice(1);
 
+  const tenantEmail = await getTenantEmailConfig((booking as any).tenant_id);
   const r = await sendTemplated({
     key: "booking_refunded",
     to: booking.customer_email,
+    from: tenantEmail.from,
+    replyTo: tenantEmail.replyTo,
     vars: {
       firstName: booking.customer_first_name,
       productName: booking.product_name,
@@ -95,7 +99,7 @@ export async function sendBookingCancelled(
   const { data: booking } = await supabase
     .from("bookings")
     .select(
-      "customer_first_name, customer_email, product_name, event_date, stripe_payment_status",
+      "customer_first_name, customer_email, product_name, event_date, stripe_payment_status, tenant_id",
     )
     .eq("id", bookingId)
     .single();
@@ -103,9 +107,12 @@ export async function sendBookingCancelled(
 
   const hadPayment = booking.stripe_payment_status === "paid";
 
+  const tenantEmail = await getTenantEmailConfig((booking as any).tenant_id);
   const r = await sendTemplated({
     key: "booking_cancelled",
     to: booking.customer_email,
+    from: tenantEmail.from,
+    replyTo: tenantEmail.replyTo,
     vars: {
       firstName: booking.customer_first_name,
       productName: booking.product_name,

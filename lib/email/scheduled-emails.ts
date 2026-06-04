@@ -13,6 +13,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendTemplated } from "@/lib/email/send-template";
 import { isEmailConfigured } from "@/lib/email/send";
+import { getTenantEmailConfig } from "@/lib/email/tenant-email";
 import { sendSms, isSmsConfigured } from "@/lib/sms/send";
 
 type EmailType =
@@ -133,9 +134,12 @@ export async function sendBookingConfirmation(bookingId: string): Promise<void> 
   // Email (idempotent via ledger)
   if (isEmailConfigured() && !(await alreadySent(bookingId, "booking_confirmation"))) {
     const tips = await fetchImportantTips((b as any).tenant_id);
+    const tenantEmail = await getTenantEmailConfig((b as any).tenant_id);
     const r = await sendTemplated({
       key: "booking_confirmation",
       to: b.customer_email,
+      from: tenantEmail.from,
+      replyTo: tenantEmail.replyTo,
       vars: buildVars(b, tips),
       tags: [
         { name: "type", value: "booking_confirmation" },
@@ -205,9 +209,12 @@ export async function processScheduledBookingEmails(): Promise<{
     for (const b of (bookings as BookingRow[]) || []) {
       try {
         if (await alreadySent(b.id, "booking_reminder_3d")) continue;
+        const tenantEmail = await getTenantEmailConfig((b as any).tenant_id);
         const r = await sendTemplated({
           key: "booking_reminder_3d",
           to: b.customer_email,
+          from: tenantEmail.from,
+          replyTo: tenantEmail.replyTo,
           vars: buildVars(b),
           tags: [
             { name: "type", value: "booking_reminder_3d" },
@@ -252,9 +259,12 @@ export async function processScheduledBookingEmails(): Promise<{
     for (const b of (bookings as BookingRow[]) || []) {
       try {
         if (await alreadySent(b.id, "booking_review_request")) continue;
+        const tenantEmail = await getTenantEmailConfig((b as any).tenant_id);
         const r = await sendTemplated({
           key: "booking_review_request",
           to: b.customer_email,
+          from: tenantEmail.from,
+          replyTo: tenantEmail.replyTo,
           vars: buildVars(b, { googleReviewUrl }),
           tags: [
             { name: "type", value: "booking_review_request" },
@@ -282,9 +292,12 @@ export async function processScheduledBookingEmails(): Promise<{
     for (const b of (bookings as BookingRow[]) || []) {
       try {
         if (await alreadySent(b.id, "booking_reengagement_90d")) continue;
+        const tenantEmail = await getTenantEmailConfig((b as any).tenant_id);
         const r = await sendTemplated({
           key: "booking_reengagement_90d",
           to: b.customer_email,
+          from: tenantEmail.from,
+          replyTo: tenantEmail.replyTo,
           vars: buildVars(b),
           tags: [
             { name: "type", value: "booking_reengagement_90d" },

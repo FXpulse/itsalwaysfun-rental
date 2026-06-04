@@ -14,6 +14,9 @@ export interface SendTemplatedParams {
     | { subject: string; html: string; text: string }
     | Promise<{ subject: string; html: string; text: string }>;
   tags?: SendEmailParams["tags"];
+  /** Tenant-scoped overrides — pass when sending from a per-tenant context.
+   *  When omitted, sendEmail falls back to env-var defaults (single-tenant). */
+  from?: string;
   replyTo?: string;
   cc?: SendEmailParams["cc"];
   bcc?: SendEmailParams["bcc"];
@@ -42,6 +45,7 @@ export async function sendTemplated(
   }
 
   const r = await sendEmail({
+    from: params.from,
     to: params.to,
     subject: rendered.subject,
     html: rendered.html,

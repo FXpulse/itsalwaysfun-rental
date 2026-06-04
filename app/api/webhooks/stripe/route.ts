@@ -18,6 +18,7 @@ import { awardForPaidBooking } from "@/lib/loyalty";
 import { sendBookingConfirmation } from "@/lib/email/scheduled-emails";
 import { sendTemplated } from "@/lib/email/send-template";
 import { isEmailConfigured } from "@/lib/email/send";
+import { getTenantEmailConfig } from "@/lib/email/tenant-email";
 import { getTenantInfo } from "@/lib/tenant/business";
 
 export const dynamic = "force-dynamic";
@@ -449,10 +450,13 @@ async function fulfillGiftCardPurchase(pi: Stripe.PaymentIntent) {
     // request context so getCurrentTenantId() isn't available).
     const tenantBrand = await getTenantInfo((purchase as any).tenant_id);
     const brandName = tenantBrand.business_name;
+    const tenantEmail = await getTenantEmailConfig((purchase as any).tenant_id);
     try {
       await sendTemplated({
         key: "gift_card_received",
         to: purchase.recipient_email,
+        from: tenantEmail.from,
+        replyTo: tenantEmail.replyTo,
         vars: {
           recipientName: purchase.recipient_name || "there",
           purchaserName: purchase.purchaser_name || "a friend",
@@ -488,6 +492,8 @@ ${purchase.message ? `<blockquote>"${purchase.message}"</blockquote>` : ""}
       await sendTemplated({
         key: "gift_card_purchase_receipt",
         to: purchase.purchaser_email,
+        from: tenantEmail.from,
+        replyTo: tenantEmail.replyTo,
         vars: {
           purchaserName: purchase.purchaser_name,
           recipientName: purchase.recipient_name || purchase.recipient_email,

@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUserRole } from "@/lib/auth/roles";
 import { getTenantInfo } from "@/lib/tenant/business";
+import { getCurrentTenantId } from "@/lib/tenant/db";
 import { Inbox } from "lucide-react";
 import { InboxClient } from "./InboxClient";
 
@@ -41,6 +42,20 @@ export default async function AdminInboxPage() {
   if (!me) redirect("/admin/login");
 
   const supabase = createAdminClient();
+  // Tenants without the in-app inbox (default for new SaaS tenants) get
+  // customer replies forwarded directly to their notification_email; we
+  // bounce them back to the dashboard if they navigate to /admin/inbox
+  // directly.
+  const tenantId = getCurrentTenantId();
+  const { data: tenantRow } = await supabase
+    .from("tenants")
+    .select("inbox_enabled")
+    .eq("id", tenantId)
+    .maybeSingle();
+  if (!(tenantRow as any)?.inbox_enabled) {
+    redirect("/admin/dashboard");
+  }
+
   const tenant = await getTenantInfo();
   const tz = tenant.timezone;
   const { data: messages } = await supabase

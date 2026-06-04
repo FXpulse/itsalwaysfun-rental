@@ -5,6 +5,7 @@ import crypto from "crypto";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendEmail } from "@/lib/email/send";
+import { getTenantEmailConfig } from "@/lib/email/tenant-email";
 import { resolveTenantByHostname } from "@/lib/tenant/resolve";
 import { ensureCustomerProfile, linkReferrer } from "@/lib/loyalty";
 
@@ -99,8 +100,11 @@ export async function requestPortalCode(email: string): Promise<{ ok: boolean; e
 
     const text = `Your sign-in code: ${code}\n\nUse this code to sign in to your ${businessName} customer portal.\nExpires in ${EXPIRY_MINUTES} minutes.\n\nIf you didn't request this, ignore this email.`;
 
+    const tenantEmail = await getTenantEmailConfig(tenantId);
     const result = await sendEmail({
       to: normalizedEmail,
+      from: tenantEmail.from,
+      replyTo: tenantEmail.replyTo,
       subject: `Your ${businessName} sign-in code: ${code}`,
       html,
       text,

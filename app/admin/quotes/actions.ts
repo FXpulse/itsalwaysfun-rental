@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentTenantId } from "@/lib/tenant/db";
+import { getTenantEmailConfig } from "@/lib/email/tenant-email";
 import { getStripe, isStripeConfigured } from "@/lib/stripe/server";
 import { requireAdmin } from "@/lib/auth/roles";
 import { isEmailConfigured } from "@/lib/email/send";
@@ -281,9 +282,12 @@ async function deliverQuoteEmail(q: any) {
       .maybeSingle();
     const importantTipsText = String(tipsRow?.value || "").trim();
 
+    const tenantEmail = await getTenantEmailConfig((q as any).tenant_id);
     const r = await sendTemplated({
       key: "quote_sent",
       to: q.customer_email,
+      from: tenantEmail.from,
+      replyTo: tenantEmail.replyTo,
       vars: {
         firstName: q.customer_first_name,
         quoteNumber: q.quote_number,

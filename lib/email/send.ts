@@ -8,6 +8,9 @@
 // still works if Resend isn't set up yet (degrades gracefully).
 
 export interface SendEmailParams {
+  /** Per-send From override — pass the tenant-scoped From here. If omitted,
+   *  falls back to `process.env.EMAIL_FROM` (single-tenant deploys). */
+  from?: string;
   to: string | string[];
   subject: string;
   html: string;
@@ -27,7 +30,7 @@ export async function sendEmail(params: SendEmailParams): Promise<{ ok: boolean;
     return { ok: false, error: "Email not configured (missing RESEND_API_KEY or EMAIL_FROM)" };
   }
 
-  const from = process.env.EMAIL_FROM!;
+  const from = params.from || process.env.EMAIL_FROM!;
   const replyTo = params.replyTo || process.env.EMAIL_REPLY_TO;
 
   try {

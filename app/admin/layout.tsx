@@ -96,9 +96,15 @@ const ALL_NAV: NavItem[] = [
   { href: "/admin/support", label: "Support — get help", icon: HelpCircle, minRole: "staff" },
 ];
 
-function visibleNav(role: Role): NavItem[] {
-  if (role === "admin") return ALL_NAV;
-  return ALL_NAV.filter((item) => item.minRole === "staff");
+function visibleNav(role: Role, opts: { inboxEnabled: boolean } = { inboxEnabled: false }): NavItem[] {
+  // Tenants without the in-app inbox (Cloudflare Worker → /admin/inbox path)
+  // don't see the link. Customer replies forward to their notification_email
+  // instead. Only IAF (and other premium tenants) have inbox_enabled=true.
+  const byRole = role === "admin"
+    ? ALL_NAV
+    : ALL_NAV.filter((item) => item.minRole === "staff");
+  if (opts.inboxEnabled) return byRole;
+  return byRole.filter((item) => item.href !== "/admin/inbox");
 }
 
 export default async function AdminLayout({
@@ -145,7 +151,7 @@ export default async function AdminLayout({
       .maybeSingle(),
     adminClient
       .from("tenants")
-      .select("business_name, onboarding_completed_at")
+      .select("business_name, onboarding_completed_at, inbox_enabled")
       .eq("id", currentTenantId)
       .maybeSingle(),
   ]);
@@ -217,7 +223,9 @@ export default async function AdminLayout({
     return <>{children}</>;
   }
 
-  const nav = visibleNav(userRole.role);
+  const nav = visibleNav(userRole.role, {
+    inboxEnabled: !!(tenantRow as any)?.inbox_enabled,
+  });
   const roleBadge =
     userRole.role === "admin" ? (
       <span className="inline-block bg-brand-yellow text-brand-navy text-[10px] font-bold tracking-widest px-2 py-0.5 rounded mb-2">
