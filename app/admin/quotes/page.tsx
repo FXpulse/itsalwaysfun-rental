@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUserRole } from "@/lib/auth/roles";
 import { formatCurrency } from "@/lib/utils";
+import { AutoRefresh } from "@/components/AutoRefresh";
 import { getTenantInfo } from "@/lib/tenant/business";
 import { formatDateInTz } from "@/lib/tenant/timezone";
 import { Plus, FileText } from "lucide-react";
@@ -66,6 +67,7 @@ export default async function AdminQuotesPage({
 
   return (
     <div className="max-w-6xl">
+      <AutoRefresh intervalMs={45_000} />
       <div className="flex justify-between items-start mb-6">
         <div>
           <h1 className="text-2xl font-bold text-brand-navy mb-1">Quotes</h1>

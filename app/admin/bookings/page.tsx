@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import type { Booking } from "@/types/database";
 import { ExternalLink } from "lucide-react";
+import { AutoRefresh } from "@/components/AutoRefresh";
 
 export const dynamic = "force-dynamic";
 
@@ -43,6 +44,7 @@ export default async function AdminBookingsPage({
 
   return (
     <div>
+      <AutoRefresh intervalMs={45_000} />
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-brand-navy mb-1">Bookings</h1>

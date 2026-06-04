@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { useAutoRefresh } from "@/lib/hooks/use-auto-refresh";
 import {
   Plus,
   Trash2,
@@ -121,6 +122,10 @@ export function DispatchClient({
   const [trailerId, setTrailerId] = useState("");
   const [driverName, setDriverName] = useState("");
   const [notes, setNotes] = useState("");
+
+  // Auto-refresh every 30s. Pause while creating a route so the form
+  // doesn't reset mid-edit.
+  useAutoRefresh({ paused: creating });
 
   const selectedVehicle = vehicles.find((v) => v.id === vehicleId);
   const needsTrailer = selectedVehicle?.requires_trailer;

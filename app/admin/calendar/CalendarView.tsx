@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { Plus } from "lucide-react";
+import { useAutoRefresh } from "@/lib/hooks/use-auto-refresh";
 
 interface BookingCell {
   id: string;
@@ -35,6 +36,7 @@ export function CalendarView({
   byDate: Record<string, BookingCell[]>;
   todayStr: string;
 }) {
+  useAutoRefresh({ intervalMs: 60_000 });
   return (
     <div className="card p-0 overflow-hidden">
       {/* Weekday headers */}

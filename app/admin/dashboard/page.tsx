@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { getTenantInfo } from "@/lib/tenant/business";
 import { formatDateTimeInTz, formatDateInTz } from "@/lib/tenant/timezone";
+import { AutoRefresh } from "@/components/AutoRefresh";
 import {
   AlertCircle,
   ArrowRight,
@@ -165,6 +166,7 @@ export default async function AdminDashboardPage() {
 
   return (
     <div>
+      <AutoRefresh />
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-brand-navy mb-1">

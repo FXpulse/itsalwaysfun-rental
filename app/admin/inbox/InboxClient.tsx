@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useTransition, useEffect } from "react";
+import { useState, useTransition } from "react";
+import { useAutoRefresh } from "@/lib/hooks/use-auto-refresh";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import {
@@ -37,15 +38,9 @@ export function InboxClient({
   const [replyBody, setReplyBody] = useState("");
   const [replyAndResolve, setReplyAndResolve] = useState(true);
 
-  // Auto-refresh every 30s so new inbound emails appear without F5.
-  // Pauses while the admin is typing a reply to avoid clobbering their text.
-  useEffect(() => {
-    if (replyingId) return; // pause while composing
-    const id = setInterval(() => {
-      router.refresh();
-    }, 30_000);
-    return () => clearInterval(id);
-  }, [replyingId, router]);
+  // Auto-refresh every 30s. Pauses while the admin is composing a reply
+  // so their draft doesn't get clobbered.
+  useAutoRefresh({ paused: !!replyingId });
 
   function handleResolve(m: ContactMessage) {
     startTransition(async () => {
