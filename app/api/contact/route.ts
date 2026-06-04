@@ -11,6 +11,8 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendEmail, isEmailConfigured } from "@/lib/email/send";
+import { getTenantEmailConfig, getTenantAdminEmail } from "@/lib/email/tenant-email";
+import { resolveTenantByHostname } from "@/lib/tenant/resolve";
 import { rateLimit, clientIp } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
@@ -63,10 +65,17 @@ export async function POST(request: Request) {
   const data = parsed.data;
   const supabase = createAdminClient();
 
+  // Resolve tenant from request hostname so the contact_message + admin
+  // notification land in the right tenant's inbox.
+  const hostname = request.headers.get("host") || "";
+  const tenant = await resolveTenantByHostname(hostname);
+  const tenantId = tenant.id !== "__marketing__" ? tenant.id : null;
+
   // 1. Persist to DB — source of truth
   const { data: row, error: insertErr } = await supabase
     .from("contact_messages")
     .insert({
+      tenant_id: tenantId,
       first_name: data.firstName,
       last_name: data.lastName,
       email: data.email.trim().toLowerCase(),
@@ -88,7 +97,9 @@ export async function POST(request: Request) {
   // 2. Email admin via Resend (best-effort). Failures logged to email_send_error
   // so they're visible in /admin/inbox (don't fail the request — the DB row is
   // the source of truth).
-  const adminEmail = process.env.ADMIN_ALERT_EMAIL || "admin@itsalwaysfun.com";
+  // Per-tenant admin alert email (falls back to operator default).
+  const adminEmail = await getTenantAdminEmail(tenantId);
+  const tenantEmail = await getTenantEmailConfig(tenantId);
   if (!isEmailConfigured()) {
     await supabase
       .from("contact_messages")
@@ -100,6 +111,7 @@ export async function POST(request: Request) {
     try {
       const res = await sendEmail({
         to: adminEmail,
+        from: tenantEmail.from,
         replyTo: data.email,                       // reply goes straight to customer
         subject: `📨 New contact form: ${data.firstName} ${data.lastName}`,
         html: `<div style="font-family:system-ui,sans-serif;max-width:600px;">

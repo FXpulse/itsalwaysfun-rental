@@ -5,8 +5,10 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin } from "@/lib/auth/roles";
 import { sendTemplated } from "@/lib/email/send-template";
 import { isEmailConfigured } from "@/lib/email/send";
+import { getTenantEmailConfig } from "@/lib/email/tenant-email";
 import { logAuditEvent } from "@/lib/audit";
 import { getTenantBusinessName } from "@/lib/tenant/business";
+import { getCurrentTenantId } from "@/lib/tenant/db";
 import { z } from "zod";
 
 const IssueSchema = z.object({
@@ -68,9 +70,12 @@ export async function issueGiftCard(formData: FormData) {
     const baseUrl =
       process.env.NEXT_PUBLIC_APP_URL || "https://itsalwaysfun-rental.vercel.app";
     const brand = await getTenantBusinessName();
+    const tenantEmail = await getTenantEmailConfig(getCurrentTenantId());
     await sendTemplated({
       key: "gift_card_received",
       to: parsed.data.recipient_email,
+      from: tenantEmail.from,
+      replyTo: tenantEmail.replyTo,
       vars: {
         recipientName: parsed.data.recipient_name || "there",
         purchaserName: parsed.data.purchaser_name || "a friend",

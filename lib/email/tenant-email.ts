@@ -89,6 +89,25 @@ export async function getTenantEmailConfig(
 /** Helper for callers that already have the tenant row in hand (skip the DB
  *  round trip). Pass the minimum tenant fields you have; missing fields
  *  fall back to operator defaults. */
+/** Where admin alerts (contact form notifications, low-stock alerts, etc.)
+ *  should land for a given tenant. Falls back to the operator default if no
+ *  tenant config available. Use for any tenant → admin notification path. */
+export async function getTenantAdminEmail(tenantId: string | null): Promise<string> {
+  if (!tenantId) return process.env.ADMIN_ALERT_EMAIL || "admin@itsalwaysfun.com";
+  const supabase = createAdminClient({ unscoped: true });
+  const { data: t } = await supabase
+    .from("tenants")
+    .select("notification_email, owner_email")
+    .eq("id", tenantId)
+    .maybeSingle();
+  return (
+    (t as any)?.notification_email ||
+    (t as any)?.owner_email ||
+    process.env.ADMIN_ALERT_EMAIL ||
+    "admin@itsalwaysfun.com"
+  );
+}
+
 export function buildTenantEmailConfig(tenant: {
   id?: string;
   business_name?: string | null;

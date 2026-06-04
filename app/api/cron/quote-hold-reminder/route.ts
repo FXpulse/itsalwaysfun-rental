@@ -13,6 +13,7 @@ import * as Sentry from "@sentry/nextjs";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isEmailConfigured } from "@/lib/email/send";
 import { sendTemplated } from "@/lib/email/send-template";
+import { getTenantEmailConfig } from "@/lib/email/tenant-email";
 import { getTenantInfo } from "@/lib/tenant/business";
 
 export const dynamic = "force-dynamic";
@@ -118,7 +119,7 @@ export async function GET() {
         minute: "2-digit",
       }).format(expiresAt);
       const brand = tenant.business_name;
-      const replyTo = tenant.owner_email || undefined;
+      const tenantEmail = await getTenantEmailConfig(q.tenant_id);
 
       const vars = {
         firstName: customerName,
@@ -134,7 +135,8 @@ export async function GET() {
       const res = await sendTemplated({
         key: "quote_hold_reminder",
         to: q.customer_email,
-        replyTo,
+        from: tenantEmail.from,
+        replyTo: tenantEmail.replyTo,
         vars,
         fallback: () => ({
           subject: `Your reservation expires in ${hoursLeft}h — complete payment to lock it in`,

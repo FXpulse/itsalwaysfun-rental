@@ -2,8 +2,10 @@
 // Fire-and-forget — failures logged but don't block the save.
 
 import { sendEmail, isEmailConfigured } from "@/lib/email/send";
+import { getTenantEmailConfig } from "@/lib/email/tenant-email";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getTenantBusinessName } from "@/lib/tenant/business";
+import { getCurrentTenantId } from "@/lib/tenant/db";
 
 interface CouponAssignedEmailInput {
   coupon_code: string;
@@ -88,8 +90,11 @@ View your portal: ${portalUrl}
 
 — ${businessName}`;
 
+  const tenantEmail = await getTenantEmailConfig(getCurrentTenantId());
   await sendEmail({
     to: email,
+    from: tenantEmail.from,
+    replyTo: tenantEmail.replyTo,
     subject,
     html,
     text,

@@ -8,6 +8,8 @@ import { z } from "zod";
 import { isEmailConfigured } from "@/lib/email/send";
 import { sendTemplated } from "@/lib/email/send-template";
 import { renderAbandonedCartEmail } from "@/lib/email/templates";
+import { getTenantEmailConfig } from "@/lib/email/tenant-email";
+import { getCurrentTenantId } from "@/lib/tenant/db";
 import { getTenantInfo, tenantToEmailBrand } from "@/lib/tenant/business";
 
 export const dynamic = "force-dynamic";
@@ -68,9 +70,12 @@ export async function POST(request: Request) {
     const resumeUrl = `${baseUrl}/order-by-date?product=${encodeURIComponent(parsed.data.productSlug)}`;
     const totalCents = Math.round(parsed.data.totalPrice * 100);
 
+    const tenantEmail = await getTenantEmailConfig(getCurrentTenantId());
     const r = await sendTemplated({
       key: "abandoned_cart",
       to: parsed.data.email,
+      from: tenantEmail.from,
+      replyTo: tenantEmail.replyTo,
       vars: {
         firstName: parsed.data.firstName,
         productName: parsed.data.product,

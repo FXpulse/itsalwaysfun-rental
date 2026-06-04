@@ -5,7 +5,9 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { ensureCustomerProfile } from "@/lib/loyalty";
 import { sendEmail, isEmailConfigured } from "@/lib/email/send";
+import { getTenantEmailConfig } from "@/lib/email/tenant-email";
 import { getTenantBusinessName } from "@/lib/tenant/business";
+import { getCurrentTenantId } from "@/lib/tenant/db";
 
 async function requireAdmin() {
   const supabase = createClient();
@@ -119,8 +121,11 @@ export async function bulkImportCustomers(
         const magicUrl = linkData?.properties?.action_link;
         if (magicUrl) {
           const firstName = r.first_name?.trim() || email.split("@")[0];
+          const tenantEmail = await getTenantEmailConfig(getCurrentTenantId());
           const sendResult = await sendEmail({
             to: email,
+            from: tenantEmail.from,
+            replyTo: tenantEmail.replyTo,
             subject: `Welcome to ${businessName} — your portal is ready`,
             html: inviteHtml(firstName, businessName, magicUrl),
             text: `Hi ${firstName},\n\nWe've created an account for you at ${businessName}. Open your portal (link expires in 1 hour):\n\n${magicUrl}\n\n— ${businessName}`,

@@ -6,7 +6,9 @@ import { requireAdmin } from "@/lib/auth/roles";
 import { uploadImage, deleteImage } from "@/lib/storage/upload";
 import { sendTemplated } from "@/lib/email/send-template";
 import { isEmailConfigured } from "@/lib/email/send";
+import { getTenantEmailConfig } from "@/lib/email/tenant-email";
 import { getTenantBusinessName } from "@/lib/tenant/business";
+import { getCurrentTenantId } from "@/lib/tenant/db";
 
 export async function uploadCoi(requestId: string, formData: FormData) {
   const me = await requireAdmin();
@@ -51,10 +53,13 @@ export async function uploadCoi(requestId: string, formData: FormData) {
     const baseUrl =
       process.env.NEXT_PUBLIC_APP_URL || "https://itsalwaysfun-rental.vercel.app";
     const brand = await getTenantBusinessName();
+    const tenantEmail = await getTenantEmailConfig(getCurrentTenantId());
     try {
       await sendTemplated({
         key: "coi_ready",
         to: req.requested_by_email,
+        from: tenantEmail.from,
+        replyTo: tenantEmail.replyTo,
         vars: {
           venueName: req.venue_name,
           coiUrl: upload.url,

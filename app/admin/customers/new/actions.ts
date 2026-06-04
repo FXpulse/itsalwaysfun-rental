@@ -5,7 +5,9 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { ensureCustomerProfile } from "@/lib/loyalty";
 import { sendEmail, isEmailConfigured } from "@/lib/email/send";
+import { getTenantEmailConfig } from "@/lib/email/tenant-email";
 import { getTenantBusinessName } from "@/lib/tenant/business";
+import { getCurrentTenantId } from "@/lib/tenant/db";
 
 async function requireAdmin() {
   const supabase = createClient();
@@ -127,8 +129,11 @@ We've created an account for you at ${businessName}. Open your portal here (link
 ${magicUrl}
 
 — ${businessName}`;
+        const tenantEmail = await getTenantEmailConfig(getCurrentTenantId());
         const result = await sendEmail({
           to: email,
+          from: tenantEmail.from,
+          replyTo: tenantEmail.replyTo,
           subject: `Welcome to ${businessName} — your portal is ready`,
           html, text,
           tags: [{ name: "type", value: "customer_invite" }],

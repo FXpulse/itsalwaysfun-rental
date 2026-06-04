@@ -5,6 +5,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendEmail, isEmailConfigured } from "@/lib/email/send";
+import { getTenantEmailConfig } from "@/lib/email/tenant-email";
 import { getTenantBusinessName } from "@/lib/tenant/business";
 import { resolveAudience, type CampaignFilter } from "@/app/admin/campaigns/actions";
 
@@ -90,8 +91,11 @@ ${personalizedBody.split(/\n\n+/).map((p: string) => `<p style="margin:14px 0">$
 <div style="border-top:1px solid #e2e8f0;padding-top:16px;margin-top:24px;font-size:12px;color:#64748b">— ${businessName}</div>
 </body></html>`;
 
+        const tenantEmail = await getTenantEmailConfig(c.tenant_id);
         const result = await sendEmail({
           to: r.email,
+          from: tenantEmail.from,
+          replyTo: tenantEmail.replyTo,
           subject: c.subject,
           html,
           text: personalizedBody,

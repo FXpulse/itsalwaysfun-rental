@@ -10,6 +10,7 @@ import { headers } from "next/headers";
 import * as Sentry from "@sentry/nextjs";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendEmail, isEmailConfigured } from "@/lib/email/send";
+import { getTenantEmailConfig } from "@/lib/email/tenant-email";
 import { getTenantInfo } from "@/lib/tenant/business";
 
 export const dynamic = "force-dynamic";
@@ -80,12 +81,13 @@ export async function GET() {
       ? new Intl.DateTimeFormat("en-US", { timeZone: tenant.timezone, month: "long", day: "numeric", year: "numeric" }).format(new Date(q.expires_at))
       : "";
     const brand = tenant.business_name;
-    const replyTo = tenant.owner_email || undefined;
+    const tenantEmail = await getTenantEmailConfig(q.tenant_id);
 
     try {
       const res = await sendEmail({
         to: q.customer_email,
-        replyTo,
+        from: tenantEmail.from,
+        replyTo: tenantEmail.replyTo,
         subject: `Reminder: Your quote from ${brand} is waiting`,
         html: `<div style="font-family:system-ui,sans-serif;max-width:600px;color:#0f172a;">
 <p>Hi ${customerName},</p>
