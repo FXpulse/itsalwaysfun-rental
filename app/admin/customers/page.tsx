@@ -43,9 +43,16 @@ export default async function AdminCustomersPage({
   if (!me) redirect("/admin/login");
 
   const supabase = createAdminClient();
+  const unscoped = createAdminClient({ unscoped: true });
 
-  // Pull bookings + quotes in parallel (limit 5000 each)
-  const [{ data: rawBookings }, { data: rawQuotes }] = await Promise.all([
+  // Pull bookings + quotes + tenant's manual-add customer_profiles in parallel.
+  // customer_profiles is auto-scoped to current tenant by the admin client proxy,
+  // so we only see profiles created under THIS tenant.
+  const [
+    { data: rawBookings },
+    { data: rawQuotes },
+    { data: rawProfiles },
+  ] = await Promise.all([
     supabase
       .from("bookings")
       .select(
@@ -60,10 +67,16 @@ export default async function AdminCustomersPage({
       )
       .order("created_at", { ascending: false })
       .limit(5000),
+    supabase
+      .from("customer_profiles")
+      .select("user_id, created_at")
+      .order("created_at", { ascending: false })
+      .limit(5000),
   ]);
 
   const bookings: BookingRow[] = (rawBookings as BookingRow[]) || [];
   const quotes = (rawQuotes as any[]) || [];
+  const profiles = (rawProfiles as Array<{ user_id: string; created_at: string }>) || [];
 
   // Aggregate by email (lowercase)
   const map = new Map<string, CustomerSummary>();
@@ -120,6 +133,36 @@ export default async function AdminCustomersPage({
       if (!existing.first_name && q.customer_first_name) existing.first_name = q.customer_first_name;
       if (!existing.last_name && q.customer_last_name) existing.last_name = q.customer_last_name;
       if (!existing.phone && q.customer_phone) existing.phone = q.customer_phone;
+    }
+  }
+
+  // Portal-only customers: rows in customer_profiles (this tenant) whose email
+  // isn't in bookings or quotes yet. Resolve email + metadata from auth.users.
+  if (profiles.length > 0) {
+    const profileUserIds = new Set(profiles.map((p) => p.user_id));
+    const { data: usersData } = await unscoped.auth.admin.listUsers({
+      perPage: 1000,
+    });
+    const profileCreatedAt = new Map(profiles.map((p) => [p.user_id, p.created_at]));
+    for (const u of usersData?.users || []) {
+      if (!profileUserIds.has(u.id)) continue;
+      const email = (u.email || "").toLowerCase().trim();
+      if (!email) continue;
+      if (map.has(email)) continue;
+      const meta = (u.user_metadata || {}) as Record<string, any>;
+      const createdAt = profileCreatedAt.get(u.id) || u.created_at || "";
+      map.set(email, {
+        email,
+        display_email: u.email || email,
+        first_name: meta.first_name || "",
+        last_name: meta.last_name || "",
+        phone: meta.phone || "",
+        total_bookings: 0,
+        total_spent_cents: 0,
+        last_booking_date: createdAt.slice(0, 10),
+        first_booking_date: createdAt.slice(0, 10),
+        is_returning: false,
+      });
     }
   }
 

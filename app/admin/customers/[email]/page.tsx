@@ -48,7 +48,111 @@ export default async function CustomerDetailPage({
 
   const bookings = rawBookings || [];
   const tags = (tagRows as any[]) || [];
-  if (bookings.length === 0) notFound();
+
+  // Portal-only customer fallback: no bookings yet (e.g. created manually
+  // or self-registered). Look up auth.users by email + verify they have a
+  // customer_profiles row in THIS tenant before showing the lite view.
+  if (bookings.length === 0) {
+    const unscoped = createAdminClient({ unscoped: true });
+    const { data: usersData } = await unscoped.auth.admin.listUsers({ perPage: 1000 });
+    const authUser = (usersData?.users || []).find(
+      (u) => (u.email || "").toLowerCase() === email,
+    );
+    if (!authUser) notFound();
+    const { data: profile } = await supabase
+      .from("customer_profiles")
+      .select("user_id, created_at, loyalty_points")
+      .eq("user_id", authUser.id)
+      .maybeSingle();
+    if (!profile) notFound();
+
+    const meta = (authUser.user_metadata || {}) as Record<string, any>;
+    const firstName = meta.first_name || "";
+    const lastName = meta.last_name || "";
+    const phone = meta.phone || "";
+    const createdAt = (profile.created_at || authUser.created_at || "").slice(0, 10);
+
+    return (
+      <div className="max-w-5xl">
+        <Link
+          href="/admin/customers"
+          className="text-sm text-slate-500 hover:text-brand-navy inline-flex items-center gap-1 mb-4"
+        >
+          <ArrowLeft className="h-3 w-3" /> Back to customers
+        </Link>
+
+        <h1 className="text-2xl font-bold text-brand-navy mb-1">
+          {firstName} {lastName}
+        </h1>
+        <p className="text-sm text-slate-500 mb-6">
+          Customer since {createdAt}
+          <span className="inline-block text-[10px] bg-indigo-100 text-indigo-800 rounded px-2 py-0.5 ml-2 align-middle">
+            Portal-only · No bookings yet
+          </span>
+        </p>
+
+        <div className="mb-6">
+          <CustomerTagsPanel email={email} tags={tags} suggestions={suggestions} />
+        </div>
+
+        <div className="grid md:grid-cols-2 gap-4 mb-8">
+          <div className="card">
+            <h2 className="text-sm font-bold uppercase tracking-wide text-slate-500 mb-3">
+              Contact
+            </h2>
+            <div className="space-y-2 text-sm">
+              <div className="flex items-center gap-2">
+                <Mail className="h-4 w-4 text-slate-400" />
+                <a href={`mailto:${authUser.email}`} className="hover:underline">
+                  {authUser.email}
+                </a>
+              </div>
+              {phone && (
+                <div className="flex items-center gap-2">
+                  <Phone className="h-4 w-4 text-slate-400" />
+                  <a href={`tel:${phone}`} className="hover:underline">
+                    {phone}
+                  </a>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="card">
+            <h2 className="text-sm font-bold uppercase tracking-wide text-slate-500 mb-3">
+              Lifetime stats
+            </h2>
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <div>
+                <div className="text-xs text-slate-500 flex items-center gap-1">
+                  <Package className="h-3 w-3" /> Bookings
+                </div>
+                <div className="text-xl font-bold text-brand-navy">0</div>
+              </div>
+              <div>
+                <div className="text-xs text-slate-500 flex items-center gap-1">
+                  <DollarSign className="h-3 w-3" /> Total spent
+                </div>
+                <div className="text-xl font-bold text-brand-navy">
+                  {formatCurrency(0)}
+                </div>
+              </div>
+              <div>
+                <div className="text-xs text-slate-500">Loyalty points</div>
+                <div className="text-sm font-semibold text-slate-700">
+                  {profile.loyalty_points || 0}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="card text-center text-slate-400 py-12">
+          No bookings yet. Once this customer places their first order, the booking history will appear here.
+        </div>
+      </div>
+    );
+  }
 
   const latest = bookings[0];
   const firstBookingDate = bookings[bookings.length - 1].event_date;
