@@ -55,11 +55,21 @@ const MULTI_TENANT_TABLES = new Set([
   "user_roles",
   "customer_tags",
   "campaigns",
+  "tenant_api_keys",
+  "tenant_webhooks",
+  "custom_reports",
+  "google_business_connections",
+  "tenant_goals",
+  "tenant_home_sections",
+  "tenant_onboarding_checklist",
+  "tenant_operator_notes",
   // Intentionally NOT in this list (tenancy via FK to parent):
   //   booking_expenses, booking_damages, booking_proofs, booking_waivers,
   //   booking_extensions, coi_requests, booking_expense_categories,
   //   dispatch_stops, product_inventory_requirements, product_images,
   //   inventory_units, contact_message_replies, campaign_recipients
+  // Intentionally NOT in this list (no usage yet — add when first written):
+  //   google_business_reviews, google_business_posts
 ]);
 
 function isMultiTenantTable(name: string): boolean {

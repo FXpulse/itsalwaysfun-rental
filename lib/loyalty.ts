@@ -7,6 +7,7 @@ import { isEmailConfigured } from "@/lib/email/send";
 import { sendTemplated } from "@/lib/email/send-template";
 import { renderReferralEmail, renderAdminPayoutAlert } from "@/lib/email/templates";
 import { getTenantInfo, tenantToEmailBrand } from "@/lib/tenant/business";
+import { tryGetTenantIdFromHeaders } from "@/lib/tenant/scope";
 
 export interface LoyaltySettings {
   points_per_dollar: number;
@@ -42,10 +43,27 @@ export async function getLoyaltySettings(): Promise<LoyaltySettings> {
 }
 
 /** Ensure a customer_profile exists for the given user_id. Returns the
- *  referral code (creating one if needed via RPC). */
-export async function ensureCustomerProfile(userId: string): Promise<string | null> {
+ *  referral code (creating one if needed via RPC).
+ *
+ *  tenantId is required. We accept it explicitly because this is often
+ *  called from contexts without request headers (Stripe webhook, cron),
+ *  where the proxy can't resolve a tenant from `next/headers`. When the
+ *  caller IS inside a request, pass `getCurrentTenantId()` or omit and we
+ *  fall back to the header — but we never silently default to IAF here. */
+export async function ensureCustomerProfile(
+  userId: string,
+  tenantId?: string,
+): Promise<string | null> {
   const supabase = createAdminClient();
-  const { data, error } = await supabase.rpc("ensure_customer_profile", { uid: userId });
+  const tid = tenantId || tryGetTenantIdFromHeaders();
+  if (!tid) {
+    console.error("ensureCustomerProfile: no tenant_id and no request context — refusing to fall back to IAF default", { userId });
+    return null;
+  }
+  const { data, error } = await supabase.rpc("ensure_customer_profile", {
+    uid: userId,
+    p_tenant_id: tid,
+  });
   if (error) {
     console.error("ensureCustomerProfile error", error);
     return null;
@@ -67,12 +85,16 @@ export async function findUserByReferralCode(code: string): Promise<string | nul
 
 /** Link a newly-authed user to their referrer (called from auth callback when
  *  ref cookie is set). Idempotent — only sets if not already set. */
-export async function linkReferrer(userId: string, referrerCode: string): Promise<boolean> {
+export async function linkReferrer(
+  userId: string,
+  referrerCode: string,
+  tenantId?: string,
+): Promise<boolean> {
   if (!userId || !referrerCode) return false;
   const referrerId = await findUserByReferralCode(referrerCode);
   if (!referrerId || referrerId === userId) return false; // can't self-refer
 
-  await ensureCustomerProfile(userId);
+  await ensureCustomerProfile(userId, tenantId);
 
   const supabase = createAdminClient();
   // Only set if currently null (don't overwrite existing referrer)
@@ -100,11 +122,15 @@ export async function awardForPaidBooking(bookingId: string): Promise<void> {
 
   const { data: booking } = await supabase
     .from("bookings")
-    .select("id, customer_email, total_amount, tax_cents, coupon_code, stripe_payment_status, booking_status, created_at")
+    .select("id, tenant_id, customer_email, total_amount, tax_cents, coupon_code, stripe_payment_status, booking_status, created_at")
     .eq("id", bookingId)
     .single();
   if (!booking || booking.stripe_payment_status !== "paid") return;
   if (booking.booking_status === "cancelled") return;
+  if (!booking.tenant_id) {
+    console.error("awardForPaidBooking: booking missing tenant_id", { bookingId });
+    return;
+  }
 
   // Already awarded? Check ledger for booking_points entry tied to this booking.
   const { data: existing } = await supabase
@@ -125,7 +151,7 @@ export async function awardForPaidBooking(bookingId: string): Promise<void> {
   const customer = (users || []).find((u: any) => (u.email || "").toLowerCase() === email);
   if (!customer) return; // not a portal customer → no points
 
-  await ensureCustomerProfile(customer.id);
+  await ensureCustomerProfile(customer.id, booking.tenant_id);
 
   const settings = await getLoyaltySettings();
   const dollars = Math.floor((booking.total_amount || 0) / 100);
@@ -211,7 +237,7 @@ export async function awardForPaidBooking(bookingId: string): Promise<void> {
   const commissionCents = Math.round(commissionBase * (settings.referral_commission_pct / 100));
   if (commissionCents <= 0) return;
 
-  await ensureCustomerProfile(effectiveReferrerId);
+  await ensureCustomerProfile(effectiveReferrerId, booking.tenant_id);
 
   await supabase.from("loyalty_transactions").insert({
     user_id: effectiveReferrerId,

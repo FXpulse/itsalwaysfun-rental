@@ -108,7 +108,7 @@ export async function bulkImportCustomers(
     }
 
     // Ensure customer_profile
-    await ensureCustomerProfile(user_id);
+    await ensureCustomerProfile(user_id, getCurrentTenantId());
 
     // Send invite for NEW users only (not existing ones — they already have access)
     if (isNew && sendInvites && isEmailConfigured()) {

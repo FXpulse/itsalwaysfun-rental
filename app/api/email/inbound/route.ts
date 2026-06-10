@@ -166,8 +166,8 @@ export async function POST(request: Request) {
   //   1. tenant_id (UUID) directly
   //   2. tenant_slug → look up id
   //   3. "to" address domain → look up by custom_domain
-  //   4. Fallback to the default IAF tenant so legacy worker payloads
-  //      (no tenant fields, addressed at itsalwaysfun.net) still land.
+  // If none match: reject 422 (NO silent fallback to default tenant — that
+  // would route a future tenant's mail into IAF's inbox).
   let tenantId: string | null = data.tenant_id || null;
   if (!tenantId && data.tenant_slug) {
     const { data: tenant } = await supabase
@@ -203,10 +203,22 @@ export async function POST(request: Request) {
     }
   }
   if (!tenantId) {
-    // Last-resort fallback — single-tenant deployments (the IAF UUID is
-    // seeded by multi_tenant_foundation.sql).
-    tenantId = "11111111-1111-1111-1111-111111111111";
-    console.warn("[inbound-email] no tenant resolved, falling back to default IAF", { to: data.to });
+    // Refuse to route the email. The previous behavior was to silently
+    // drop it into the IAF tenant inbox — invisible for IAF but a P0 leak
+    // for any other tenant whose domain wasn't yet wired up in tenants.
+    // Cloudflare Worker can retry on 422 or surface the error.
+    console.warn("[inbound-email] no tenant resolved, rejecting", {
+      to: data.to,
+      tenant_id_hint: data.tenant_id,
+      tenant_slug_hint: data.tenant_slug,
+    });
+    return NextResponse.json(
+      {
+        error: "Unable to resolve tenant from payload",
+        hint: "Set tenant_id, tenant_slug, or ensure the recipient domain is in tenants.custom_domain",
+      },
+      { status: 422 },
+    );
   }
 
   const { data: row, error: insertErr } = await supabase

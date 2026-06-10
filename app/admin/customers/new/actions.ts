@@ -79,7 +79,7 @@ export async function createCustomerManually(input: CreateInput): Promise<
   }
 
   // 3. Ensure customer_profile (RPC creates one with a generated referral_code)
-  await ensureCustomerProfile(user_id);
+  await ensureCustomerProfile(user_id, getCurrentTenantId());
 
   // 4. Optional: send a magic-link invite email
   let invited = false;
