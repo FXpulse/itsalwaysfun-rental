@@ -10,6 +10,12 @@
 -- callers pass an explicit value (see lib/loyalty.ts), we can flip this
 -- to `not null` in a follow-up migration.
 
+-- Drop the old single-arg signature so PostgREST doesn't get ambiguous
+-- overloads. CREATE OR REPLACE only matches a function with the same
+-- argument list; the old (uid uuid) signature would otherwise linger
+-- and a caller could land on it accidentally.
+drop function if exists public.ensure_customer_profile(uid uuid);
+
 create or replace function public.ensure_customer_profile(
   uid uuid,
   p_tenant_id uuid default null
