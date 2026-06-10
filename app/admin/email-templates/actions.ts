@@ -4,8 +4,9 @@ import { revalidatePath } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin } from "@/lib/auth/roles";
 import { sendEmail, isEmailConfigured } from "@/lib/email/send";
-import { renderTemplate, substitute, wrapInBaseLayout } from "@/lib/email/render-template";
+import { renderTemplate, renderTemplateSms, substitute, wrapInBaseLayout } from "@/lib/email/render-template";
 import { getTenantInfo, tenantToEmailBrand } from "@/lib/tenant/business";
+import { sendSms, isSmsConfigured } from "@/lib/sms/send";
 import { z } from "zod";
 
 const UpdateSchema = z.object({
@@ -13,16 +14,20 @@ const UpdateSchema = z.object({
   email_title: z.string().min(1).max(200),
   body_html: z.string().min(1).max(50000),
   body_text: z.string().min(1).max(50000),
+  sms_body: z.string().max(1600).nullable(),
   is_active: z.boolean(),
 });
 
 export async function updateEmailTemplate(key: string, formData: FormData) {
   await requireAdmin();
+  const smsRaw = formData.get("sms_body");
+  const smsString = smsRaw == null ? "" : String(smsRaw);
   const parsed = UpdateSchema.safeParse({
     subject: String(formData.get("subject") || ""),
     email_title: String(formData.get("email_title") || ""),
     body_html: String(formData.get("body_html") || ""),
     body_text: String(formData.get("body_text") || ""),
+    sms_body: smsString.trim() === "" ? null : smsString,
     is_active: formData.get("is_active") === "on",
   });
   if (!parsed.success) {
@@ -109,4 +114,32 @@ export async function sendTestEmail(
     ],
   });
   return r.ok ? { success: true, id: r.id } : { error: r.error || "Send failed" };
+}
+
+/** Send the rendered SMS body to a chosen phone for testing. */
+export async function sendTestSms(
+  key: string,
+  toPhone: string,
+  vars: Record<string, string>,
+) {
+  await requireAdmin();
+  if (!isSmsConfigured()) {
+    return { error: "SMS delivery is not enabled for your account — contact RentalFlow support." };
+  }
+  const rendered = await renderTemplateSms(key, vars);
+  if (!rendered) return { error: "This template has no SMS body to send. Add one and save first." };
+
+  const r = await sendSms({ to: toPhone, body: `[TEST] ${rendered}` });
+  return r.ok ? { success: true, sid: r.sid } : { error: r.error || "Send failed" };
+}
+
+/** Render the SMS body with vars for preview in the editor. Does NOT send. */
+export async function previewSmsTemplate(
+  key: string,
+  vars: Record<string, string>,
+): Promise<{ body: string } | { error: string }> {
+  await requireAdmin();
+  const rendered = await renderTemplateSms(key, vars);
+  if (rendered === null) return { error: "This template has no SMS body. Add one and save first." };
+  return { body: rendered };
 }

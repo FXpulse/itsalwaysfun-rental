@@ -41,6 +41,25 @@ const SAMPLE_VARS: Record<string, Record<string, string>> = {
     totalDollars: "299.00",
     resumeUrl: "https://itsalwaysfun-rental.vercel.app/order-by-date?product=all-star-sports-arena",
   },
+  booking_confirmation: {
+    firstName: "Maria",
+    lastName: "Lopez",
+    productName: "Princess Castle Bouncer",
+    eventDate: "06/15/2026",
+    eventEndDate: "06/15/2026",
+    startTime: "11:00",
+    endTime: "17:00",
+    address: "123 Main St, Jacksonville, FL 32202",
+    totalDollars: "299.00",
+    bookingPortalUrl: "https://itsalwaysfun.com/portal/bookings/sample",
+  },
+  booking_reminder_3d: {
+    firstName: "Maria",
+    productName: "Princess Castle Bouncer",
+    eventDate: "06/15/2026",
+    address: "123 Main St, Jacksonville, FL 32202",
+    bookingPortalUrl: "https://itsalwaysfun.com/portal/bookings/sample",
+  },
 };
 
 export default async function EmailTemplateEditorPage({
@@ -81,6 +100,7 @@ export default async function EmailTemplateEditorPage({
           email_title: template.email_title,
           body_html: template.body_html,
           body_text: template.body_text,
+          sms_body: template.sms_body || "",
           is_active: template.is_active,
         }}
         availableVars={template.available_vars || []}

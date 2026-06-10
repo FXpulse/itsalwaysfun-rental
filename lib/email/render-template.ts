@@ -26,6 +26,7 @@ export interface TemplateRow {
   email_title: string;
   body_html: string;
   body_text: string;
+  sms_body: string | null;
   available_vars: string[];
   is_active: boolean;
 }
@@ -198,4 +199,34 @@ export async function renderTemplate(
   const html = wrapInBaseLayout(title, innerHtml, brand, subject);
 
   return { subject, html, text };
+}
+
+/** Render the SMS body of a template with vars substituted + auto-injected
+ *  brand vars ({{businessName}}, {{businessPhone}}, {{businessEmail}}).
+ *  Returns null if the template doesn't exist, is inactive, or has no
+ *  sms_body (i.e. SMS not enabled for that event). */
+export async function renderTemplateSms(
+  key: string,
+  vars: Record<string, any>,
+  tenantId?: string,
+): Promise<string | null> {
+  const tmpl = await loadTemplate(key);
+  if (!tmpl || !tmpl.sms_body) return null;
+
+  const tenant = await getTenantInfo(tenantId);
+  const brand = brandForWrapper(tenant);
+  const enriched: Record<string, any> = {
+    businessName: brand.name,
+    businessPhone: brand.phone || "",
+    businessEmail: brand.email || "",
+    ...vars,
+  };
+  // substitute() HTML-escapes by default. SMS is plain text — unescape the
+  // common entities so '&' / quotes don't render as &amp; / &#39; over the wire.
+  return substitute(tmpl.sms_body, enriched)
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'");
 }

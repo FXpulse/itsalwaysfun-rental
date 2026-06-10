@@ -15,6 +15,7 @@ import { sendTemplated } from "@/lib/email/send-template";
 import { isEmailConfigured } from "@/lib/email/send";
 import { getTenantEmailConfig } from "@/lib/email/tenant-email";
 import { sendSms, isSmsConfigured } from "@/lib/sms/send";
+import { renderTemplateSms } from "@/lib/email/render-template";
 
 type EmailType =
   | "booking_confirmation"
@@ -75,7 +76,6 @@ async function recordSend(
 }
 
 import { formatDateUS } from "./format-date";
-import { getTenantTimezone, formatDateLongInTz } from "@/lib/tenant/timezone";
 
 function buildVars(b: BookingRow, extras: Record<string, any> = {}): Record<string, any> {
   return {
@@ -151,10 +151,14 @@ export async function sendBookingConfirmation(bookingId: string): Promise<void> 
 
   // SMS (best-effort, separate channel — uses customer_phone if present)
   if (isSmsConfigured() && b.customer_phone) {
-    const tz = await getTenantTimezone((b as any).tenant_id);
-    const dateLabel = formatDateLongInTz(b.event_date + "T12:00:00Z", tz);
-    const smsBody = `✓ Booking confirmed for ${b.product_name} on ${dateLabel}. We'll text you 1-2 days before delivery to coordinate. — It's Always Fun (904) 584-3047`;
-    await sendSms({ to: b.customer_phone, body: smsBody }).catch(() => {});
+    const smsBody = await renderTemplateSms(
+      "booking_confirmation",
+      buildVars(b),
+      (b as any).tenant_id,
+    );
+    if (smsBody) {
+      await sendSms({ to: b.customer_phone, body: smsBody }).catch(() => {});
+    }
   }
 }
 
@@ -226,10 +230,14 @@ export async function processScheduledBookingEmails(): Promise<{
 
         // SMS reminder too (best-effort)
         if (isSmsConfigured() && b.customer_phone) {
-          const tz = await getTenantTimezone((b as any).tenant_id);
-          const dateLabel = formatDateLongInTz(b.event_date + "T12:00:00Z", tz);
-          const smsBody = `🎉 Reminder: your ${b.product_name} rental is in 3 days (${dateLabel})! We'll text again 1-2 days before. Reply or call (904) 584-3047 if anything changes.`;
-          await sendSms({ to: b.customer_phone, body: smsBody }).catch(() => {});
+          const smsBody = await renderTemplateSms(
+            "booking_reminder_3d",
+            buildVars(b),
+            (b as any).tenant_id,
+          );
+          if (smsBody) {
+            await sendSms({ to: b.customer_phone, body: smsBody }).catch(() => {});
+          }
         }
       } catch (e: any) {
         summary.errors.push(`reminder_3d ${b.id}: ${e.message}`);
