@@ -23,6 +23,7 @@ interface Initial {
   geo_longitude: string;
   price_range: string;
   google_business_profile_url: string;
+  google_places_manual_place_id: string;
   seo_google_verification: string;
 }
 
@@ -51,6 +52,8 @@ export function LocalSeoPanel({
   const [lon, setLon] = useState(initial.geo_longitude);
   const [priceRange, setPriceRange] = useState(initial.price_range || "$$");
   const [gbpUrl, setGbpUrl] = useState(initial.google_business_profile_url);
+  const [manualPlaceId, setManualPlaceId] = useState(initial.google_places_manual_place_id);
+  const [showAdvanced, setShowAdvanced] = useState(!!initial.google_places_manual_place_id);
   const [saved, setSaved] = useState(false);
   const [isPending, startTransition] = useTransition();
 
@@ -74,6 +77,7 @@ export function LocalSeoPanel({
         geo_longitude: lon,
         price_range: priceRange,
         google_business_profile_url: gbpUrl,
+        google_places_manual_place_id: manualPlaceId.trim(),
       });
       if (!res.ok) {
         toast.error(res.error || "Failed to save");
@@ -260,6 +264,50 @@ export function LocalSeoPanel({
               </a>
               {" "}→ click your business → top-right share button → copy URL.
             </div>
+          </div>
+
+          {/* Advanced: manual Place ID (escape hatch when URL won't resolve) */}
+          <div className="mt-3 pt-3 border-t border-blue-200">
+            <button
+              type="button"
+              onClick={() => setShowAdvanced((v) => !v)}
+              className="text-[11px] text-blue-700 hover:text-blue-900 inline-flex items-center gap-1 font-semibold"
+            >
+              {showAdvanced ? "▾" : "▸"} Advanced: paste a Place ID directly
+              {manualPlaceId && !showAdvanced && (
+                <span className="ml-1 text-emerald-700">(active)</span>
+              )}
+            </button>
+            {showAdvanced && (
+              <div className="mt-2 space-y-2 bg-white border border-blue-200 rounded-lg p-3">
+                <p className="text-[11px] text-slate-700 leading-relaxed">
+                  If the URL above won&apos;t sync, paste your Google{" "}
+                  <strong>Place ID</strong> here. Find it at{" "}
+                  <a
+                    href="https://developers.google.com/maps/documentation/places/web-service/place-id"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-indigo-700 hover:underline inline-flex items-center gap-0.5"
+                  >
+                    Google&apos;s Place ID Finder <ExternalLink className="h-2.5 w-2.5" />
+                  </a>
+                  {" "}— search your business name + city, then copy the ID
+                  (it usually starts with <code className="bg-slate-100 px-1 py-0.5 rounded text-[10px]">ChIJ</code>).
+                </p>
+                <input
+                  type="text"
+                  value={manualPlaceId}
+                  onChange={(e) => setManualPlaceId(e.target.value)}
+                  placeholder="ChIJ..."
+                  className="input w-full font-mono text-xs"
+                  disabled={isPending}
+                />
+                <p className="text-[10px] text-slate-500">
+                  When set, this overrides URL parsing. Click <strong>Save</strong> below to sync — green = working,
+                  red = Google rejected the ID, blue = listing not yet in index.
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Quick actions if URL is set */}

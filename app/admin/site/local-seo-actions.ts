@@ -13,6 +13,7 @@ const SUPPORTED_KEYS = new Set([
   "geo_longitude",
   "price_range",
   "google_business_profile_url",
+  "google_places_manual_place_id",
 ]);
 
 export async function saveLocalSeo(input: Record<string, string>): Promise<{ ok: boolean; error?: string }> {
@@ -40,6 +41,15 @@ export async function saveLocalSeo(input: Record<string, string>): Promise<{ ok:
     if (input.google_business_profile_url && !/^https?:\/\//.test(input.google_business_profile_url)) {
       return { ok: false, error: "Google Business URL must start with https://" };
     }
+    if (input.google_places_manual_place_id) {
+      const trimmed = input.google_places_manual_place_id.trim();
+      // Place IDs are alphanumeric + underscore + hyphen, length varies
+      // (ChIJ ones are ~27 chars, others can differ). Be lenient on length;
+      // just reject obvious garbage. Empty string is allowed (clears the override).
+      if (trimmed && !/^[A-Za-z0-9_\-]{15,}$/.test(trimmed)) {
+        return { ok: false, error: "Manual Place ID looks malformed — should be a string from Google's Place ID Finder (typically starts with ChIJ...)." };
+      }
+    }
 
     // Build upserts only for supported keys with non-empty values (or empty
     // strings to clear existing). Use upsert with conflict to be safe.
@@ -62,17 +72,19 @@ export async function saveLocalSeo(input: Record<string, string>): Promise<{ ok:
       return { ok: false, error: error.message };
     }
 
-    // Auto-sync Google Places cache if the GBP URL changed and the API is
-    // configured. Best-effort — don't fail the save if Places lookup errors.
+    // Auto-sync Google Places cache when either the GBP URL or the manual
+    // Place ID was touched. Best-effort — don't fail the save if Places
+    // lookup errors. Manual Place ID wins when both are present.
     let placesSyncResult: { ok: boolean; error?: string } | null = null;
-    if (
-      Object.keys(input).includes("google_business_profile_url") &&
-      isPlacesConfigured()
-    ) {
+    const touchedPlacesField =
+      Object.keys(input).includes("google_business_profile_url") ||
+      Object.keys(input).includes("google_places_manual_place_id");
+    if (touchedPlacesField && isPlacesConfigured()) {
       try {
         placesSyncResult = await syncPlaceDataForTenant(
           tenantId,
           input.google_business_profile_url || "",
+          input.google_places_manual_place_id?.trim() || undefined,
         );
       } catch (e: any) {
         console.error("[saveLocalSeo] places sync failed", e);
@@ -98,15 +110,18 @@ export async function refreshPlacesCache(): Promise<{ ok: boolean; error?: strin
     await requireStaffOrAdmin();
     const tenantId = getCurrentTenantId();
     const supabase = createAdminClient({ unscoped: true });
-    const { data } = await supabase
+    const { data: rows } = await supabase
       .from("site_settings")
-      .select("value")
+      .select("key, value")
       .eq("tenant_id", tenantId)
-      .eq("key", "google_business_profile_url")
-      .maybeSingle();
-    const url = (data as any)?.value || "";
-    if (!url) return { ok: false, error: "No Google Business URL configured" };
-    const res = await syncPlaceDataForTenant(tenantId, url);
+      .in("key", ["google_business_profile_url", "google_places_manual_place_id"]);
+    const settings = new Map((rows as any[] || []).map((r) => [r.key, r.value]));
+    const url = (settings.get("google_business_profile_url") || "") as string;
+    const manualPlaceId = (settings.get("google_places_manual_place_id") || "").trim() || undefined;
+    if (!url && !manualPlaceId) {
+      return { ok: false, error: "No Google Business URL or manual Place ID configured" };
+    }
+    const res = await syncPlaceDataForTenant(tenantId, url, manualPlaceId);
     revalidatePath("/admin/site");
     revalidatePath("/admin/reviews");
     return res;

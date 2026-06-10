@@ -96,6 +96,7 @@ export default async function AdminSitePage() {
           geo_longitude: settingsMap.get("geo_longitude") || "",
           price_range: settingsMap.get("price_range") || "",
           google_business_profile_url: settingsMap.get("google_business_profile_url") || "",
+          google_places_manual_place_id: settingsMap.get("google_places_manual_place_id") || "",
           seo_google_verification: settingsMap.get("seo_google_verification") || "",
         }}
         placesStatus={placesStatus}
