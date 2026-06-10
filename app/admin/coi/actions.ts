@@ -83,14 +83,14 @@ export async function uploadCoi(requestId: string, formData: FormData) {
       console.error("[COI ready email failed, non-fatal]", e);
     }
 
-    // SMS heads-up (best-effort) — pull the customer's phone from the booking
+    // SMS heads-up — gated by SMS opt-in. Fetch consent_at along with phone.
     if (isSmsConfigured()) {
       const { data: booking } = await supabase
         .from("bookings")
-        .select("customer_phone")
+        .select("customer_phone, customer_phone_sms_consent_at")
         .eq("id", req.booking_id)
         .maybeSingle();
-      if (booking?.customer_phone) {
+      if (booking?.customer_phone && booking.customer_phone_sms_consent_at) {
         const smsBody = await renderTemplateSms("coi_ready", {
           venueName: req.venue_name,
           coiUrl: upload.url,

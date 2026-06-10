@@ -101,7 +101,7 @@ export async function sendBookingCancelled(
   const { data: booking } = await supabase
     .from("bookings")
     .select(
-      "customer_first_name, customer_email, customer_phone, product_name, event_date, stripe_payment_status, tenant_id",
+      "customer_first_name, customer_email, customer_phone, customer_phone_sms_consent_at, product_name, event_date, stripe_payment_status, tenant_id",
     )
     .eq("id", bookingId)
     .single();
@@ -132,8 +132,14 @@ export async function sendBookingCancelled(
 
   await recordSend(bookingId, "booking_cancelled", r.ok, r.id, r.ok ? undefined : r.error);
 
-  // SMS notify (best-effort) — cancellation is high-urgency, customer must know
-  if (isSmsConfigured() && booking.customer_phone) {
+  // SMS notify — gated by SMS opt-in. Even though cancellation is high-urgency,
+  // the consent text at checkout binds us to only send what they opted into.
+  // Customer still gets the email, which is the canonical channel anyway.
+  if (
+    isSmsConfigured() &&
+    booking.customer_phone &&
+    (booking as any).customer_phone_sms_consent_at
+  ) {
     const smsBody = await renderTemplateSms(
       "booking_cancelled",
       vars,

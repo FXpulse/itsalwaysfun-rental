@@ -149,8 +149,14 @@ export async function sendBookingConfirmation(bookingId: string): Promise<void> 
     await recordSend(bookingId, "booking_confirmation", r.ok, r.id, r.ok ? undefined : r.error);
   }
 
-  // SMS (best-effort, separate channel — uses customer_phone if present)
-  if (isSmsConfigured() && b.customer_phone) {
+  // SMS (best-effort) — requires explicit opt-in at checkout
+  // (customer_phone_sms_consent_at). Twilio 10DLC + the consent text on the
+  // booking form both require this gate.
+  if (
+    isSmsConfigured() &&
+    b.customer_phone &&
+    (b as any).customer_phone_sms_consent_at
+  ) {
     const smsBody = await renderTemplateSms(
       "booking_confirmation",
       buildVars(b),
@@ -228,8 +234,12 @@ export async function processScheduledBookingEmails(): Promise<{
         await recordSend(b.id, "booking_reminder_3d", r.ok, r.id, r.ok ? undefined : r.error);
         if (r.ok) summary.reminder_3d++;
 
-        // SMS reminder too (best-effort)
-        if (isSmsConfigured() && b.customer_phone) {
+        // SMS reminder too — gated by SMS opt-in
+        if (
+          isSmsConfigured() &&
+          b.customer_phone &&
+          (b as any).customer_phone_sms_consent_at
+        ) {
           const smsBody = await renderTemplateSms(
             "booking_reminder_3d",
             buildVars(b),
@@ -282,8 +292,13 @@ export async function processScheduledBookingEmails(): Promise<{
         await recordSend(b.id, "booking_review_request", r.ok, r.id, r.ok ? undefined : r.error);
         if (r.ok) summary.review_1d++;
 
-        // SMS review nudge (best-effort)
-        if (isSmsConfigured() && b.customer_phone) {
+        // SMS review nudge — review requests are MARKETING per Twilio, so
+        // they MUST be gated by explicit opt-in. Skip if no consent.
+        if (
+          isSmsConfigured() &&
+          b.customer_phone &&
+          (b as any).customer_phone_sms_consent_at
+        ) {
           const smsBody = await renderTemplateSms(
             "booking_review_request",
             buildVars(b, { googleReviewUrl }),
