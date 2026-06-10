@@ -383,9 +383,11 @@ To customize email templates:
 
 - Edit subject, header, HTML body, plain-text fallback
 
+- Switch to the **SMS body** tab to edit the SMS that goes with the email (leave blank to disable SMS for that event)
+
 - Use `{}`, `{}`, etc.
 
-- **Preview** + **Send test** to yourself before saving$kbf$, $kbf$Communications$kbf$, array[$kbf$help$kbf$, $kbf$imported$kbf$], true)
+- **Preview** + **Send test** (email and/or SMS) to yourself before saving$kbf$, $kbf$Communications$kbf$, array[$kbf$help$kbf$, $kbf$imported$kbf$], true)
 on conflict (slug) do update set
   title = excluded.title,
   body_md = excluded.body_md,
@@ -395,8 +397,23 @@ on conflict (slug) do update set
 
 insert into kb_articles (slug, title, body_md, category, tags, is_published) values
   ($kbf$help-sms$kbf$, $kbf$Step 8 — SMS setup$kbf$, $kbf$SMS delivery is included with your plan — RentalFlow handles the
-sending. SMS auto-sends for booking confirmation + reminder (3 days
-before event).
+sending. The following events send an SMS automatically alongside the
+email (when the customer has a phone on file):
+
+- `booking_confirmation` — instant on payment
+
+- `booking_reminder_3d` — 3 days before event
+
+- `booking_review_request` — 1 day after event (review nudge)
+
+- `booking_cancelled` — when a booking is cancelled
+
+- `coi_ready` — when you upload the COI PDF
+
+- `gift_card_received` — when the recipient gave a phone
+
+Edit the SMS text under `Email templates → [template] → SMS body`.
+Leave the SMS body blank to disable SMS for that event.
 
 If you don't see SMS going out, check the `Diagnostics`
 page — if it says "SMS delivery: Not configured", contact RentalFlow
