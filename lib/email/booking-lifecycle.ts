@@ -6,6 +6,8 @@ import { sendTemplated } from "@/lib/email/send-template";
 import { isEmailConfigured } from "@/lib/email/send";
 import { formatDateUS } from "@/lib/email/format-date";
 import { getTenantEmailConfig } from "@/lib/email/tenant-email";
+import { sendSms, isSmsConfigured } from "@/lib/sms/send";
+import { renderTemplateSms } from "@/lib/email/render-template";
 
 const BASE_URL =
   process.env.NEXT_PUBLIC_APP_URL || "https://itsalwaysfun-rental.vercel.app";
@@ -99,7 +101,7 @@ export async function sendBookingCancelled(
   const { data: booking } = await supabase
     .from("bookings")
     .select(
-      "customer_first_name, customer_email, product_name, event_date, stripe_payment_status, tenant_id",
+      "customer_first_name, customer_email, customer_phone, product_name, event_date, stripe_payment_status, tenant_id",
     )
     .eq("id", bookingId)
     .single();
@@ -108,19 +110,20 @@ export async function sendBookingCancelled(
   const hadPayment = booking.stripe_payment_status === "paid";
 
   const tenantEmail = await getTenantEmailConfig((booking as any).tenant_id);
+  const vars = {
+    firstName: booking.customer_first_name,
+    productName: booking.product_name,
+    eventDate: formatDateUS(booking.event_date),
+    cancellationReason: cancellationReason || "",
+    hadPayment: hadPayment ? "true" : "",
+    bookAgainUrl: `${BASE_URL}/order-by-date`,
+  };
   const r = await sendTemplated({
     key: "booking_cancelled",
     to: booking.customer_email,
     from: tenantEmail.from,
     replyTo: tenantEmail.replyTo,
-    vars: {
-      firstName: booking.customer_first_name,
-      productName: booking.product_name,
-      eventDate: formatDateUS(booking.event_date),
-      cancellationReason: cancellationReason || "",
-      hadPayment: hadPayment ? "true" : "",
-      bookAgainUrl: `${BASE_URL}/order-by-date`,
-    },
+    vars,
     tags: [
       { name: "type", value: "booking_cancelled" },
       { name: "booking_id", value: bookingId },
@@ -128,4 +131,16 @@ export async function sendBookingCancelled(
   });
 
   await recordSend(bookingId, "booking_cancelled", r.ok, r.id, r.ok ? undefined : r.error);
+
+  // SMS notify (best-effort) — cancellation is high-urgency, customer must know
+  if (isSmsConfigured() && booking.customer_phone) {
+    const smsBody = await renderTemplateSms(
+      "booking_cancelled",
+      vars,
+      (booking as any).tenant_id,
+    );
+    if (smsBody) {
+      await sendSms({ to: booking.customer_phone, body: smsBody }).catch(() => {});
+    }
+  }
 }

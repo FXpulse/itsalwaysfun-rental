@@ -12,6 +12,7 @@ import {
   User as UserIcon,
   Gift,
   MessageSquare,
+  Phone,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 
@@ -23,6 +24,7 @@ interface PurchaseDraft {
   purchaser_email: string;
   recipient_name: string;
   recipient_email: string;
+  recipient_phone: string;
   message: string;
 }
 
@@ -40,6 +42,7 @@ export function GiftCardPurchase({
     purchaser_email: "",
     recipient_name: "",
     recipient_email: "",
+    recipient_phone: "",
     message: "",
   });
   const [customAmount, setCustomAmount] = useState("");
@@ -87,6 +90,7 @@ export function GiftCardPurchase({
           purchaser_email: draft.purchaser_email.trim().toLowerCase(),
           recipient_name: draft.recipient_name.trim() || null,
           recipient_email: draft.recipient_email.trim().toLowerCase(),
+          recipient_phone: draft.recipient_phone.trim() || null,
           message: draft.message.trim() || null,
         }),
       });
@@ -137,6 +141,7 @@ export function GiftCardPurchase({
                 purchaser_email: draft.purchaser_email,
                 recipient_name: "",
                 recipient_email: "",
+                recipient_phone: "",
                 message: "",
               });
               setClientSecret(null);
@@ -279,6 +284,19 @@ export function GiftCardPurchase({
             onChange={(v) => setDraft({ ...draft, recipient_email: v })}
             placeholder="friend@email.com"
           />
+        </div>
+        <div className="mt-3">
+          <Field
+            label="Recipient phone (optional — we'll text them a heads-up)"
+            icon={<Phone className="h-4 w-4" />}
+            type="tel"
+            value={draft.recipient_phone}
+            onChange={(v) => setDraft({ ...draft, recipient_phone: v })}
+            placeholder="(904) 555-1234"
+          />
+          <p className="text-[11px] text-slate-500 mt-1">
+            If you add a phone, we'll text them a short notice so they know to check their email (including the spam folder).
+          </p>
         </div>
         <label className="block mt-3">
           <span className="text-xs text-slate-600 flex items-center gap-1 mb-1">

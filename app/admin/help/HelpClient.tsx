@@ -468,8 +468,9 @@ export function HelpClient() {
             <li>Go to <code>Email templates</code></li>
             <li>Click any template (e.g. "Booking confirmation")</li>
             <li>Edit subject, header, HTML body, plain-text fallback</li>
+            <li>Switch to the <strong>SMS body</strong> tab to edit the SMS that goes with the email (leave blank to disable SMS for that event)</li>
             <li>Use <code>{`{{firstName}}`}</code>, <code>{`{{productName}}`}</code>, etc.</li>
-            <li><strong>Preview</strong> + <strong>Send test</strong> to yourself before saving</li>
+            <li><strong>Preview</strong> + <strong>Send test</strong> (email and/or SMS) to yourself before saving</li>
           </ol>
         </div>
       ),
@@ -482,8 +483,20 @@ export function HelpClient() {
         <div className="space-y-3 text-sm">
           <p>
             SMS delivery is included with your plan — RentalFlow handles the
-            sending. SMS auto-sends for booking confirmation + reminder (3 days
-            before event).
+            sending. The following events send an SMS automatically alongside the
+            email (when the customer has a phone on file):
+          </p>
+          <ul className="list-disc pl-5 text-xs space-y-1">
+            <li><code>booking_confirmation</code> — instant on payment</li>
+            <li><code>booking_reminder_3d</code> — 3 days before event</li>
+            <li><code>booking_review_request</code> — 1 day after event (review nudge)</li>
+            <li><code>booking_cancelled</code> — when a booking is cancelled</li>
+            <li><code>coi_ready</code> — when you upload the COI PDF</li>
+            <li><code>gift_card_received</code> — when the recipient gave a phone</li>
+          </ul>
+          <p>
+            Edit the SMS text under <code>Email templates → [template] → SMS body</code>.
+            Leave the SMS body blank to disable SMS for that event.
           </p>
           <p>
             If you don't see SMS going out, check the <code>Diagnostics</code>

@@ -60,6 +60,33 @@ const SAMPLE_VARS: Record<string, Record<string, string>> = {
     address: "123 Main St, Jacksonville, FL 32202",
     bookingPortalUrl: "https://itsalwaysfun.com/portal/bookings/sample",
   },
+  booking_review_request: {
+    firstName: "Maria",
+    productName: "Princess Castle Bouncer",
+    eventDate: "06/15/2026",
+    googleReviewUrl: "https://g.page/r/itsalwaysfun/review",
+  },
+  booking_cancelled: {
+    firstName: "Maria",
+    productName: "Princess Castle Bouncer",
+    eventDate: "06/15/2026",
+    cancellationReason: "Customer requested cancellation",
+    hadPayment: "true",
+    bookAgainUrl: "https://itsalwaysfun.com/order-by-date",
+  },
+  coi_ready: {
+    venueName: "The Grand Pavilion",
+    coiUrl: "https://itsalwaysfun.com/coi/sample.pdf",
+    portalUrl: "https://itsalwaysfun.com/portal/bookings/sample",
+  },
+  gift_card_received: {
+    recipientName: "Maria",
+    purchaserName: "Juan",
+    amount: "100.00",
+    code: "ABCD-1234-EFGH",
+    message: "Happy birthday!",
+    bookingUrl: "https://itsalwaysfun.com/order-by-date",
+  },
 };
 
 export default async function EmailTemplateEditorPage({

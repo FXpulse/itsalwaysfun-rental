@@ -9,6 +9,8 @@ import { isEmailConfigured } from "@/lib/email/send";
 import { getTenantEmailConfig } from "@/lib/email/tenant-email";
 import { getTenantBusinessName } from "@/lib/tenant/business";
 import { getCurrentTenantId } from "@/lib/tenant/db";
+import { sendSms, isSmsConfigured } from "@/lib/sms/send";
+import { renderTemplateSms } from "@/lib/email/render-template";
 
 export async function uploadCoi(requestId: string, formData: FormData) {
   const me = await requireAdmin();
@@ -79,6 +81,25 @@ export async function uploadCoi(requestId: string, formData: FormData) {
       });
     } catch (e) {
       console.error("[COI ready email failed, non-fatal]", e);
+    }
+
+    // SMS heads-up (best-effort) — pull the customer's phone from the booking
+    if (isSmsConfigured()) {
+      const { data: booking } = await supabase
+        .from("bookings")
+        .select("customer_phone")
+        .eq("id", req.booking_id)
+        .maybeSingle();
+      if (booking?.customer_phone) {
+        const smsBody = await renderTemplateSms("coi_ready", {
+          venueName: req.venue_name,
+          coiUrl: upload.url,
+          portalUrl: `${baseUrl}/portal/bookings/${req.booking_id}`,
+        });
+        if (smsBody) {
+          await sendSms({ to: booking.customer_phone, body: smsBody }).catch(() => {});
+        }
+      }
     }
   }
 

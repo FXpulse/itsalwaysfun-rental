@@ -23,6 +23,7 @@ const BodySchema = z.object({
   purchaser_email: z.string().email().max(200),
   recipient_name: z.string().max(200).optional().nullable(),
   recipient_email: z.string().email().max(200),
+  recipient_phone: z.string().max(40).optional().nullable(),
   message: z.string().max(1000).optional().nullable(),
   deliver_at: z.string().datetime().optional().nullable(),
 });
@@ -68,6 +69,7 @@ export async function POST(request: Request) {
       purchaser_email: parsed.data.purchaser_email.trim().toLowerCase(),
       recipient_name: parsed.data.recipient_name?.trim() || null,
       recipient_email: parsed.data.recipient_email.trim().toLowerCase(),
+      recipient_phone: parsed.data.recipient_phone?.trim() || null,
       message: parsed.data.message?.trim() || null,
       deliver_at: parsed.data.deliver_at || null,
       status: "pending",

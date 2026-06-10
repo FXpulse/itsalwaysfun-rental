@@ -281,6 +281,18 @@ export async function processScheduledBookingEmails(): Promise<{
         });
         await recordSend(b.id, "booking_review_request", r.ok, r.id, r.ok ? undefined : r.error);
         if (r.ok) summary.review_1d++;
+
+        // SMS review nudge (best-effort)
+        if (isSmsConfigured() && b.customer_phone) {
+          const smsBody = await renderTemplateSms(
+            "booking_review_request",
+            buildVars(b, { googleReviewUrl }),
+            (b as any).tenant_id,
+          );
+          if (smsBody) {
+            await sendSms({ to: b.customer_phone, body: smsBody }).catch(() => {});
+          }
+        }
       } catch (e: any) {
         summary.errors.push(`review_1d ${b.id}: ${e.message}`);
       }
