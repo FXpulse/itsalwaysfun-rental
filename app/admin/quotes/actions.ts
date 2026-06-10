@@ -477,6 +477,7 @@ export async function regeneratePaymentLink(quoteId: string): Promise<
       description: `Quote ${quote.quote_number} — ${booking.product_name} (regenerated)`,
       metadata: {
         booking_id: booking.id,
+        tenant_id: quote.tenant_id,
         quote_id: quote.id,
         quote_number: quote.quote_number,
         customer_email: quote.customer_email,

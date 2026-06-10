@@ -10,6 +10,7 @@ import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getStripe, isStripeConfigured } from "@/lib/stripe/server";
 import { isGiftCardSalesEnabled } from "@/lib/gift-cards";
+import { getCurrentTenantId } from "@/lib/tenant/db";
 
 export const dynamic = "force-dynamic";
 
@@ -94,6 +95,7 @@ export async function POST(request: Request) {
       metadata: {
         type: "gift_card_purchase",
         gift_card_purchase_id: purchase.id,
+        tenant_id: getCurrentTenantId(),
         purchaser_email: parsed.data.purchaser_email,
         recipient_email: parsed.data.recipient_email,
         amount_cents: String(parsed.data.amount_cents),

@@ -400,6 +400,7 @@ export async function approveQuote(token: string, input: ApproveInput) {
         description: `Quote ${quote.quote_number} — ${productName}`,
         metadata: {
           booking_id: booking.id,
+          tenant_id: quote.tenant_id,
           quote_id: quote.id,
           quote_number: quote.quote_number,
           customer_email: quote.customer_email,

@@ -224,6 +224,7 @@ export async function POST(request: Request) {
         type: "booking_extension",
         extension_id: extension.id,
         booking_id: booking.id,
+        tenant_id: booking.tenant_id,
         new_end_date: newEnd,
         additional_days: String(newDays.length),
       },

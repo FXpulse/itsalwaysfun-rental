@@ -188,6 +188,7 @@ export async function POST(request: Request) {
         description: `${product.name} rental — ${date}`,
         metadata: {
           booking_id: booking.id,
+          tenant_id: tenantId,
           product_id: product.id,
           product_slug: product.slug,
           event_date: date,
