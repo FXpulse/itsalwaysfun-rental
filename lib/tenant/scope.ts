@@ -53,11 +53,13 @@ const MULTI_TENANT_TABLES = new Set([
   "home_banners",
   "faqs",
   "user_roles",
+  "customer_tags",
+  "campaigns",
   // Intentionally NOT in this list (tenancy via FK to parent):
   //   booking_expenses, booking_damages, booking_proofs, booking_waivers,
   //   booking_extensions, coi_requests, booking_expense_categories,
   //   dispatch_stops, product_inventory_requirements, product_images,
-  //   inventory_units, contact_message_replies
+  //   inventory_units, contact_message_replies, campaign_recipients
 ]);
 
 function isMultiTenantTable(name: string): boolean {
