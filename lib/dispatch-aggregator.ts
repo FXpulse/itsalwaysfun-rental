@@ -19,8 +19,9 @@ export interface RouteLoad {
 
 /** Get aggregated inventory load for all stops in a dispatch route. */
 export async function getRouteLoad(routeId: string): Promise<RouteLoad> {
-  // dispatch_stops has no tenant_id — use unscoped client. Tenancy is
-  // enforced via the route_id FK to dispatch_routes (already scoped).
+  // Unscoped because callers may invoke this outside a request context
+  // (cron, background jobs). The route_id filter already pins the result
+  // to one tenant since dispatch_routes is tenant-scoped at the parent.
   const unscopedAdmin = createAdminClient({ unscoped: true });
   const supabase = createAdminClient();
 

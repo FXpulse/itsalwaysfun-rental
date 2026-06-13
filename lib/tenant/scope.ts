@@ -10,18 +10,19 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { DEFAULT_TENANT_ID } from "./resolve";
 
 // Tables that have a tenant_id column AND should be auto-scoped by this
-// proxy.  Child tables (booking_*, dispatch_stops, product_*, etc.) are
-// intentionally NOT listed because they don't have a tenant_id column —
-// tenancy is enforced via their FK to a parent table (bookings,
-// dispatch_routes, products, etc.) that IS tenant-scoped.
+// proxy.
 //
 // Listing a table here when the column doesn't exist breaks every query:
 //   .select() adds .eq("tenant_id", X) → returns 0 rows
 //   .insert() injects tenant_id field → PostgREST rejects unknown field
 //
-// If you add a new multi-tenant top-level table, list it here. If you add
-// a child table, leave it OFF — its parent's tenant_id is the source of
-// truth and the FK join naturally filters.
+// Some child tables (e.g. dispatch_stops, booking_expenses) do have
+// tenant_id NOT NULL — added by multi_tenant_foundation.sql for fast
+// filtering. Those MUST be listed here so inserts get tenant_id injected.
+//
+// If you add a new top-level multi-tenant table, list it here.
+// If you add a child table, check the schema: if it has tenant_id NOT
+// NULL, list it here too — otherwise leave it off.
 const MULTI_TENANT_TABLES = new Set([
   // Top-level entities with tenant_id
   "bookings",
@@ -63,11 +64,14 @@ const MULTI_TENANT_TABLES = new Set([
   "tenant_home_sections",
   "tenant_onboarding_checklist",
   "tenant_operator_notes",
-  // Intentionally NOT in this list (tenancy via FK to parent):
+  // Child table with explicit tenant_id NOT NULL (per multi_tenant_foundation.sql).
+  // MUST be scoped — inserts otherwise throw NOT NULL violation.
+  "dispatch_stops",
+  // Intentionally NOT in this list (tenancy via FK to parent, no tenant_id column):
   //   booking_expenses, booking_damages, booking_proofs, booking_waivers,
   //   booking_extensions, coi_requests, booking_expense_categories,
-  //   dispatch_stops, product_inventory_requirements, product_images,
-  //   inventory_units, contact_message_replies, campaign_recipients
+  //   product_inventory_requirements, product_images, inventory_units,
+  //   contact_message_replies, campaign_recipients
   // Intentionally NOT in this list (no usage yet — add when first written):
   //   google_business_reviews, google_business_posts
 ]);
