@@ -569,11 +569,27 @@ export async function markQuoteConverted(token: string) {
 
   // Also mark the booking as paid (webhook may have done this already)
   if (quote.converted_booking_id) {
-    await supabase
+    const { data: updatedBooking } = await supabase
       .from("bookings")
       .update({ stripe_payment_status: "paid", booking_status: "confirmed" })
       .eq("id", quote.converted_booking_id)
-      .eq("stripe_payment_status", "pending"); // only if still pending
+      .eq("stripe_payment_status", "pending") // only if still pending
+      .select("id")
+      .maybeSingle();
+
+    // 2026-06-15: bug fix — el webhook de Stripe veía el booking ya "paid"
+    // (porque este client-side update lo precede), entonces nunca disparaba
+    // el confirmation email. Lo mandamos acá también; sendBookingConfirmation
+    // es idempotente vía booking_emails_sent así que no duplica si el
+    // webhook gana la carrera.
+    if (updatedBooking) {
+      try {
+        const { sendBookingConfirmation } = await import("@/lib/email/scheduled-emails");
+        await sendBookingConfirmation(quote.converted_booking_id);
+      } catch (e) {
+        console.error("[quote markConverted: booking confirmation email failed]", e);
+      }
+    }
   }
 
   revalidatePath(`/quotes/${token}`);
