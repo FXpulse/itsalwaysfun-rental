@@ -154,6 +154,7 @@ export function QuoteCustomerView({
             taxEnabled={taxEnabled}
             taxRatePercent={taxRatePercent}
             taxLabel={taxLabel}
+            brandName={brandName}
           />
         )}
 
@@ -391,6 +392,7 @@ function ApproveDecline({
   taxEnabled,
   taxRatePercent,
   taxLabel,
+  brandName,
 }: {
   quote: Quote;
   waiverTitle: string;
@@ -401,6 +403,7 @@ function ApproveDecline({
   taxEnabled: boolean;
   taxRatePercent: number;
   taxLabel: string;
+  brandName: string;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -414,6 +417,11 @@ function ApproveDecline({
   const [protectionAccepted, setProtectionAccepted] = useState<boolean | null>(null);
   const [waiverName, setWaiverName] = useState("");
   const [waiverAgreed, setWaiverAgreed] = useState(false);
+  // SMS opt-in — Twilio toll-free verification requires explicit consent
+  // separate from terms of service. Defaulted UNCHECKED; customer must
+  // actively opt-in. When checked, customer_phone_sms_consent_at is stamped
+  // on the booking server-side. Required gate for reminder 3d / review 1d SMS.
+  const [smsConsent, setSmsConsent] = useState(false);
 
   // Live total breakdown — recalculates as the customer toggles options
   const numDays = numDaysInRange(quote.event_date, quote.event_end_date);
@@ -472,6 +480,7 @@ function ApproveDecline({
         needs_power_supply: needsPower,
         damage_protection_accepted: quote.damage_protection_offered ? protectionAccepted : null,
         waiver_signed_name: quote.waiver_required ? waiverName.trim() : null,
+        sms_consent: smsConsent,
       });
       if (r.error) {
         toast.error(r.error);
@@ -683,6 +692,32 @@ function ApproveDecline({
             </p>
           </div>
         )}
+
+        {/* SMS opt-in — Twilio toll-free verification requires explicit consent
+            separate from terms of service. Default UNCHECKED. Same wording as
+            booking wizard so the compliance audit shows consistent language. */}
+        <label className="flex items-start gap-3 cursor-pointer p-3 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition select-none">
+          <input
+            type="checkbox"
+            checked={smsConsent}
+            onChange={(e) => setSmsConsent(e.target.checked)}
+            className="mt-0.5 w-5 h-5 accent-blue-600 cursor-pointer shrink-0"
+          />
+          <span className="text-sm text-slate-700 leading-relaxed">
+            <strong>I agree to receive SMS text messages</strong><br />
+            <span className="text-xs text-slate-600">
+              By checking this box, I expressly consent to receive text messages
+              from {brandName} at the phone number on file, related to my
+              booking, including: (1) booking confirmation when paid, (2) a
+              reminder 3 days before my event date, (3) a brief review request
+              after the event, and (4) any cancellation or document-ready (COI)
+              notice for my booking.{" "}
+              <strong>Message and data rates may apply.</strong> Message frequency:
+              up to 5 messages per booking. Reply <strong>STOP</strong> to
+              unsubscribe at any time. Reply <strong>HELP</strong> for help.
+            </span>
+          </span>
+        </label>
 
         {/* Live total breakdown — recomputes as the customer toggles options */}
         <div className="border-t border-slate-100 pt-4 bg-slate-50 -mx-4 px-4 pb-4 sm:rounded-b-lg">

@@ -16,6 +16,11 @@ const ApproveInputSchema = z.object({
   needs_power_supply: z.boolean(),
   damage_protection_accepted: z.boolean().optional().nullable(),
   waiver_signed_name: z.string().trim().min(2).max(200).optional().nullable(),
+  // SMS opt-in — when true, customer_phone_sms_consent_at is stamped on the
+  // booking so the reminder 3d / review 1d SMS sends can fire. Optional for
+  // back-compat (older client code without the checkbox sends without it →
+  // defaults to false → SMS won't send, which is the compliant default).
+  sms_consent: z.boolean().optional(),
 });
 
 export type ApproveInput = z.infer<typeof ApproveInputSchema>;
@@ -366,6 +371,12 @@ export async function approveQuote(token: string, input: ApproveInput) {
       booking_status: "pending_payment",
       hold_expires_at: holdExpiresAt,
       notes: noteParts.join("\n"),
+      // SMS consent timestamp — only stamped if customer ticked the box on
+      // the quote acceptance page. Required for Twilio 10DLC/toll-free
+      // verification compliance. NULL = no SMS will be sent.
+      customer_phone_sms_consent_at: parsed.data.sms_consent
+        ? new Date().toISOString()
+        : null,
     })
     .select("id")
     .single();
