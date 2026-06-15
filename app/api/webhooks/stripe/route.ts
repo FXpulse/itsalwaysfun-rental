@@ -104,6 +104,16 @@ export async function POST(request: Request) {
         reason: "already paid, cancelled, or tenant mismatch",
         eventId: event.id,
       });
+      // 2026-06-15 defense-in-depth: aunque la transición ya fue hecha por
+      // otro path (markQuoteConverted, markAsPaidManually, retry duplicado),
+      // intentamos disparar la confirmación. sendBookingConfirmation skipea
+      // automáticamente si booking_emails_sent ya tiene un registro, así
+      // que es seguro llamarla siempre.
+      try {
+        await sendBookingConfirmation(bookingId);
+      } catch (e) {
+        console.error("[booking confirmation email (no-op branch) failed, non-fatal]", e);
+      }
       return NextResponse.json({ received: true, note: "no-op (already processed or cancelled)" });
     }
 
