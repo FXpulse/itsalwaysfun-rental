@@ -43,6 +43,8 @@ import {
   Webhook,
   Target,
   Megaphone,
+  ClipboardCheck,
+  MapPin,
 } from "lucide-react";
 
 type Role = "admin" | "staff";
@@ -63,11 +65,13 @@ const ALL_NAV: NavItem[] = [
   { href: "/admin/customers", label: "Customers", icon: UserCircle, minRole: "staff" },
   { href: "/admin/inbox", label: "Contact inbox", icon: Inbox, minRole: "staff" },
   { href: "/admin/inventory", label: "Inventory", icon: Boxes, minRole: "staff" },
-  { href: "/admin/fleet", label: "Fleet", icon: TruckIcon, minRole: "admin" },
+  { href: "/admin/inventory/units", label: "Fleet units", icon: MapPin, minRole: "staff" },
+  { href: "/admin/fleet", label: "Fleet (vehicles)", icon: TruckIcon, minRole: "admin" },
   { href: "/admin/availability", label: "Availability", icon: Calendar, minRole: "staff" },
   { href: "/admin/products", label: "Products", icon: Package, minRole: "admin" },
   { href: "/admin/packages", label: "Packages", icon: Package, minRole: "admin" },
   { href: "/admin/categories", label: "Categories", icon: Tag, minRole: "admin" },
+  { href: "/admin/inspections", label: "Inspection templates", icon: ClipboardCheck, minRole: "admin" },
   { href: "/admin/coupons", label: "Coupons", icon: Ticket, minRole: "admin" },
   { href: "/admin/gift-cards", label: "Gift cards", icon: Gift, minRole: "admin" },
   { href: "/admin/loyalty", label: "Loyalty", icon: Sparkles, minRole: "admin" },
