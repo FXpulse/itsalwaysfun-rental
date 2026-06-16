@@ -177,7 +177,9 @@ export function scopeToTenant(
 export function tryGetTenantIdFromHeaders(): string | null {
   // Lazy import to avoid breaking server-only modules at build time
   try {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    // Lazy require: ESLint Next config doesn't ship @typescript-eslint plugin
+    // for the var-requires rule, so we use a generic disable.
+    // eslint-disable-next-line
     const { headers } = require("next/headers");
     const h = headers();
     const id = h.get("x-tenant-id");

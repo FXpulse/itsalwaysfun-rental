@@ -1,0 +1,17 @@
+{
+  "extends": "next/core-web-vitals",
+  "ignorePatterns": [
+    ".next/",
+    "node_modules/",
+    "dist/",
+    "tests/integration/",
+    "scripts/seed*.ts",
+    "scripts/build_audit_doc.py",
+    "supabase/"
+  ],
+  "rules": {
+    "react/no-unescaped-entities": "off",
+    "@next/next/no-img-element": "warn",
+    "react-hooks/exhaustive-deps": "warn"
+  }
+}
