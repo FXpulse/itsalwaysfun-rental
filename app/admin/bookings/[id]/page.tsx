@@ -7,6 +7,8 @@ import { BookingActions } from "./BookingActions";
 import { DeliveryChecklist } from "./DeliveryChecklist";
 import { ProofCapture } from "./ProofCapture";
 import { DamagesSection } from "./DamagesSection";
+import { BookingInspectionsSection } from "./BookingInspectionsSection";
+import { suggestTemplateForBooking } from "@/app/admin/inspections/actions";
 import {
   ExpensesSection,
   type ExpenseRow,
@@ -107,6 +109,18 @@ export default async function BookingDetailPage({
     (protectionSetting?.value as string) || "50000",
     10,
   ) || 50000;
+
+  // Inspection data (ERPNext-inspired, 2026-06-16) — historial + template sugerido
+  const [{ data: inspectionRows }, suggestedRes] = await Promise.all([
+    supabase
+      .from("booking_inspections")
+      .select("id, type, overall_status, performed_at, inspector_name, items_result, notes")
+      .eq("booking_id", params.id)
+      .order("performed_at", { ascending: false }),
+    suggestTemplateForBooking(params.id).catch(() => ({ template: null })),
+  ]);
+  const inspections = (inspectionRows as any[]) || [];
+  const suggestedTemplate = (suggestedRes as any)?.template || null;
 
   const proofsList = (proofs as any[]) || [];
   const deliveryProof =
@@ -288,6 +302,16 @@ export default async function BookingDetailPage({
       <div className="space-y-4 mb-6">
         <ProofCapture bookingId={b.id} phase="delivery" existing={deliveryProof} tz={tz} />
         <ProofCapture bookingId={b.id} phase="pickup" existing={pickupProof} tz={tz} />
+      </div>
+
+      {/* Condition inspections (ERPNext-inspired, 2026-06-16) */}
+      <div className="mb-6">
+        <BookingInspectionsSection
+          bookingId={b.id}
+          bookingStatus={(b as any).booking_status || ""}
+          suggestedTemplate={suggestedTemplate}
+          inspections={inspections}
+        />
       </div>
 
       {/* Damages */}

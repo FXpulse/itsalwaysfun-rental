@@ -67,6 +67,11 @@ const MULTI_TENANT_TABLES = new Set([
   // Child table with explicit tenant_id NOT NULL (per multi_tenant_foundation.sql).
   // MUST be scoped — inserts otherwise throw NOT NULL violation.
   "dispatch_stops",
+  // ERPNext-inspired inspection workflow (2026-06-16)
+  "inspection_templates",
+  "booking_inspections",
+  // ERPNext-inspired asset movement state machine (2026-06-16)
+  "inventory_unit_movements",
   // Intentionally NOT in this list (tenancy via FK to parent, no tenant_id column):
   //   booking_expenses, booking_damages, booking_proofs, booking_waivers,
   //   booking_extensions, coi_requests, booking_expense_categories,
