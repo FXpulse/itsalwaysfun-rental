@@ -34,14 +34,16 @@ export async function createTestTenant(prefix = "test"): Promise<string> {
   const supabase = testClient();
   tenantCounter++;
   const ts = Date.now();
-  const slug = `${prefix}-${ts}-${tenantCounter}`;
+  // Slug constraint: ^[a-z0-9][a-z0-9-]*[a-z0-9]$ — lowercase + alphanumeric + dashes only.
+  const safePrefix = prefix.toLowerCase().replace(/[^a-z0-9]/g, "");
+  const slug = `${safePrefix}-${ts}-${tenantCounter}`;
   const { data, error } = await supabase
     .from("tenants")
     .insert({
       slug,
       business_name: `Test Tenant ${slug}`,
       owner_email: `owner-${slug}@test.local`,
-      plan: "trial",
+      plan: "starter",
       trial_ends_at: new Date(Date.now() + 30 * 86400_000).toISOString(),
     })
     .select("id")
@@ -60,7 +62,7 @@ export async function cleanupTenant(tenantId: string): Promise<void> {
 
 export interface TestProductOptions {
   name?: string;
-  base_price_cents?: number;
+  price_per_day?: number;
   weekend_price_per_day?: number;
 }
 
@@ -77,10 +79,11 @@ export async function createTestProduct(
       slug,
       name: opts.name || "Test Bouncer",
       description: "Integration test product",
-      base_price_cents: opts.base_price_cents ?? 15000,
+      price_per_day: opts.price_per_day ?? 15000,
       weekend_price_per_day: opts.weekend_price_per_day ?? 17500,
       stock: 5,
       is_active: true,
+      category: "Bounce Houses",
     })
     .select("id")
     .single();

@@ -23,8 +23,8 @@ describe("multi-tenant isolation via scope.ts", () => {
   let productB: string;
 
   beforeEach(async () => {
-    tenantA = await createTestTenant("isol-A");
-    tenantB = await createTestTenant("isol-B");
+    tenantA = await createTestTenant("isola");
+    tenantB = await createTestTenant("isolb");
     productA = (await createTestProduct(tenantA, { name: "A Bouncer" })).id;
     productB = (await createTestProduct(tenantB, { name: "B Bouncer" })).id;
   });
@@ -55,8 +55,9 @@ describe("multi-tenant isolation via scope.ts", () => {
       .insert({
         slug: `injected-${Date.now()}`,
         name: "Injected via scope",
-        base_price_cents: 9999,
+        price_per_day: 9999,
         stock: 1,
+        category: "Bounce Houses",
       })
       .select("id, tenant_id")
       .single();
@@ -67,8 +68,10 @@ describe("multi-tenant isolation via scope.ts", () => {
   });
 
   it("scoped client cannot update another tenant's row", async () => {
-    const raw = createClient(URL, KEY, { auth: { persistSession: false } });
-    const scoped = scopeToTenant(raw, tenantA);
+    // IMPORTANT: scopeToTenant() mutates its arg, so use TWO separate clients:
+    // one for the scoped attack, one separate raw for the contra-prueba.
+    const rawForAttack = createClient(URL, KEY, { auth: { persistSession: false } });
+    const scoped = scopeToTenant(rawForAttack, tenantA);
 
     // Intentar actualizar productB usando la sesión de tenantA — no debería matchear
     const { data, error } = await scoped
@@ -82,8 +85,9 @@ describe("multi-tenant isolation via scope.ts", () => {
     expect(error).toBeNull();
     expect(data).toEqual([]);
 
-    // Verificación contra-prueba: tenantB con el raw client SÍ ve su producto sin cambios
-    const { data: stillB } = await raw.from("products").select("name").eq("id", productB).single();
+    // Verificación contra-prueba: cliente NO scopeado debe ver productB sin cambios
+    const rawForVerify = createClient(URL, KEY, { auth: { persistSession: false } });
+    const { data: stillB } = await rawForVerify.from("products").select("name").eq("id", productB).single();
     expect((stillB as any)?.name).toBe("B Bouncer");
   });
 });

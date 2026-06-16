@@ -14,10 +14,22 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { createTestTenant, createTestProduct, createTestBooking, cleanupTenant, getEmailsSent } from "./fixtures";
 
-// Mockear Resend para que no envíe emails reales en CI
+// Mock toda la pila de email para que no haga round-trips reales a Resend
+// + no requiera tenant email templates en DB.
 vi.mock("@/lib/email/send", () => ({
   sendEmail: vi.fn().mockResolvedValue({ ok: true, id: "resend_mock_id" }),
   isEmailConfigured: () => true,
+}));
+
+vi.mock("@/lib/email/send-template", () => ({
+  sendTemplated: vi.fn().mockResolvedValue({ ok: true, id: "resend_mock_id" }),
+}));
+
+vi.mock("@/lib/email/tenant-email", () => ({
+  getTenantEmailConfig: vi.fn().mockResolvedValue({
+    from: "test@example.com",
+    replyTo: "reply@example.com",
+  }),
 }));
 
 vi.mock("@/lib/sms/send", () => ({
