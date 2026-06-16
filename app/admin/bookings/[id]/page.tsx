@@ -8,7 +8,10 @@ import { DeliveryChecklist } from "./DeliveryChecklist";
 import { ProofCapture } from "./ProofCapture";
 import { DamagesSection } from "./DamagesSection";
 import { BookingInspectionsSection } from "./BookingInspectionsSection";
+import { InternalMessagesThread } from "./InternalMessagesThread";
 import { suggestTemplateForBooking } from "@/app/admin/inspections/actions";
+import { listMentionableUsers } from "./internal-messages-actions";
+import { getCurrentUserRole } from "@/lib/auth/roles";
 import {
   ExpensesSection,
   type ExpenseRow,
@@ -111,16 +114,25 @@ export default async function BookingDetailPage({
   ) || 50000;
 
   // Inspection data (ERPNext-inspired, 2026-06-16) — historial + template sugerido
-  const [{ data: inspectionRows }, suggestedRes] = await Promise.all([
+  const [{ data: inspectionRows }, suggestedRes, currentUser, mentionableRes, { data: messagesRows }] = await Promise.all([
     supabase
       .from("booking_inspections")
       .select("id, type, overall_status, performed_at, inspector_name, items_result, notes")
       .eq("booking_id", params.id)
       .order("performed_at", { ascending: false }),
     suggestTemplateForBooking(params.id).catch(() => ({ template: null })),
+    getCurrentUserRole().catch(() => null),
+    listMentionableUsers().catch(() => ({ users: [] })),
+    supabase
+      .from("booking_internal_messages")
+      .select("id, body, author_user_id, author_name, author_role, mention_user_ids, created_at, deleted_at, edited_at")
+      .eq("booking_id", params.id)
+      .order("created_at", { ascending: true }),
   ]);
   const inspections = (inspectionRows as any[]) || [];
   const suggestedTemplate = (suggestedRes as any)?.template || null;
+  const internalMessages = (messagesRows as any[]) || [];
+  const mentionableUsers = ((mentionableRes as any)?.users as any[]) || [];
 
   const proofsList = (proofs as any[]) || [];
   const deliveryProof =
@@ -313,6 +325,18 @@ export default async function BookingDetailPage({
           inspections={inspections}
         />
       </div>
+
+      {/* Internal team chat (2026-06-16 schema → UI shipped today) */}
+      {currentUser && (
+        <div className="mb-6">
+          <InternalMessagesThread
+            bookingId={b.id}
+            currentUserId={currentUser.id}
+            initialMessages={internalMessages}
+            mentionableUsers={mentionableUsers}
+          />
+        </div>
+      )}
 
       {/* Damages */}
       <div className="mb-6">
