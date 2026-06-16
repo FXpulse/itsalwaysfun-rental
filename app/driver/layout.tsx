@@ -6,6 +6,8 @@ import { createClient } from "@/lib/supabase/server";
 import { getCurrentUserRole } from "@/lib/auth/roles";
 import { LogOut, Truck } from "lucide-react";
 import { InstallPWAPrompt } from "@/components/InstallPWAPrompt";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { BottomNav } from "./BottomNav";
 
 export default async function DriverLayout({
   children,
@@ -19,8 +21,30 @@ export default async function DriverLayout({
   const role = await getCurrentUserRole();
   if (!role) redirect("/admin/login?error=no_role");
 
-  // Admins/staff can use /driver too (acting as driver), but the redirect
-  // from admin layout only sends actual drivers here
+  // Unread count para el badge del bottom nav Inbox: mensajes mention-eando
+  // al driver en booking_internal_messages de los últimos 7 días en bookings
+  // que tiene asignados via dispatch_stops.
+  let unreadCount = 0;
+  try {
+    const admin = createAdminClient({ unscoped: true });
+    const sevenDaysAgo = new Date(Date.now() - 7 * 86400_000).toISOString();
+    const { data: assignedStops } = await admin
+      .from("dispatch_stops")
+      .select("booking_id");
+    const myBookingIds = ((assignedStops as any[]) || []).map((s) => s.booking_id);
+    if (myBookingIds.length > 0) {
+      const { count } = await admin
+        .from("booking_internal_messages")
+        .select("id", { count: "exact", head: true })
+        .in("booking_id", myBookingIds)
+        .contains("mention_user_ids", [user.id])
+        .gte("created_at", sevenDaysAgo)
+        .is("deleted_at", null);
+      unreadCount = count || 0;
+    }
+  } catch (e) {
+    // Best-effort — never block the UI
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50">
@@ -31,7 +55,7 @@ export default async function DriverLayout({
               DRIVER
             </div>
             <Truck className="h-5 w-5" />
-            <span className="font-semibold text-sm">My routes</span>
+            <span className="font-semibold text-sm">It's Always Fun</span>
           </Link>
           <form action="/admin/logout" method="post">
             <button
@@ -45,12 +69,11 @@ export default async function DriverLayout({
         </div>
       </header>
 
-      <main className="flex-1 max-w-2xl mx-auto w-full px-4 py-4">{children}</main>
+      {/* Bottom padding (pb-20) keeps content above the fixed BottomNav. */}
+      <main className="flex-1 max-w-2xl mx-auto w-full px-4 py-4 pb-20">{children}</main>
 
-      <footer className="text-center text-xs text-slate-400 py-4 px-4">
-        <p className="mb-1">{user.email} · {role.role}</p>
-        <p>Questions? Call (904) 584-3047</p>
-      </footer>
+      {/* Fixed bottom nav across all /driver/* pages */}
+      <BottomNav unreadCount={unreadCount} />
 
       {/* PWA install prompt — auto-shows on Android/Chrome + iOS Safari helper */}
       <InstallPWAPrompt label="Install the driver app on your phone" />

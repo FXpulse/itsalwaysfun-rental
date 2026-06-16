@@ -1,13 +1,15 @@
 "use client";
 
 // Per-stop card optimized for mobile. Big tap targets, address tap-to-navigate,
-// proof capture + inspection links. Driver workflow: arrive → photo → mark delivered → next.
+// proof capture link, big delivered button.
+// Inspection + team chat live in bottom-nav tabs (Inbox / per-booking page),
+// not inline — keeps the field workflow focused.
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import Link from "next/link";
-import { MapPin, Phone, Camera, CheckCircle2, ChevronDown } from "lucide-react";
+import { MapPin, Phone, Camera, MessageCircle, CheckCircle2, ChevronDown } from "lucide-react";
 import { markStopDelivered, clearStopDelivered } from "@/app/admin/dispatch/actions";
 
 interface BookingInline {
@@ -72,13 +74,12 @@ export function StopCard({
   const isDone = !!stop.delivered_at;
   const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(booking.customer_address)}`;
   const phoneHref = booking.customer_phone ? `tel:${booking.customer_phone.replace(/\D/g, "")}` : null;
+  const phase = routeType === "pickup" ? "pickup" : "delivery";
 
   return (
     <div
       className={`rounded-xl border-2 overflow-hidden transition ${
-        isDone
-          ? "border-emerald-200 bg-emerald-50/50"
-          : "border-slate-200 bg-white"
+        isDone ? "border-emerald-200 bg-emerald-50/50" : "border-slate-200 bg-white"
       }`}
     >
       {/* Header — always visible */}
@@ -114,7 +115,7 @@ export function StopCard({
       {/* Expanded body */}
       {expanded && (
         <div className="px-4 pb-4 pt-1 border-t border-slate-100 space-y-3">
-          {/* Big action grid */}
+          {/* Navigate + Call */}
           <div className="grid grid-cols-2 gap-2">
             <a
               href={mapsUrl}
@@ -141,17 +142,23 @@ export function StopCard({
             )}
           </div>
 
-          {/* Photo proof — uses /admin/bookings/[id]/proof which drivers CAN access
-              (admin layout allows this specific subpath). Inspections + team chat
-              live on the main /admin/bookings/[id] page which redirects drivers
-              back to /driver — pending: build driver-side equivalents. */}
-          <Link
-            href={`/admin/bookings/${booking.id}/proof?phase=${routeType === "pickup" ? "pickup" : "delivery"}`}
-            className="flex items-center justify-center gap-2 bg-slate-100 text-slate-700 font-medium py-2.5 rounded-lg text-sm active:scale-95"
-          >
-            <Camera className="h-4 w-4" />
-            Capture proof photos
-          </Link>
+          {/* Photos + Chat-for-this-booking */}
+          <div className="grid grid-cols-2 gap-2">
+            <Link
+              href={`/admin/bookings/${booking.id}/proof?phase=${phase}`}
+              className="flex items-center justify-center gap-2 bg-slate-100 text-slate-700 font-medium py-2.5 rounded-lg text-sm active:scale-95"
+            >
+              <Camera className="h-4 w-4" />
+              Photos
+            </Link>
+            <Link
+              href={`/driver/booking/${booking.id}/chat`}
+              className="flex items-center justify-center gap-2 bg-slate-100 text-slate-700 font-medium py-2.5 rounded-lg text-sm active:scale-95"
+            >
+              <MessageCircle className="h-4 w-4" />
+              Chat / Inspect
+            </Link>
+          </div>
 
           {/* Setup details */}
           {(booking.surface_type || booking.needs_power_supply || booking.notes) && (
@@ -177,9 +184,7 @@ export function StopCard({
             onClick={toggleDelivered}
             disabled={pending}
             className={`w-full font-bold py-3 rounded-lg active:scale-95 transition ${
-              isDone
-                ? "bg-slate-100 text-slate-700"
-                : "bg-emerald-600 text-white"
+              isDone ? "bg-slate-100 text-slate-700" : "bg-emerald-600 text-white"
             } disabled:opacity-50`}
           >
             {pending

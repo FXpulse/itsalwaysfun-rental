@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { requireStaffOrAdmin } from "@/lib/auth/roles";
+import { requireStaffOrAdmin, requireDriverOrAbove } from "@/lib/auth/roles";
 
 // ─── Templates ──────────────────────────────────────────────────────
 
@@ -101,7 +101,9 @@ const InspectionInputSchema = z.object({
 });
 
 export async function createInspection(input: z.infer<typeof InspectionInputSchema>) {
-  await requireStaffOrAdmin();
+  // Drivers do inspections in the field — they need write access.
+  // Templates are still admin-only (createTemplate above).
+  await requireDriverOrAbove();
   const parsed = InspectionInputSchema.safeParse(input);
   if (!parsed.success) return { error: parsed.error.issues[0]?.message || "Invalid input" };
 
@@ -151,7 +153,7 @@ export async function createInspection(input: z.infer<typeof InspectionInputSche
  *  booking's primary product. Returns the active template most specifically
  *  scoped (product > category > tenant-global). */
 export async function suggestTemplateForBooking(bookingId: string) {
-  await requireStaffOrAdmin();
+  await requireDriverOrAbove();
   const supabase = createAdminClient();
 
   const { data: booking } = await supabase

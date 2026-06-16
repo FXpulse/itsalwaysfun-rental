@@ -1,6 +1,9 @@
 // Driver-friendly route view — mobile-first, Uber-style one-stop-at-a-time.
 // Diferente del admin equivalente: optimizado para use-in-the-field con un
 // teléfono en una mano y un cliente delante.
+//
+// Inspections + team chat live in the bottom-nav tabs (/driver/inbox and
+// /driver/booking/[id]/chat). This page stays focused on the route itself.
 
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -28,7 +31,6 @@ export default async function DriverRoutePage({
     );
   }
 
-  // Route + bookings + units in one go
   const { data: route } = await supabase
     .from("dispatch_routes")
     .select(`
