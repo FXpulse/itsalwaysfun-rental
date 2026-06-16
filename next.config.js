@@ -53,6 +53,14 @@ const nextConfig = {
       "nodemailer",
       "isomorphic-dompurify",
     ],
+    // Server actions default body limit is 1 MB — mobile photos from iPhone
+    // are 3-5 MB typical so the limit was silently failing photo uploads from
+    // the driver flow. Raise to 10 MB (still under the 5 MB cap in
+    // lib/storage/upload.ts maxBytes, but with some headroom for multipart
+    // overhead).
+    serverActions: {
+      bodySizeLimit: "10mb",
+    },
   },
   images: {
     remotePatterns: [

@@ -193,8 +193,23 @@ export async function updateRouteStatus(routeId: string, routeDate: string, stat
     }
   }
 
+  // Revalidate all surfaces (Fix 2026-06-17: driver-side status changes
+  // weren't visible in admin until manual refresh)
   revalidatePath(`/admin/dispatch/${routeDate}`);
   revalidatePath(`/admin/dispatch/route/${routeId}`);
+  revalidatePath(`/driver/route/${routeId}`);
+  revalidatePath(`/driver`);
+  revalidatePath(`/admin/dashboard`);
+  if (status === "completed" && route?.route_type) {
+    // Bookings just propagated — clear their cache too
+    const { data: stops2 } = await supabase
+      .from("dispatch_stops")
+      .select("booking_id")
+      .eq("route_id", routeId);
+    for (const s of (stops2 as any[]) || []) {
+      if (s?.booking_id) revalidatePath(`/admin/bookings/${s.booking_id}`);
+    }
+  }
   return { success: true };
 }
 
@@ -421,13 +436,27 @@ export async function markStopDelivered(stopId: string, routeId: string) {
     }
   }
 
+  // Revalidate ALL surfaces that might show this booking's status
+  // (Fix 2026-06-17: driver changed status but admin views showed stale data.)
   revalidatePath(`/admin/dispatch/route/${routeId}`);
+  revalidatePath(`/driver/route/${routeId}`);
+  if (stop?.booking_id) {
+    revalidatePath(`/admin/bookings/${stop.booking_id}`);
+  }
+  revalidatePath(`/admin/dispatch`, "page");
+  revalidatePath(`/admin/dashboard`);
   return { success: true };
 }
 
 export async function clearStopDelivered(stopId: string, routeId: string) {
   await requireDriverOrAbove();
   const supabase = createAdminClient({ unscoped: true });
+  // Read booking_id first so we can revalidate its detail page too
+  const { data: stopBefore } = await supabase
+    .from("dispatch_stops")
+    .select("booking_id")
+    .eq("id", stopId)
+    .maybeSingle();
   const { error } = await supabase
     .from("dispatch_stops")
     .update({ delivered_at: null })
@@ -436,6 +465,10 @@ export async function clearStopDelivered(stopId: string, routeId: string) {
   // Intentionally do NOT revert the booking status — admin may have updated
   // it manually; "undo delivered" is just a clerical fix on the stop.
   revalidatePath(`/admin/dispatch/route/${routeId}`);
+  revalidatePath(`/driver/route/${routeId}`);
+  if (stopBefore?.booking_id) {
+    revalidatePath(`/admin/bookings/${stopBefore.booking_id}`);
+  }
   return { success: true };
 }
 

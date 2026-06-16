@@ -7,7 +7,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import Link from "next/link";
-import { MapPin, Phone, Camera, ClipboardCheck, MessageSquare, CheckCircle2, ChevronDown } from "lucide-react";
+import { MapPin, Phone, Camera, CheckCircle2, ChevronDown } from "lucide-react";
 import { markStopDelivered, clearStopDelivered } from "@/app/admin/dispatch/actions";
 
 interface BookingInline {
@@ -141,30 +141,17 @@ export function StopCard({
             )}
           </div>
 
-          {/* Secondary links */}
-          <div className="grid grid-cols-3 gap-2 text-xs">
-            <Link
-              href={`/admin/bookings/${booking.id}#proofs`}
-              className="flex flex-col items-center gap-1 bg-slate-50 text-slate-700 py-2 rounded-lg active:scale-95"
-            >
-              <Camera className="h-4 w-4" />
-              Proof
-            </Link>
-            <Link
-              href={`/admin/bookings/${booking.id}#inspection`}
-              className="flex flex-col items-center gap-1 bg-slate-50 text-slate-700 py-2 rounded-lg active:scale-95"
-            >
-              <ClipboardCheck className="h-4 w-4" />
-              Inspect
-            </Link>
-            <Link
-              href={`/admin/bookings/${booking.id}#chat`}
-              className="flex flex-col items-center gap-1 bg-slate-50 text-slate-700 py-2 rounded-lg active:scale-95"
-            >
-              <MessageSquare className="h-4 w-4" />
-              Chat
-            </Link>
-          </div>
+          {/* Photo proof — uses /admin/bookings/[id]/proof which drivers CAN access
+              (admin layout allows this specific subpath). Inspections + team chat
+              live on the main /admin/bookings/[id] page which redirects drivers
+              back to /driver — pending: build driver-side equivalents. */}
+          <Link
+            href={`/admin/bookings/${booking.id}/proof?phase=${routeType === "pickup" ? "pickup" : "delivery"}`}
+            className="flex items-center justify-center gap-2 bg-slate-100 text-slate-700 font-medium py-2.5 rounded-lg text-sm active:scale-95"
+          >
+            <Camera className="h-4 w-4" />
+            Capture proof photos
+          </Link>
 
           {/* Setup details */}
           {(booking.surface_type || booking.needs_power_supply || booking.notes) && (
