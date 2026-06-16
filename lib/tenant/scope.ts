@@ -74,6 +74,12 @@ export const MULTI_TENANT_TABLES = new Set([
   "inventory_unit_movements",
   // Team chat thread per booking (2026-06-16)
   "booking_internal_messages",
+  // Drift detectado por check-tenant-scope.ts CI 2026-06-16 — tablas que
+  // tenían tenant_id pero faltaban en este set:
+  "google_places_cache",        // per-tenant Google Places API result cache
+  "portal_otp_codes",           // OTP codes para customer portal login
+  "support_tickets",            // soporte interno por tenant
+  "tenant_profile",             // profile/metadata del tenant
 ]);
 
 /** Tablas que SÍ tienen columna `tenant_id` (o conceptualmente son por-tenant)
