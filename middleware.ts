@@ -129,6 +129,7 @@ export async function middleware(request: NextRequest) {
   const path = request.nextUrl.pathname;
   const isAdminPath = path.startsWith("/admin");
   const isLoginPath = path === "/admin/login";
+  const isMfaVerifyPath = path === "/admin/mfa-verify";
 
   if (isAdminPath && !isLoginPath && !user) {
     const url = request.nextUrl.clone();
@@ -141,6 +142,37 @@ export async function middleware(request: NextRequest) {
     const url = request.nextUrl.clone();
     url.pathname = "/admin/dashboard";
     return NextResponse.redirect(url);
+  }
+
+  // ─── 4. MFA GATE ─────────────────────────────────────────────────
+  // Si el user tiene un factor TOTP enrolado pero la sesión está en aal1
+  // (solo password), redirigimos a /admin/mfa-verify ANTES de mostrar
+  // cualquier admin content. /admin/login + /admin/mfa-verify se excluyen
+  // del gate para evitar redirect loop.
+  if (
+    user &&
+    isAdminPath &&
+    !isLoginPath &&
+    !isMfaVerifyPath
+  ) {
+    try {
+      const { data: aalData } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+      // nextLevel = aal2 significa que hay un factor verificado disponible.
+      // currentLevel = aal1 significa que la sesión todavía no lo verificó.
+      if (
+        aalData?.nextLevel === "aal2" &&
+        aalData?.currentLevel === "aal1"
+      ) {
+        const url = request.nextUrl.clone();
+        url.pathname = "/admin/mfa-verify";
+        url.searchParams.set("next", path);
+        return NextResponse.redirect(url);
+      }
+    } catch (e) {
+      // Si Supabase Auth no responde, fail-open: dejamos pasar (la pantalla
+      // admin tiene server-side rerole check de todos modos). NO bloqueamos
+      // todo el sistema por un network blip.
+    }
   }
 
   return response;

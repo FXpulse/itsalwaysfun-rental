@@ -8,9 +8,9 @@ on:
 
 jobs:
   test:
-    name: Typecheck + Tests
+    name: Typecheck + Lint + Tests
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
 
     steps:
       - name: Checkout
@@ -28,5 +28,35 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
+      - name: Lint
+        run: npm run lint
+
       - name: Tests
         run: npm test
+
+  scope-check:
+    name: Multi-tenant scope drift
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    # Solo corre si están configurados los secrets de Supabase en el repo.
+    # Si no están, este job se omite — no rompe PRs en forks externos.
+    if: ${{ github.event.repository.private == true }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify scope.ts matches live schema
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: npx tsx scripts/check-tenant-scope.ts

@@ -14,7 +14,9 @@
     "test:ui": "vitest --ui",
     "test:coverage": "vitest run --coverage",
     "seed": "tsx scripts/seed.ts",
-    "supabase:types": "supabase gen types typescript --local > types/database.ts"
+    "supabase:types": "supabase gen types typescript --local > types/database.ts",
+    "check:scope": "tsx scripts/check-tenant-scope.ts",
+    "test:integration": "vitest run --config vitest.integration.config.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1056.0",

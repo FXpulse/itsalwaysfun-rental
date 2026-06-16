@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentTenantId } from "@/lib/tenant/server";
-import { CreditCard, Palette, Receipt, ShieldCheck, ExternalLink, Calendar } from "lucide-react";
+import { CreditCard, Palette, Receipt, ShieldCheck, ExternalLink, Calendar, KeyRound } from "lucide-react";
 import { CalendarFeed } from "./CalendarFeed";
 import { TimezoneSection } from "./TimezoneSection";
 
@@ -135,6 +135,7 @@ export default async function AdminSettingsPage() {
           <QuickLink href="/admin/settings/payments" icon={CreditCard} label="Payments (Stripe Connect)" />
           <QuickLink href="/admin/settings/billing" icon={Receipt} label="Billing — your RentalFlow subscription" />
           <QuickLink href="/admin/settings/damage-protection" icon={ShieldCheck} label="Damage protection — enable, price, coverage" />
+          <QuickLink href="/admin/settings/security" icon={KeyRound} label="Security — two-factor authentication (2FA)" />
         </ul>
       </div>
     </div>

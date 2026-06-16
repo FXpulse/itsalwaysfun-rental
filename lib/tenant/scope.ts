@@ -23,7 +23,7 @@ import { DEFAULT_TENANT_ID } from "./resolve";
 // If you add a new top-level multi-tenant table, list it here.
 // If you add a child table, check the schema: if it has tenant_id NOT
 // NULL, list it here too — otherwise leave it off.
-const MULTI_TENANT_TABLES = new Set([
+export const MULTI_TENANT_TABLES = new Set([
   // Top-level entities with tenant_id
   "bookings",
   "dispatch_routes",
@@ -72,13 +72,39 @@ const MULTI_TENANT_TABLES = new Set([
   "booking_inspections",
   // ERPNext-inspired asset movement state machine (2026-06-16)
   "inventory_unit_movements",
-  // Intentionally NOT in this list (tenancy via FK to parent, no tenant_id column):
-  //   booking_expenses, booking_damages, booking_proofs, booking_waivers,
-  //   booking_extensions, coi_requests, booking_expense_categories,
-  //   product_inventory_requirements, product_images, inventory_units,
-  //   contact_message_replies, campaign_recipients
-  // Intentionally NOT in this list (no usage yet — add when first written):
-  //   google_business_reviews, google_business_posts
+  // Team chat thread per booking (2026-06-16)
+  "booking_internal_messages",
+]);
+
+/** Tablas que SÍ tienen columna `tenant_id` (o conceptualmente son por-tenant)
+ *  pero que NO queremos auto-scopear via el proxy. Razones:
+ *   - Tablas hijas que heredan tenancy via FK al padre (no necesitan inyección
+ *     directa). Si las metés en MULTI_TENANT_TABLES, el proxy intenta inyectar
+ *     `tenant_id` y PostgREST tira "unknown field" porque la columna no existe.
+ *   - Tablas nuevas que todavía no se usan desde código (placeholder schemas).
+ *  El check-tenant-scope.ts CI step usa esta allowlist para distinguir
+ *  "drift real" de "exclusión intencional". */
+export const INTENTIONALLY_NOT_SCOPED = new Set([
+  // Hijas de bookings (tenancy via booking_id FK)
+  "booking_expenses",
+  "booking_damages",
+  "booking_proofs",
+  "booking_waivers",
+  "booking_extensions",
+  "coi_requests",
+  "booking_expense_categories",
+  // Hijas de products (tenancy via product_id FK)
+  "product_inventory_requirements",
+  "product_images",
+  // Hijas de inventory_items (tenancy via inventory_item_id FK)
+  "inventory_units",
+  // Hijas de contact_messages / campaigns
+  "contact_message_replies",
+  "campaign_recipients",
+  // No usage yet — agregar a MULTI_TENANT_TABLES cuando aparezca el primer
+  // call site que inserte/actualice estas tablas
+  "google_business_reviews",
+  "google_business_posts",
 ]);
 
 function isMultiTenantTable(name: string): boolean {
