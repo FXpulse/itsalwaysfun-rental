@@ -45,3 +45,6 @@ coverage/
 # AI agent skills (installed via `npx skills add ...` — not source code)
 .agents/
 graphify-out/
+
+.vercel
+RentalFlow_Technical_Audit.docx
