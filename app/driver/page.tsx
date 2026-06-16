@@ -145,7 +145,7 @@ function Section({
             return (
               <Link
                 key={r.id}
-                href={`/admin/dispatch/route/${r.id}`}
+                href={`/driver/route/${r.id}`}
                 className={`card flex items-center gap-3 hover:shadow-md transition ${complete ? "opacity-70" : ""} ${isMine ? "ring-2 ring-brand-yellow" : ""}`}
               >
                 <div className="flex-shrink-0">
