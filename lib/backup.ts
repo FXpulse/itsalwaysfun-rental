@@ -10,16 +10,29 @@ import { createAdminClient } from "@/lib/supabase/admin";
 // Tables to export. Order doesn't matter for backup (only for restore).
 // Marked `optional` for tables that may not exist in older schemas — those
 // silently skip if missing.
+//
+// 2026-06-16: expanded to include ALL multi-tenant tables (was missing tenants
+// itself! + ~20 others). Without `tenants` the backup is useless for catastrophic
+// recovery because every FK points there.
 const TABLES = [
-  // CRITICAL — customer + transaction data
+  // ── FOUNDATION ────────────────────────────────────────────────
+  { name: "tenants", optional: false },  // CRITICAL — every FK points here
+  { name: "user_roles", optional: false },
+
+  // ── CUSTOMER + BOOKINGS (most-changing data) ──────────────────
   { name: "bookings", optional: false },
   { name: "booking_expenses", optional: true },
   { name: "booking_damages", optional: true },
   { name: "booking_proofs", optional: true },
   { name: "booking_waivers", optional: true },
   { name: "booking_extensions", optional: true },
+  { name: "booking_inspections", optional: true },
+  { name: "booking_internal_messages", optional: true },
   { name: "coi_requests", optional: true },
   { name: "customer_profiles", optional: true },
+  { name: "customer_tags", optional: true },
+  { name: "customer_reviews", optional: true },
+  { name: "loyalty_transactions", optional: true },
   { name: "gift_cards", optional: true },
   { name: "gift_card_redemptions", optional: true },
   { name: "gift_card_purchases", optional: true },
@@ -27,9 +40,9 @@ const TABLES = [
   { name: "payout_requests", optional: true },
   { name: "contact_messages", optional: true },
   { name: "contact_message_replies", optional: true },
-  { name: "customer_reviews", optional: true },
-  { name: "loyalty_transactions", optional: true },
-  // CONFIGURATION
+  { name: "portal_otp_codes", optional: true },
+
+  // ── CATALOG ───────────────────────────────────────────────────
   { name: "products", optional: false },
   { name: "product_inventory_requirements", optional: true },
   { name: "product_images", optional: true },
@@ -37,13 +50,17 @@ const TABLES = [
   { name: "inventory_items", optional: true },
   { name: "inventory_units", optional: true },
   { name: "inventory_categories", optional: true },
+  { name: "inventory_unit_movements", optional: true },
+  { name: "inspection_templates", optional: true },
   { name: "vehicles", optional: true },
   { name: "trailers", optional: true },
   { name: "packages", optional: true },
   { name: "coupons", optional: true },
+  { name: "setup_surfaces", optional: true },
+
+  // ── CONFIGURATION ─────────────────────────────────────────────
   { name: "site_settings", optional: false },
   { name: "email_templates", optional: true },
-  { name: "user_roles", optional: false },
   { name: "overhead_costs", optional: true },
   { name: "overhead_categories", optional: true },
   { name: "booking_expense_categories", optional: true },
@@ -53,6 +70,19 @@ const TABLES = [
   { name: "faqs", optional: true },
   { name: "dispatch_routes", optional: true },
   { name: "dispatch_stops", optional: true },
+  { name: "campaigns", optional: true },
+  { name: "campaign_recipients", optional: true },
+  { name: "tenant_api_keys", optional: true },
+  { name: "tenant_webhooks", optional: true },
+  { name: "tenant_goals", optional: true },
+  { name: "tenant_home_sections", optional: true },
+  { name: "tenant_onboarding_checklist", optional: true },
+  { name: "tenant_operator_notes", optional: true },
+  { name: "tenant_profile", optional: true },
+  { name: "custom_reports", optional: true },
+  { name: "google_business_connections", optional: true },
+  { name: "google_places_cache", optional: true },
+  { name: "support_tickets", optional: true },
 ];
 
 export interface BackupResult {

@@ -188,17 +188,34 @@ fastest path and doesn't need any of the JSON-restore work:
 PITR covers the last 7 days on Pro plan. For incidents older than that, you
 need Options A+B above.
 
-### Strong recommendation: build `importFullBackup()` before the next drill
+### ✓ Importer SHIPPED 2026-06-16
 
-The current state ("we have backups but no import code") is functional but
-fragile. Action item: implement `lib/backup-restore.ts` with a function that
-takes the JSON, opens a transaction, truncates target tables (optional), and
-loads in dependency order. Should be ~150 lines.
+`lib/backup-restore.ts → importFullBackup()` + CLI wrapper `scripts/import-backup.ts`.
+Restore order is parent-first (tenants → catalog → bookings → ...) and upserts
+on `id` conflict so re-runs are idempotent.
 
-After that, the runbook step 3 becomes:
 ```bash
+# Preview (dry-run) — counts rows, validates schema match, NO writes:
+NEXT_PUBLIC_SUPABASE_URL=https://target.supabase.co \
+SUPABASE_SERVICE_ROLE_KEY=key... \
+npx tsx scripts/import-backup.ts ./latest-backup.json --dry-run
+
+# Real restore:
+NEXT_PUBLIC_SUPABASE_URL=https://target.supabase.co \
+SUPABASE_SERVICE_ROLE_KEY=key... \
 npx tsx scripts/import-backup.ts ./latest-backup.json
+
+# Restore only one tenant's data:
+npx tsx scripts/import-backup.ts ./backup.json --tenant=<tenant-uuid>
+
+# ⚠ DESTRUCTIVE — truncate tables before load (only for fresh restore):
+I_KNOW_WHAT_IM_DOING=1 npx tsx scripts/import-backup.ts ./backup.json --truncate-first
 ```
+
+**Order of operations for a full restore:**
+1. Apply schema first via Option A (`supabase/ALL_MIGRATIONS.sql`)
+2. Then run `scripts/import-backup.ts` to load data on top
+3. Re-apply manual config (Step 4 below)
 
 ---
 
