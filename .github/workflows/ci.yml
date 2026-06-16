@@ -38,9 +38,10 @@ jobs:
     name: Multi-tenant scope drift
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    # Solo corre si están configurados los secrets de Supabase en el repo.
-    # Si no están, este job se omite — no rompe PRs en forks externos.
-    if: ${{ github.event.repository.private == true }}
+    # Solo corre si los secrets están disponibles (push directo a main o PR
+    # desde una rama del mismo repo). En fork PRs los secrets están bloqueados
+    # por design → skip el job para no fallar el PR sin razón.
+    if: ${{ github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository }}
 
     steps:
       - name: Checkout
