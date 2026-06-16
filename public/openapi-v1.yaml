@@ -1,0 +1,391 @@
+openapi: 3.0.3
+info:
+  title: RentalFlow Public API
+  version: "1.0.0"
+  description: |
+    Programmatic access to your rental shop's catalog, customers, bookings, and
+    availability. Useful for integrations with Zapier, Make, n8n, custom websites,
+    or your own scripts.
+
+    ## Authentication
+
+    Every request must include an `Authorization: Bearer rfk_...` header.
+    Generate API keys at **/admin/api-keys** in the RentalFlow admin panel.
+
+    Each key is scoped — when you generate it, pick the minimum scopes needed:
+
+    | Scope              | Endpoints |
+    |--------------------|-----------|
+    | `products:read`    | GET /v1/products |
+    | `customers:read`   | GET /v1/customers |
+    | `bookings:read`    | GET /v1/bookings, GET /v1/availability |
+    | `bookings:write`   | POST /v1/bookings |
+    | `*`                | All of the above (use sparingly) |
+
+    Keys can be revoked at any time from the admin panel — revoked keys
+    return `401` immediately on subsequent requests.
+
+    ## Tenant scoping
+
+    All data returned by these endpoints is scoped to the tenant that owns
+    the API key. There is no way to query another tenant's data, even
+    accidentally — the tenant ID is bound to the key itself.
+
+    ## Rate limits
+
+    100 requests per minute per API key. If exceeded, you'll get `429 Too Many
+    Requests` with a `Retry-After` header. Contact support if you need a
+    higher quota.
+
+servers:
+  - url: https://www.itsalwaysfun.com
+    description: It's Always Fun (custom domain)
+  - url: https://yourbrand.getrentalflow.com
+    description: Your tenant subdomain (replace yourbrand with your slug)
+
+security:
+  - bearerAuth: []
+
+paths:
+  /api/v1/products:
+    get:
+      summary: List products
+      description: Returns the catalog for the authenticated tenant.
+      operationId: listProducts
+      tags: [Products]
+      security:
+        - bearerAuth: [products:read]
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 100
+            maximum: 500
+        - name: active
+          in: query
+          description: If `false`, includes inactive/archived products. Default `true`.
+          schema:
+            type: boolean
+            default: true
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  products:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Product'
+                  count:
+                    type: integer
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/InsufficientScope'
+
+  /api/v1/customers:
+    get:
+      summary: List customers
+      description: Returns customer profiles for the authenticated tenant.
+      operationId: listCustomers
+      tags: [Customers]
+      security:
+        - bearerAuth: [customers:read]
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+            maximum: 200
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  customers:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Customer'
+                  count:
+                    type: integer
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/InsufficientScope'
+
+  /api/v1/bookings:
+    get:
+      summary: List bookings
+      description: |
+        Returns bookings for the authenticated tenant. Filter by status and/or
+        created_at to incrementally sync to your own system.
+      operationId: listBookings
+      tags: [Bookings]
+      security:
+        - bearerAuth: [bookings:read]
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+            maximum: 200
+        - name: since
+          in: query
+          description: ISO 8601 timestamp — only return bookings created after this.
+          schema:
+            type: string
+            format: date-time
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending_payment, confirmed, delivered, completed, cancelled, refunded]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  bookings:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Booking'
+                  count:
+                    type: integer
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    post:
+      summary: Create draft booking
+      description: |
+        Creates a booking in `pending_payment` status. The booking is reserved
+        for 10 minutes; the customer must complete Stripe payment in that
+        window or the slot is released.
+
+        Useful for "import bookings from my old system" or "let my Zapier flow
+        create bookings when a Shopify order comes in".
+      operationId: createBooking
+      tags: [Bookings]
+      security:
+        - bearerAuth: [bookings:write]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateBookingRequest'
+      responses:
+        '201':
+          description: Booking created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Booking'
+        '400':
+          description: Invalid input
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/InsufficientScope'
+        '409':
+          description: Date/product not available
+
+  /api/v1/availability:
+    get:
+      summary: Check availability for a product on a date range
+      description: |
+        Returns which dates have available stock for a product. Use this in
+        your own checkout flow or custom website to show availability before
+        the customer commits.
+      operationId: checkAvailability
+      tags: [Availability]
+      security:
+        - bearerAuth: [bookings:read]
+      parameters:
+        - name: product_id
+          in: query
+          description: If omitted, returns availability for all products combined.
+          schema:
+            type: string
+            format: uuid
+        - name: start
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+            example: "2026-07-01"
+        - name: end
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+            example: "2026-07-31"
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AvailabilityResponse'
+        '400':
+          description: Missing or invalid params
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/InsufficientScope'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: rfk_*
+      description: Use an API key generated in the RentalFlow admin panel.
+
+  responses:
+    Unauthorized:
+      description: Missing or invalid API key
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+                example: missing_authorization
+              detail:
+                type: string
+
+    InsufficientScope:
+      description: API key lacks required scope
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+                example: insufficient_scope
+              required:
+                type: string
+                example: products:read
+              granted:
+                type: array
+                items:
+                  type: string
+
+  schemas:
+    Product:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        slug: { type: string }
+        name: { type: string }
+        category: { type: string }
+        description: { type: string, nullable: true }
+        price_per_day_cents: { type: integer }
+        weekend_price_per_day_cents: { type: integer, nullable: true }
+        stock: { type: integer }
+        image_url: { type: string, nullable: true }
+        is_active: { type: boolean }
+        is_addon: { type: boolean }
+        setup_area: { type: string, nullable: true }
+        age_group: { type: string, nullable: true }
+        created_at: { type: string, format: date-time }
+
+    Customer:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        email: { type: string, format: email }
+        first_name: { type: string, nullable: true }
+        last_name: { type: string, nullable: true }
+        phone: { type: string, nullable: true }
+        total_bookings: { type: integer }
+        total_spent_cents: { type: integer }
+        points_balance: { type: integer }
+        created_at: { type: string, format: date-time }
+
+    Booking:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        status:
+          type: string
+          enum: [pending_payment, confirmed, delivered, completed, cancelled, refunded]
+        customer_first_name: { type: string }
+        customer_last_name: { type: string }
+        customer_email: { type: string, format: email }
+        customer_phone: { type: string, nullable: true }
+        event_date: { type: string, format: date }
+        delivery_time: { type: string, nullable: true }
+        pickup_time: { type: string, nullable: true }
+        total_cents: { type: integer }
+        paid_cents: { type: integer }
+        address: { type: string, nullable: true }
+        city: { type: string, nullable: true }
+        state: { type: string, nullable: true }
+        zip: { type: string, nullable: true }
+        notes: { type: string, nullable: true }
+        created_at: { type: string, format: date-time }
+
+    CreateBookingRequest:
+      type: object
+      required: [customer_first_name, customer_last_name, customer_email, event_date, product_id, total_amount]
+      properties:
+        customer_first_name: { type: string, maxLength: 80 }
+        customer_last_name:  { type: string, maxLength: 80 }
+        customer_email:      { type: string, format: email }
+        customer_phone:      { type: string, maxLength: 40 }
+        event_date:          { type: string, format: date, example: "2026-08-15" }
+        event_end_date:      { type: string, format: date }
+        delivery_time:       { type: string, example: "10:00" }
+        pickup_time:         { type: string, example: "18:00" }
+        product_id:          { type: string, format: uuid }
+        total_amount:        { type: integer, minimum: 0, description: "Total in cents" }
+        address:             { type: string, maxLength: 300 }
+
+    AvailabilityResponse:
+      type: object
+      properties:
+        product_id:
+          type: string
+          format: uuid
+          nullable: true
+        stock:
+          type: integer
+          description: Total stock for the product (1 if not unit-tracked)
+        dates:
+          type: array
+          items:
+            type: object
+            properties:
+              date: { type: string, format: date }
+              taken: { type: integer }
+              available: { type: integer }
+              status:
+                type: string
+                enum: [available, partial, full]
+
+tags:
+  - name: Products
+    description: Catalog endpoints
+  - name: Customers
+    description: Customer profile endpoints
+  - name: Bookings
+    description: Booking lifecycle endpoints
+  - name: Availability
+    description: Check date availability for products

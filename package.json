@@ -42,6 +42,7 @@
     "sonner": "^1.5.0",
     "stripe": "^17.0.0",
     "tailwind-merge": "^2.5.3",
+    "yaml": "^2.9.0",
     "zod": "^3.23.8"
   },
   "devDependencies": {
