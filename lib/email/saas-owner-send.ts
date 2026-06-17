@@ -137,9 +137,14 @@ export async function sendFromSaasOwner(
     }
   }
 
-  // Default path — Resend
+  // Default path — Resend on the PLATFORM account.
+  // Falls back to the tenant Resend account if RESEND_API_KEY_PLATFORM is
+  // unset (so single-account deploys still work).
   if (isEmailConfigured()) {
+    const platformKey =
+      process.env.RESEND_API_KEY_PLATFORM || process.env.RESEND_API_KEY;
     const r = await sendEmail({
+      apiKey: platformKey,
       to: input.to,
       from: owner.from,
       replyTo: owner.replyTo,

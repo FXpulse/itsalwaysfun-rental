@@ -1,19 +1,28 @@
 // Resend email helper — direct HTTP, no SDK needed.
 // Set env vars:
-//   RESEND_API_KEY        (required — get from resend.com dashboard)
-//   EMAIL_FROM            (e.g. 'RentalFlow <info@getrentalflow.com>')
-//   EMAIL_REPLY_TO        (e.g. 'info@getrentalflow.com')
+//   RESEND_API_KEY            (required — tenant emails, "It's Always Fun" account)
+//   RESEND_API_KEY_PLATFORM   (optional — platform emails, "getrentalflow"
+//                              account. Falls back to RESEND_API_KEY if unset.)
+//   EMAIL_FROM                (e.g. 'RentalFlow <info@getrentalflow.com>')
+//   EMAIL_REPLY_TO            (e.g. 'info@getrentalflow.com')
+//
+// TWO RESEND ACCOUNTS (architecture decision 2026-06-17):
+//   1. Tenant account — owns itsalwaysfun.com (+ future tenant domains).
+//      Used for tenant → customer emails (booking confirmation, reminders).
+//      API key in RESEND_API_KEY.
+//   2. Platform account — owns getrentalflow.com.
+//      Used for platform → operator emails (beta lifecycle, dunning, etc.).
+//      API key in RESEND_API_KEY_PLATFORM.
+//
+// Separation = independent billing, quota, domain verification, reputation.
 //
 // For per-tenant From / Reply-To (customer-facing transactional emails),
 // use getTenantEmailConfig(tenantId). For platform → operator emails
-// (lifecycle, dunning, backups), use getSaasOwnerEmailConfig().
-//
-// Use isEmailConfigured() to check before calling send() so the app
-// still works if Resend isn't set up yet (degrades gracefully).
+// (lifecycle, dunning, backups), use sendFromSaasOwner() which passes
+// the platform apiKey automatically.
 
 export interface SendEmailParams {
-  /** Per-send From override — pass the tenant-scoped From here. If omitted,
-   *  falls back to `process.env.EMAIL_FROM` (single-tenant deploys). */
+  /** Per-send From override. If omitted, falls back to `process.env.EMAIL_FROM`. */
   from?: string;
   to: string | string[];
   subject: string;
@@ -23,14 +32,29 @@ export interface SendEmailParams {
   cc?: string | string[];
   bcc?: string | string[];
   tags?: { name: string; value: string }[]; // Resend tags for analytics
+  /** Override which Resend API key to use. If omitted, uses the tenant
+   *  account key (RESEND_API_KEY). Pass the platform account key for
+   *  platform-side emails — see sendFromSaasOwner(). */
+  apiKey?: string;
 }
 
 export function isEmailConfigured(): boolean {
   return !!(process.env.RESEND_API_KEY && process.env.EMAIL_FROM);
 }
 
+/** True iff the platform Resend account is configured (separate from the
+ *  tenant account). Falls back to tenant key, so this returns true as long
+ *  as ANY key is available — caller decides which path to log. */
+export function isPlatformEmailConfigured(): boolean {
+  return !!(
+    (process.env.RESEND_API_KEY_PLATFORM || process.env.RESEND_API_KEY) &&
+    process.env.EMAIL_FROM
+  );
+}
+
 export async function sendEmail(params: SendEmailParams): Promise<{ ok: boolean; id?: string; error?: string }> {
-  if (!isEmailConfigured()) {
+  const apiKey = params.apiKey || process.env.RESEND_API_KEY;
+  if (!apiKey || !process.env.EMAIL_FROM) {
     return { ok: false, error: "Email not configured (missing RESEND_API_KEY or EMAIL_FROM)" };
   }
 
@@ -42,7 +66,7 @@ export async function sendEmail(params: SendEmailParams): Promise<{ ok: boolean;
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
+        Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
         from,
