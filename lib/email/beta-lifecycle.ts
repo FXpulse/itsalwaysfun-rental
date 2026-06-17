@@ -17,8 +17,8 @@
 // before each send, so duplicates can't happen even if the cron fires
 // twice or a manual call happens.
 
-import { sendEmail, isEmailConfigured } from "@/lib/email/send";
-import { getSaasOwnerEmailConfig } from "@/lib/email/saas-owner";
+import { isEmailConfigured } from "@/lib/email/send";
+import { sendFromSaasOwner } from "@/lib/email/saas-owner-send";
 import * as Sentry from "@sentry/nextjs";
 
 export type BetaEmailKey =
@@ -179,11 +179,8 @@ export async function sendBetaLifecycleEmail(
   if (!built) return null;
 
   try {
-    const owner = getSaasOwnerEmailConfig();
-    await sendEmail({
+    const r = await sendFromSaasOwner({
       to: tenant.owner_email,
-      from: owner.from,
-      replyTo: owner.replyTo,
       subject: built.subject,
       html: built.html,
       text: built.text,
@@ -192,6 +189,14 @@ export async function sendBetaLifecycleEmail(
         { name: "key", value: key },
       ],
     });
+    if (!r.ok) {
+      Sentry.captureMessage("beta-lifecycle send failed", {
+        level: "warning",
+        tags: { area: "beta-lifecycle", key, via: r.via },
+        extra: { tenant_id: tenant.id, error: r.error },
+      });
+      return null;
+    }
     return [...currentLedger, key];
   } catch (e) {
     Sentry.captureException(e, {

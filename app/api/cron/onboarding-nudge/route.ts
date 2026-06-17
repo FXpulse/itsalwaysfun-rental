@@ -12,8 +12,8 @@ import { NextResponse } from "next/server";
 import { headers } from "next/headers";
 import * as Sentry from "@sentry/nextjs";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { sendEmail, isEmailConfigured } from "@/lib/email/send";
-import { getSaasOwnerEmailConfig } from "@/lib/email/saas-owner";
+import { isEmailConfigured } from "@/lib/email/send";
+import { sendFromSaasOwner } from "@/lib/email/saas-owner-send";
 import { fetchOnboardingForTenant } from "@/lib/superadmin/onboarding-checklist";
 
 export const dynamic = "force-dynamic";
@@ -136,11 +136,8 @@ async function sendNudgeEmail(
   const t = templates[nudgeKey];
   if (!t) return false;
 
-  const owner = getSaasOwnerEmailConfig();
-  await sendEmail({
+  await sendFromSaasOwner({
     to: tenant.owner_email,
-    from: owner.from,
-    replyTo: owner.replyTo,
     subject: t.subject,
     html: t.html,
   });

@@ -16,8 +16,8 @@ import { NextResponse } from "next/server";
 import { headers } from "next/headers";
 import * as Sentry from "@sentry/nextjs";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { sendEmail, isEmailConfigured } from "@/lib/email/send";
-import { getSaasOwnerEmailConfig } from "@/lib/email/saas-owner";
+import { isEmailConfigured } from "@/lib/email/send";
+import { sendFromSaasOwner } from "@/lib/email/saas-owner-send";
 import { getStripe } from "@/lib/stripe/server";
 
 export const dynamic = "force-dynamic";
@@ -194,11 +194,8 @@ async function sendDunningEmail(
 
   const t = templates[stage];
   if (!t) return;
-  const owner = getSaasOwnerEmailConfig();
-  await sendEmail({
+  await sendFromSaasOwner({
     to: tenant.owner_email,
-    from: owner.from,
-    replyTo: owner.replyTo,
     subject: t.subject,
     html: t.html,
   });
@@ -206,11 +203,8 @@ async function sendDunningEmail(
 
 async function sendRecoveryEmail(tenant: TenantRow) {
   if (!isEmailConfigured() || !tenant.owner_email) return;
-  const owner = getSaasOwnerEmailConfig();
-  await sendEmail({
+  await sendFromSaasOwner({
     to: tenant.owner_email,
-    from: owner.from,
-    replyTo: owner.replyTo,
     subject: `Payment received — RentalFlow is back on track ✓`,
     html: `<p>Hi ${tenant.business_name || "there"},</p>
 <p>Great news — we successfully charged your card. Your RentalFlow account is fully active again.</p>

@@ -15,8 +15,8 @@ import * as Sentry from "@sentry/nextjs";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { exportFullBackup } from "@/lib/backup";
 import { uploadBackupToR2, pruneOldBackupsFromR2 } from "@/lib/backup-r2";
-import { sendEmail, isEmailConfigured } from "@/lib/email/send";
-import { getSaasOwnerEmailConfig } from "@/lib/email/saas-owner";
+import { isEmailConfigured } from "@/lib/email/send";
+import { sendFromSaasOwner } from "@/lib/email/saas-owner-send";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -99,11 +99,8 @@ export async function GET() {
     const errorList = Object.entries(backup.errors);
 
     try {
-      const owner = getSaasOwnerEmailConfig();
-      const res = await sendEmail({
+      const res = await sendFromSaasOwner({
         to: recipient,
-        from: owner.from,
-        replyTo: owner.replyTo,
         subject: `📦 Weekly backup ready (${dateStr})`,
         html: `<div style="font-family:system-ui,sans-serif;max-width:560px;color:#0f172a;">
 <p>Your weekly DB backup is ready.</p>
