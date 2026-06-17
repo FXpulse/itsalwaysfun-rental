@@ -9,7 +9,9 @@ import { headers } from "next/headers";
 
 export default function robots(): MetadataRoute.Robots {
   const h = headers();
-  const host = h.get("host") || "itsalwaysfun.com";
+  // Fallback to the SaaS apex if no Host header. Never default to a tenant
+  // domain — that would publish IAF-specific URLs on other tenants' robots.txt.
+  const host = h.get("host") || "getrentalflow.com";
   const proto = h.get("x-forwarded-proto") || "https";
   const baseUrl = `${proto}://${host}`;
 

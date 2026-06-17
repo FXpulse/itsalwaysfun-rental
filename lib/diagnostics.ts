@@ -85,14 +85,14 @@ export async function runAllChecks(): Promise<CheckResult[]> {
 
   // Admin alert email
   if (!process.env.ADMIN_ALERT_EMAIL) {
-    results.push(warn(envG, "Admin alert email", "ADMIN_ALERT_EMAIL not set", "Falls back to admin@itsalwaysfun.com. Set this so contact form / low-stock alerts go to the right place."));
+    results.push(warn(envG, "Admin alert email", "ADMIN_ALERT_EMAIL not set", "Falls back to info@getrentalflow.com. Set this so contact form / low-stock alerts go to YOUR business inbox, not the platform's."));
   } else {
     results.push(ok(envG, "Admin alert email", process.env.ADMIN_ALERT_EMAIL));
   }
 
   // App URL
   if (!process.env.NEXT_PUBLIC_APP_URL) {
-    results.push(warn(envG, "Public app URL", "NEXT_PUBLIC_APP_URL not set", "Email links + webhook callbacks fall back to itsalwaysfun-rental.vercel.app. Set to your real domain if different."));
+    results.push(warn(envG, "Public app URL", "NEXT_PUBLIC_APP_URL not set", "Email links + webhook callbacks may fall back to a stale URL. Set this to your real domain (e.g. https://yourbusiness.com)."));
   } else {
     results.push(ok(envG, "Public app URL", process.env.NEXT_PUBLIC_APP_URL));
   }

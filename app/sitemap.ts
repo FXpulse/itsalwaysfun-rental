@@ -13,7 +13,9 @@ export const revalidate = 3600; // re-generate hourly
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const h = headers();
-  const host = h.get("host") || "itsalwaysfun.com";
+  // Same fallback reasoning as app/robots.ts: never publish IAF-specific
+  // URLs in other tenants' sitemaps.
+  const host = h.get("host") || "getrentalflow.com";
   const proto = h.get("x-forwarded-proto") || "https";
   const baseUrl = `${proto}://${host}`;
 

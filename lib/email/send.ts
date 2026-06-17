@@ -1,8 +1,12 @@
 // Resend email helper — direct HTTP, no SDK needed.
 // Set env vars:
 //   RESEND_API_KEY        (required — get from resend.com dashboard)
-//   EMAIL_FROM            (e.g. 'It''s Always Fun <bookings@itsalwaysfun.com>')
-//   EMAIL_REPLY_TO        (e.g. 'admin@itsalwaysfun.com')
+//   EMAIL_FROM            (e.g. 'RentalFlow <info@getrentalflow.com>')
+//   EMAIL_REPLY_TO        (e.g. 'info@getrentalflow.com')
+//
+// For per-tenant From / Reply-To (customer-facing transactional emails),
+// use getTenantEmailConfig(tenantId). For platform → operator emails
+// (lifecycle, dunning, backups), use getSaasOwnerEmailConfig().
 //
 // Use isEmailConfigured() to check before calling send() so the app
 // still works if Resend isn't set up yet (degrades gracefully).

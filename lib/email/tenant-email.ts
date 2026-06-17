@@ -93,7 +93,13 @@ export async function getTenantEmailConfig(
  *  should land for a given tenant. Falls back to the operator default if no
  *  tenant config available. Use for any tenant → admin notification path. */
 export async function getTenantAdminEmail(tenantId: string | null): Promise<string> {
-  if (!tenantId) return process.env.ADMIN_ALERT_EMAIL || "admin@itsalwaysfun.com";
+  // Last-resort fallback when neither the tenant row nor ADMIN_ALERT_EMAIL
+  // is set. Defaults to the SaaS canonical inbox (info@getrentalflow.com),
+  // NOT to IAF's admin@itsalwaysfun.com — which would silently misroute
+  // alerts from OTHER tenants to IAF's mailbox.
+  const fallback =
+    process.env.ADMIN_ALERT_EMAIL || "info@getrentalflow.com";
+  if (!tenantId) return fallback;
   const supabase = createAdminClient({ unscoped: true });
   const { data: t } = await supabase
     .from("tenants")
@@ -103,8 +109,7 @@ export async function getTenantAdminEmail(tenantId: string | null): Promise<stri
   return (
     (t as any)?.notification_email ||
     (t as any)?.owner_email ||
-    process.env.ADMIN_ALERT_EMAIL ||
-    "admin@itsalwaysfun.com"
+    fallback
   );
 }
 
