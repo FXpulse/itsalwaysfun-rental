@@ -1,9 +1,21 @@
 // Accounting CSV export — admin-only.
-// Date-scoped: ?type=expenses|overhead|pnl with &from=YYYY-MM-DD&to=YYYY-MM-DD
+// Date-scoped: ?type=expenses|overhead|pnl|tax|sales-receipts|customers
+//              with &from=YYYY-MM-DD&to=YYYY-MM-DD
 // Year-scoped: ?type=1099-nec with &year=YYYY
 //
 // Columns are chosen to import cleanly into QuickBooks Online, Xero, or any
 // spreadsheet. Dates are YYYY-MM-DD, amounts are decimal USD (no $ signs).
+//
+// QuickBooks Online import notes (Sales Receipts, Customers):
+//  - QBO expects MM/DD/YYYY for dates on import. We output YYYY-MM-DD; QBO
+//    auto-detects on import. If it doesn't, switch the date format in the
+//    QBO import wizard before clicking "Next".
+//  - SalesReceiptNo is the booking ID (UUID); QBO accepts up to 21 chars,
+//    we truncate the UUID to first 8 chars so it fits and stays unique
+//    within a reasonable run.
+//  - Customer column matches by exact string. First time you import a
+//    customer that doesn't exist in QBO, QBO will offer to create them
+//    (check the box on the import preview).
 
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -335,8 +347,171 @@ export async function GET(req: NextRequest) {
     return csvResponse(toCsv(headers, rows), `tax_collected_${from}_to_${to}.csv`);
   }
 
+  if (type === "sales-receipts") {
+    // Paid bookings as QuickBooks Online Sales Receipts.
+    // One row per booking. Columns match QBO's CSV-import format directly.
+    const { data: taxLabelRow } = await supabase
+      .from("site_settings")
+      .select("value")
+      .eq("key", "tax_label")
+      .maybeSingle();
+    const taxLabel = String(taxLabelRow?.value || "Sales tax");
+
+    const { data: bookings } = await supabase
+      .from("bookings")
+      .select(
+        "id, event_date, customer_email, customer_first_name, customer_last_name, customer_phone, customer_address, product_name, total_amount, tax_cents, payment_method, paid_at, created_at",
+      )
+      .gte("event_date", from)
+      .lte("event_date", to)
+      .eq("stripe_payment_status", "paid")
+      .neq("booking_status", "cancelled")
+      .order("event_date", { ascending: true });
+
+    const headers = [
+      "SalesReceiptNo",
+      "SalesReceiptDate",
+      "Customer",
+      "ProductService",
+      "ProductServiceDescription",
+      "Qty",
+      "Rate",
+      "Amount",
+      `${taxLabel}`,
+      "Total",
+      "PaymentMethod",
+      "Memo",
+    ];
+    const rows = ((bookings as any[]) || []).map((b) => {
+      const customer = [b.customer_first_name, b.customer_last_name]
+        .filter(Boolean)
+        .join(" ") || b.customer_email || "Walk-in";
+      const total = Number(b.total_amount) || 0;
+      const tax = Number(b.tax_cents) || 0;
+      const preTax = total - tax;
+      const receiptNo = String(b.id || "").replace(/-/g, "").slice(0, 8).toUpperCase();
+      // Prefer paid_at when present (when payment actually happened), fall
+      // back to event_date so accountant sees something reasonable either way.
+      const receiptDate = (b.paid_at || b.event_date || b.created_at || "")
+        .toString()
+        .slice(0, 10);
+      return [
+        receiptNo,
+        receiptDate,
+        customer,
+        b.product_name || "Rental",
+        b.product_name || "",
+        1,
+        (preTax / 100).toFixed(2),
+        (preTax / 100).toFixed(2),
+        (tax / 100).toFixed(2),
+        (total / 100).toFixed(2),
+        b.payment_method || "Stripe",
+        `Booking ${b.id}`,
+      ];
+    });
+
+    return csvResponse(
+      toCsv(headers, rows),
+      `qbo_sales_receipts_${from}_to_${to}.csv`,
+    );
+  }
+
+  if (type === "customers") {
+    // Customer list in QuickBooks Online CSV-import format.
+    // Deduplicated by email (one row per unique customer with totals).
+    // Use a wide date range to backfill historical customers when needed.
+    const { data: bookings } = await supabase
+      .from("bookings")
+      .select(
+        "customer_email, customer_first_name, customer_last_name, customer_phone, customer_address, event_date, total_amount, stripe_payment_status, booking_status, created_at",
+      )
+      .gte("event_date", from)
+      .lte("event_date", to)
+      .order("event_date", { ascending: true });
+
+    interface Agg {
+      email: string;
+      first: string;
+      last: string;
+      phone: string;
+      address: string;
+      first_seen: string;
+      last_seen: string;
+      total_spent_cents: number;
+      bookings_count: number;
+    }
+    const byEmail = new Map<string, Agg>();
+    for (const b of ((bookings as any[]) || [])) {
+      const email = (b.customer_email || "").toLowerCase().trim();
+      if (!email) continue;
+      const prev = byEmail.get(email);
+      const eventDate = (b.event_date || "").slice(0, 10);
+      const paid =
+        b.stripe_payment_status === "paid" && b.booking_status !== "cancelled";
+      if (!prev) {
+        byEmail.set(email, {
+          email,
+          first: b.customer_first_name || "",
+          last: b.customer_last_name || "",
+          phone: b.customer_phone || "",
+          address: b.customer_address || "",
+          first_seen: eventDate,
+          last_seen: eventDate,
+          total_spent_cents: paid ? Number(b.total_amount) || 0 : 0,
+          bookings_count: 1,
+        });
+      } else {
+        prev.last_seen = eventDate > prev.last_seen ? eventDate : prev.last_seen;
+        prev.first_seen =
+          eventDate < prev.first_seen ? eventDate : prev.first_seen;
+        if (paid) prev.total_spent_cents += Number(b.total_amount) || 0;
+        prev.bookings_count++;
+        // Backfill blank contact fields from later bookings
+        if (!prev.first && b.customer_first_name) prev.first = b.customer_first_name;
+        if (!prev.last && b.customer_last_name) prev.last = b.customer_last_name;
+        if (!prev.phone && b.customer_phone) prev.phone = b.customer_phone;
+        if (!prev.address && b.customer_address) prev.address = b.customer_address;
+      }
+    }
+
+    const headers = [
+      "Name",
+      "Email",
+      "Phone",
+      "BillingAddress",
+      "FirstBookingDate",
+      "LastBookingDate",
+      "TotalSpent (USD)",
+      "BookingsCount",
+    ];
+    const rows = Array.from(byEmail.values())
+      .sort((a, b) => b.total_spent_cents - a.total_spent_cents)
+      .map((c) => {
+        const name = [c.first, c.last].filter(Boolean).join(" ") || c.email;
+        return [
+          name,
+          c.email,
+          c.phone,
+          c.address,
+          c.first_seen,
+          c.last_seen,
+          (c.total_spent_cents / 100).toFixed(2),
+          c.bookings_count,
+        ];
+      });
+
+    return csvResponse(
+      toCsv(headers, rows),
+      `qbo_customers_${from}_to_${to}.csv`,
+    );
+  }
+
   return NextResponse.json(
-    { error: "type must be expenses, overhead, pnl, or tax" },
+    {
+      error:
+        "type must be one of: expenses, overhead, pnl, tax, sales-receipts, customers, 1099-nec",
+    },
     { status: 400 },
   );
 }

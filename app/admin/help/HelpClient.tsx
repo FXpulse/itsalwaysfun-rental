@@ -2148,22 +2148,26 @@ export function HelpClient() {
             which is also how your accountant will want to see it.
           </p>
 
-          <p className="font-semibold">4. CSV export for accountant / QuickBooks</p>
+          <p className="font-semibold">4. CSV export for accountant / QuickBooks / Xero</p>
           <p className="text-xs">
             Below the P&amp;L card on <code>/admin/reports</code> there's a green
-            "Accounting CSV export" box with three download buttons (scoped to
-            the same date range):
+            "QuickBooks / Xero export" box. Two top buttons (green-filled) are
+            for QuickBooks Online; the rest are general-purpose CSVs.
           </p>
           <ul className="list-disc pl-5 text-xs space-y-1">
+            <li><strong>Sales receipts (QBO)</strong> — paid bookings as QuickBooks Sales Receipts. Columns match QBO's CSV-import format directly (SalesReceiptNo, SalesReceiptDate, Customer, ProductService, Qty, Rate, Amount, Tax, Total, PaymentMethod, Memo). Drop into QBO → New → Import data → Sales Receipts → upload.</li>
+            <li><strong>Customers (QBO)</strong> — deduplicated customer list with name, email, phone, address, first/last booking dates, total spent, bookings count. Import into QBO under New → Import data → Customers.</li>
             <li><strong>Booking expenses</strong> — one row per per-booking expense (date, category label, amount, booking ID, customer, event date, driver hours, etc.)</li>
             <li><strong>Overhead</strong> — one row per fixed monthly line active in the period (with group, category, monthly + annual amounts)</li>
             <li><strong>P&amp;L summary</strong> — single multi-line CSV (Revenue, each direct-cost category, Gross profit, each overhead category, NET PROFIT)</li>
+            <li><strong>Tax collected</strong> — per-booking sales tax detail + totals row, for state tax filing</li>
           </ul>
           <p className="text-xs text-slate-500">
-            💡 Send the three files to your accountant at tax time, or import
-            into QuickBooks Online / Xero / a spreadsheet. Dates are ISO format
-            (YYYY-MM-DD) and amounts are plain decimals with no $ signs — universally
-            compatible.
+            💡 The fastest accountant workflow is: download <strong>Customers</strong>{" "}
+            first → import to QBO (creates the customer records) → then download{" "}
+            <strong>Sales receipts</strong> → import (the receipts attach to the
+            customers automatically). Most accountants do this monthly at month-end.
+            Dates are ISO (YYYY-MM-DD); QBO auto-detects on import.
           </p>
           <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded p-2">
             ⚙️ <strong>Setup required (one time, in this order):</strong>

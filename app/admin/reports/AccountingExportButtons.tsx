@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Download, FileSpreadsheet, FileText } from "lucide-react";
+import { Download, FileSpreadsheet, FileText, Receipt, Users } from "lucide-react";
 
 export function AccountingExportButtons({
   from,
@@ -18,12 +18,32 @@ export function AccountingExportButtons({
         <FileSpreadsheet className="h-5 w-5 text-emerald-700 mt-0.5 flex-shrink-0" />
         <div className="flex-1 min-w-0">
           <h3 className="text-sm font-bold text-emerald-900 mb-0.5">
-            Accounting CSV export
+            QuickBooks / Xero export
           </h3>
           <p className="text-xs text-emerald-800 mb-2">
-            Download for QuickBooks / Xero import, your accountant, or tax filing.
+            CSVs your bookkeeper can drop directly into QuickBooks Online or Xero.
             Scoped to the date range above.
           </p>
+
+          {/* QuickBooks income side — primary for accountants */}
+          <div className="flex flex-wrap gap-2 mb-2">
+            <a
+              href={`${base}&type=sales-receipts`}
+              className="inline-flex items-center gap-1 bg-emerald-700 border border-emerald-700 text-white text-xs px-3 py-1.5 rounded hover:bg-emerald-800 font-medium"
+              title="Paid bookings as QuickBooks Sales Receipts"
+            >
+              <Receipt className="h-3 w-3" /> Sales receipts (QBO)
+            </a>
+            <a
+              href={`${base}&type=customers`}
+              className="inline-flex items-center gap-1 bg-emerald-700 border border-emerald-700 text-white text-xs px-3 py-1.5 rounded hover:bg-emerald-800 font-medium"
+              title="Customer list with totals & last booking date"
+            >
+              <Users className="h-3 w-3" /> Customers (QBO)
+            </a>
+          </div>
+
+          {/* Cost side + summaries — secondary */}
           <div className="flex flex-wrap gap-2">
             <a
               href={`${base}&type=expenses`}

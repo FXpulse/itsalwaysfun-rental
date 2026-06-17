@@ -2006,11 +2006,15 @@ created_at) — this matches the way the rest of the reports page
 thinks about "when revenue happened" (the day you delivered),
 which is also how your accountant will want to see it.
 
-4. CSV export for accountant / QuickBooks
+4. CSV export for accountant / QuickBooks / Xero
 
 Below the P&L card on `/admin/reports` there's a green
-"Accounting CSV export" box with three download buttons (scoped to
-the same date range):
+"QuickBooks / Xero export" box. Two top buttons (green-filled) are
+for QuickBooks Online; the rest are general-purpose CSVs.
+
+- **Sales receipts (QBO)** — paid bookings as QuickBooks Sales Receipts. Columns match QBO's CSV-import format directly (SalesReceiptNo, SalesReceiptDate, Customer, ProductService, Qty, Rate, Amount, Tax, Total, PaymentMethod, Memo). Drop into QBO → New → Import data → Sales Receipts → upload.
+
+- **Customers (QBO)** — deduplicated customer list with name, email, phone, address, first/last booking dates, total spent, bookings count. Import into QBO under New → Import data → Customers.
 
 - **Booking expenses** — one row per per-booking expense (date, category label, amount, booking ID, customer, event date, driver hours, etc.)
 
@@ -2018,10 +2022,13 @@ the same date range):
 
 - **P&L summary** — single multi-line CSV (Revenue, each direct-cost category, Gross profit, each overhead category, NET PROFIT)
 
-💡 Send the three files to your accountant at tax time, or import
-into QuickBooks Online / Xero / a spreadsheet. Dates are ISO format
-(YYYY-MM-DD) and amounts are plain decimals with no $ signs — universally
-compatible.
+- **Tax collected** — per-booking sales tax detail + totals row, for state tax filing
+
+💡 The fastest accountant workflow is: download **Customers**
+first → import to QBO (creates the customer records) → then download
+**Sales receipts** → import (the receipts attach to the
+customers automatically). Most accountants do this monthly at month-end.
+Dates are ISO (YYYY-MM-DD); QBO auto-detects on import.
 
 ⚙️ **Setup required (one time, in this order):**
 
