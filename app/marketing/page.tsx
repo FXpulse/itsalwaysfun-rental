@@ -91,14 +91,19 @@ const COMPARISON = [
   { feature: "1099-NEC automation", us: true, them: false },
   { feature: "Liability waiver e-sig", us: true, them: false },
   { feature: "Transaction fees", us: "$0", them: "0-3% varies" },
-  { feature: "Free trial", us: "30 days, no card", them: "Demo gated" },
+  { feature: "Free trial", us: "__TRIAL_PLACEHOLDER__", them: "Demo gated" },
   { feature: "Monthly cost", us: "$99 flat", them: "$80-$400" },
 ];
 
-import { isBetaProgramActive } from "@/lib/beta-program";
+import { isBetaProgramActive, trialDaysForNewSignup } from "@/lib/beta-program";
 
 export default function MarketingPage() {
   const betaOpen = isBetaProgramActive();
+  const trialDays = trialDaysForNewSignup();
+  const trialLabel = `${trialDays} days, no card`;
+  const comparison = COMPARISON.map((row) =>
+    row.us === "__TRIAL_PLACEHOLDER__" ? { ...row, us: trialLabel } : row,
+  );
   return (
     <div className="min-h-screen bg-white">
       {betaOpen && (
@@ -141,7 +146,7 @@ export default function MarketingPage() {
               href="/signup"
               className="bg-brand-navy text-white text-sm font-semibold px-4 py-2 rounded hover:bg-brand-navy/90"
             >
-              Start free trial
+              Start {trialDays}-day free trial
             </Link>
           </div>
         </div>
@@ -170,7 +175,7 @@ export default function MarketingPage() {
             href="/signup"
             className="bg-brand-navy text-white text-lg font-semibold px-8 py-4 rounded-md hover:bg-brand-navy/90 inline-flex items-center gap-2 justify-center"
           >
-            Start 30-day free trial <ArrowRight className="h-5 w-5" />
+            Start {trialDays}-day free trial <ArrowRight className="h-5 w-5" />
           </Link>
           <a
             href="https://testbouncers.getrentalflow.com"
@@ -252,7 +257,7 @@ export default function MarketingPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {COMPARISON.map((c) => (
+                {comparison.map((c) => (
                   <tr key={c.feature}>
                     <td className="px-4 py-3 text-slate-700">{c.feature}</td>
                     <td className="px-4 py-3 text-center">
@@ -319,7 +324,7 @@ export default function MarketingPage() {
             href="/signup"
             className="block text-center bg-brand-yellow text-brand-navy text-lg font-bold py-4 rounded hover:bg-yellow-300"
           >
-            Start 30-day free trial
+            Start {trialDays}-day free trial
           </Link>
           <p className="text-center text-xs text-white/60 mt-3">
             No credit card · No demo · Cancel anytime
@@ -384,7 +389,7 @@ export default function MarketingPage() {
             href="/signup"
             className="bg-brand-yellow text-brand-navy text-lg font-bold px-8 py-4 rounded-md hover:bg-yellow-300 inline-flex items-center gap-2"
           >
-            Start free trial <ArrowRight className="h-5 w-5" />
+            Start {trialDays}-day free trial <ArrowRight className="h-5 w-5" />
           </Link>
           <p className="text-xs text-white/60 mt-4">
             Or{" "}
