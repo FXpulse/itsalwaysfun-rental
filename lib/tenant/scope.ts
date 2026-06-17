@@ -80,6 +80,8 @@ export const MULTI_TENANT_TABLES = new Set([
   "portal_otp_codes",           // OTP codes para customer portal login
   "support_tickets",            // soporte interno por tenant
   "tenant_profile",             // profile/metadata del tenant
+  // In-app beta feedback widget submissions (2026-06-17)
+  "beta_feedback",
 ]);
 
 /** Tablas que SÍ tienen columna `tenant_id` (o conceptualmente son por-tenant)
