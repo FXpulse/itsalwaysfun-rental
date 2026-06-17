@@ -2985,6 +2985,112 @@ sofia@example.com,Sofia,Rivera,`}
       ),
     },
     {
+      id: "require-admin-mfa",
+      title: "Require 2FA for all admins (account-wide toggle)",
+      icon: ShieldCheck,
+      content: (
+        <div className="space-y-3 text-sm">
+          <p>
+            As of June 2026 you can require 2FA (two-factor authentication)
+            for every admin user in your account, not just yourself.
+          </p>
+          <div className="bg-slate-50 border border-slate-200 rounded p-3 text-xs space-y-2">
+            <p className="font-semibold">How to turn it on (admin only):</p>
+            <ol className="list-decimal pl-5 space-y-1">
+              <li>Go to <code>/admin/settings/security</code></li>
+              <li>
+                Enroll <strong>your own</strong> 2FA first (scan QR with Google
+                Authenticator / 1Password / Authy → enter the 6-digit code →
+                Verify)
+              </li>
+              <li>
+                Flip the toggle <strong>"Require 2FA for all admins"</strong> to
+                ON
+              </li>
+            </ol>
+          </div>
+          <p>
+            <strong>What happens after that:</strong>
+          </p>
+          <ul className="list-disc pl-5 text-xs space-y-1">
+            <li>
+              Any admin user in your account who doesn't have 2FA enrolled is
+              sent to <code>/admin/settings/security</code> on their next login.
+              They can't reach any other admin page until they enroll.
+            </li>
+            <li>
+              <strong>Staff role users are not affected</strong> — only the
+              admin role. (Most operators don't want to force 2FA on field staff.)
+            </li>
+            <li>
+              You stay logged in normally. The toggle never locks YOU out
+              because the UI refuses to enable it until your own 2FA is verified.
+            </li>
+          </ul>
+          <p className="bg-amber-50 border border-amber-200 rounded p-2 text-xs">
+            ⚠️ <strong>Recovery if you lose your authenticator app:</strong> ask
+            Henry to disable 2FA on your account from the Supabase dashboard.
+            There's no self-serve recovery flow yet.
+          </p>
+          <p className="bg-emerald-50 border border-emerald-200 rounded p-2 text-xs">
+            ✓ Recommended for any account with more than one admin, or any
+            account handling >$5k/mo of bookings. Single point of password
+            compromise becomes a multi-step attack.
+          </p>
+        </div>
+      ),
+    },
+    {
+      id: "backup-retention",
+      title: "How your data is backed up + how long it's kept",
+      icon: History,
+      content: (
+        <div className="space-y-3 text-sm">
+          <p>
+            Your data is automatically backed up on three independent
+            tracks — you don't have to do anything.
+          </p>
+          <div className="bg-slate-50 border border-slate-200 rounded p-3 text-xs space-y-2">
+            <p className="font-semibold">Backup tracks:</p>
+            <ul className="list-disc pl-5 space-y-1">
+              <li>
+                <strong>Weekly full export</strong> — Sunday 3am UTC. Every table
+                exported to JSON + CSV. Stored in TWO places: Supabase Storage
+                AND Cloudflare R2 (off-cloud). Kept for <strong>84 days</strong>
+                at each target before auto-deletion.
+              </li>
+              <li>
+                <strong>Continuous (PITR)</strong> — Supabase's managed
+                point-in-time recovery keeps changes from the last 7 days. Used
+                to restore "I made a mistake 4 hours ago" scenarios.
+              </li>
+              <li>
+                <strong>Operational ledgers</strong> — booking emails sent,
+                audit log, loyalty transactions, customer messages — these stay
+                forever (immutable audit trail).
+              </li>
+            </ul>
+          </div>
+          <p>
+            <strong>What gets auto-cleaned daily:</strong> webhook delivery
+            attempts (succeeded &gt;30 days / failed &gt;90 days), expired
+            portal login codes (&gt;7 days). These don't have audit value past
+            their windows.
+          </p>
+          <p className="bg-emerald-50 border border-emerald-200 rounded p-2 text-xs">
+            ✓ You also get a weekly email with a 7-day signed download link to
+            grab the latest backup if you want to keep your own copy. Subject
+            line: <code>📦 Weekly backup ready (YYYY-MM-DD)</code>.
+          </p>
+          <p className="text-xs">
+            <strong>Restore drill:</strong> the restore playbook is in{" "}
+            <code>docs/runbook-restore.md</code> in the repo. Tested most
+            recently on 2026-06-16.
+          </p>
+        </div>
+      ),
+    },
+    {
       id: "internal-messages",
       title: "Per-booking team chat (@mentions)",
       icon: MessageCircle,

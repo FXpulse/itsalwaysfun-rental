@@ -2902,6 +2902,93 @@ on conflict (slug) do update set
   updated_at = now();
 
 insert into kb_articles (slug, title, body_md, category, tags, is_published) values
+  ($kbf$help-require-admin-mfa$kbf$, $kbf$Require 2FA for all admins (account-wide toggle)$kbf$, $kbf$As of June 2026 you can require 2FA (two-factor authentication)
+for every admin user in your account, not just yourself.
+
+How to turn it on (admin only):
+
+- Go to `/admin/settings/security`
+
+-
+Enroll **your own** 2FA first (scan QR with Google
+Authenticator / 1Password / Authy → enter the 6-digit code →
+Verify)
+
+-
+Flip the toggle **"Require 2FA for all admins"** to
+ON
+
+**What happens after that:**
+
+-
+Any admin user in your account who doesn't have 2FA enrolled is
+sent to `/admin/settings/security` on their next login.
+They can't reach any other admin page until they enroll.
+
+-
+**Staff role users are not affected** — only the
+admin role. (Most operators don't want to force 2FA on field staff.)
+
+-
+You stay logged in normally. The toggle never locks YOU out
+because the UI refuses to enable it until your own 2FA is verified.
+
+⚠️ **Recovery if you lose your authenticator app:** ask
+Henry to disable 2FA on your account from the Supabase dashboard.
+There's no self-serve recovery flow yet.
+
+✓ Recommended for any account with more than one admin, or any
+account handling >$5k/mo of bookings. Single point of password
+compromise becomes a multi-step attack.$kbf$, $kbf$Setup$kbf$, array[$kbf$help$kbf$, $kbf$imported$kbf$], true)
+on conflict (slug) do update set
+  title = excluded.title,
+  body_md = excluded.body_md,
+  category = excluded.category,
+  tags = excluded.tags,
+  updated_at = now();
+
+insert into kb_articles (slug, title, body_md, category, tags, is_published) values
+  ($kbf$help-backup-retention$kbf$, $kbf$How your data is backed up + how long it's kept$kbf$, $kbf$Your data is automatically backed up on three independent
+tracks — you don't have to do anything.
+
+Backup tracks:
+
+-
+**Weekly full export** — Sunday 3am UTC. Every table
+exported to JSON + CSV. Stored in TWO places: Supabase Storage
+AND Cloudflare R2 (off-cloud). Kept for **84 days**
+at each target before auto-deletion.
+
+-
+**Continuous (PITR)** — Supabase's managed
+point-in-time recovery keeps changes from the last 7 days. Used
+to restore "I made a mistake 4 hours ago" scenarios.
+
+-
+**Operational ledgers** — booking emails sent,
+audit log, loyalty transactions, customer messages — these stay
+forever (immutable audit trail).
+
+**What gets auto-cleaned daily:** webhook delivery
+attempts (succeeded >30 days / failed >90 days), expired
+portal login codes (>7 days). These don't have audit value past
+their windows.
+
+✓ You also get a weekly email with a 7-day signed download link to
+grab the latest backup if you want to keep your own copy. Subject
+line: `📦 Weekly backup ready (YYYY-MM-DD)`.
+
+**Restore drill:** the restore playbook is in
+`docs/runbook-restore.md` in the repo. Tested most
+recently on 2026-06-16.$kbf$, $kbf$Operations$kbf$, array[$kbf$help$kbf$, $kbf$imported$kbf$], true)
+on conflict (slug) do update set
+  title = excluded.title,
+  body_md = excluded.body_md,
+  category = excluded.category,
+  tags = excluded.tags,
+  updated_at = now();
+
+insert into kb_articles (slug, title, body_md, category, tags, is_published) values
   ($kbf$help-internal-messages$kbf$, $kbf$Per-booking team chat (@mentions)$kbf$, $kbf$Every booking now has its own message thread visible to admin, staff,
 and the assigned driver. Open any booking → scroll to
 **Internal messages**. Type a message, optionally

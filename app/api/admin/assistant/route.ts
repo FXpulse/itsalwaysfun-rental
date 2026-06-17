@@ -78,6 +78,8 @@ RECENT FEATURES (June 2026) — be aware these exist:
 - Driver mobile-first redesign (bottom nav: Routes / Inbox / Me)
 - CI pipeline on every PR (typecheck + lint + tests + scope-check + integration-tests)
 - Annual subscription + pause options (for seasonal operators)
+- Require 2FA for all admins toggle at /admin/settings/security (2026-06-17). When on, admins without 2FA are gated to that page until they enroll. Staff role unaffected. UI refuses to enable until current admin's own 2FA is verified (anti-lockout).
+- Backup retention: weekly full backup to Supabase Storage + Cloudflare R2, both kept 84 days. PITR 7d. Operational rows (webhook deliveries, expired portal codes) auto-cleaned daily.
 
 RULES:
 - You can ONLY see this tenant's data. Don't reference other businesses.
