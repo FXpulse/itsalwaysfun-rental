@@ -95,9 +95,20 @@ const COMPARISON = [
   { feature: "Monthly cost", us: "$99 flat", them: "$80-$400" },
 ];
 
+import { isBetaProgramActive } from "@/lib/beta-program";
+
 export default function MarketingPage() {
+  const betaOpen = isBetaProgramActive();
   return (
     <div className="min-h-screen bg-white">
+      {betaOpen && (
+        <a
+          href="/beta"
+          className="block bg-brand-yellow text-brand-navy text-center text-sm font-bold py-2 px-4 hover:bg-yellow-300 transition"
+        >
+          🎉 BETA PROGRAM OPEN — Get 90 days free (not 30). Tap to read more →
+        </a>
+      )}
       {/* Header */}
       <header className="border-b border-slate-200">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">

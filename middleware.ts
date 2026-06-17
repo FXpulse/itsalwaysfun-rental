@@ -78,6 +78,12 @@ export async function middleware(request: NextRequest) {
       url.pathname = "/marketing" + path;
       return NextResponse.rewrite(url, { request: { headers: requestHeaders } });
     }
+    // /beta — public-facing URL for the beta program landing.
+    if (path === "/beta" || path.startsWith("/beta/")) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/marketing" + path;
+      return NextResponse.rewrite(url, { request: { headers: requestHeaders } });
+    }
     if (path.startsWith("/admin")) {
       const url = request.nextUrl.clone();
       url.pathname = "/superadmin/login";

@@ -114,6 +114,13 @@ export async function signupTenant(formData: FormData): Promise<SignupResult> {
   const userId = userData.user.id;
 
   // 2. Create tenant
+  // Beta program: anyone signing up while BETA_PROGRAM_END_AT (env) is in
+  // the future gets 90-day trial + beta_program flag. Otherwise default 30d.
+  const { trialDaysForNewSignup, betaProgramTenantFields } = await import(
+    "@/lib/beta-program"
+  );
+  const trialDays = trialDaysForNewSignup();
+  const betaFields = betaProgramTenantFields();
   const { data: tenant, error: tenantErr } = await supabase
     .from("tenants")
     .insert({
@@ -122,7 +129,8 @@ export async function signupTenant(formData: FormData): Promise<SignupResult> {
       owner_email: parsed.data.owner_email,
       owner_phone: parsed.data.owner_phone,
       plan: "pro",  // single-tier $99/mo — everyone gets Pro
-      trial_ends_at: new Date(Date.now() + 30 * 86400000).toISOString(),  // 30-day trial
+      trial_ends_at: new Date(Date.now() + trialDays * 86400000).toISOString(),
+      ...betaFields,
     })
     .select("id, slug")
     .single();
