@@ -21,7 +21,8 @@ updates:
     labels:
       - "dependencies"
     commit-message:
-      prefix: "chore(deps)"
+      # Dependabot auto-adds `(deps):` after this prefix.
+      prefix: "chore"
       include: "scope"
     # Group non-major npm updates so we get one PR per ecosystem per week
     # rather than 25 individual PRs.
@@ -61,4 +62,5 @@ updates:
       - "dependencies"
       - "ci"
     commit-message:
-      prefix: "chore(actions)"
+      # Dependabot auto-adds `(deps):` after this prefix.
+      prefix: "ci"
