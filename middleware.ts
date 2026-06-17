@@ -96,6 +96,42 @@ export async function middleware(request: NextRequest) {
     }
   }
 
+  // ─── Tenant host (NOT the marketing apex) routing ─────────────────
+  // These paths belong ONLY on getrentalflow.com — never on a tenant
+  // subdomain or custom domain. IAF is a tenant; itsalwaysfun.com is
+  // the IAF tenant's host. The platform owner backoffice + tenant
+  // signup + marketing pages live ONLY on the SaaS apex.
+  if (tenant.resolved_via !== "marketing") {
+    const path = request.nextUrl.pathname;
+    const search = request.nextUrl.search || "";
+    const apex = "https://getrentalflow.com";
+
+    // Platform owner backoffice (Ludmila only)
+    if (path === "/superadmin" || path.startsWith("/superadmin/")) {
+      return NextResponse.redirect(apex + "/superadmin/login");
+    }
+    // Platform-side APIs — 404 instead of redirect, so an integrator
+    // accidentally pointing at the tenant host gets a real error.
+    if (path.startsWith("/api/superadmin/")) {
+      return NextResponse.json(
+        { error: "not_found", hint: "Use https://getrentalflow.com" + path },
+        { status: 404 },
+      );
+    }
+    // Tenant signup
+    if (path === "/signup" || path.startsWith("/signup/")) {
+      return NextResponse.redirect(apex + path + search);
+    }
+    // Beta program landing
+    if (path === "/beta" || path.startsWith("/beta/")) {
+      return NextResponse.redirect(apex + path + search);
+    }
+    // Marketing landing + any sub-pages
+    if (path === "/marketing" || path.startsWith("/marketing/")) {
+      return NextResponse.redirect(apex + path + search);
+    }
+  }
+
   let response = NextResponse.next({
     request: { headers: requestHeaders },
   });
