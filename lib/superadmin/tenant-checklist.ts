@@ -281,8 +281,12 @@ export const CHECKLIST_ITEMS: ChecklistItem[] = [
     description: "More than just the owner has access",
     autoDetect: async (tenantId) => {
       const supabase = createAdminClient({ unscoped: true });
+      // user_roles PK is user_id — there is no `id` column. Selecting a
+      // non-existent column was making the query throw → caught upstream
+      // → autoDetect returned null → item displayed as incomplete even
+      // when the tenant clearly had staff invited.
       const { count } = await supabase
-        .from("user_roles").select("id", { count: "exact", head: true })
+        .from("user_roles").select("user_id", { count: "exact", head: true })
         .eq("tenant_id", tenantId).eq("is_active", true);
       return (count || 0) > 1;
     },
@@ -295,7 +299,7 @@ export const CHECKLIST_ITEMS: ChecklistItem[] = [
     autoDetect: async (tenantId) => {
       const supabase = createAdminClient({ unscoped: true });
       const { count } = await supabase
-        .from("user_roles").select("id", { count: "exact", head: true })
+        .from("user_roles").select("user_id", { count: "exact", head: true })
         .eq("tenant_id", tenantId).eq("role", "driver").eq("is_active", true);
       return (count || 0) > 0;
     },
