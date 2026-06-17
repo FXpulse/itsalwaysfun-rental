@@ -3034,7 +3034,7 @@ sofia@example.com,Sofia,Rivera,`}
           </p>
           <p className="bg-emerald-50 border border-emerald-200 rounded p-2 text-xs">
             ✓ Recommended for any account with more than one admin, or any
-            account handling >$5k/mo of bookings. Single point of password
+            account handling &gt;$5k/mo of bookings. Single point of password
             compromise becomes a multi-step attack.
           </p>
         </div>
@@ -3073,8 +3073,8 @@ sofia@example.com,Sofia,Rivera,`}
           </div>
           <p>
             <strong>What gets auto-cleaned daily:</strong> webhook delivery
-            attempts (succeeded &gt;30 days / failed &gt;90 days), expired
-            portal login codes (&gt;7 days). These don't have audit value past
+            attempts (succeeded over 30 days / failed over 90 days), expired
+            portal login codes (over 7 days). These don't have audit value past
             their windows.
           </p>
           <p className="bg-emerald-50 border border-emerald-200 rounded p-2 text-xs">

@@ -2970,8 +2970,8 @@ audit log, loyalty transactions, customer messages — these stay
 forever (immutable audit trail).
 
 **What gets auto-cleaned daily:** webhook delivery
-attempts (succeeded >30 days / failed >90 days), expired
-portal login codes (>7 days). These don't have audit value past
+attempts (succeeded over 30 days / failed over 90 days), expired
+portal login codes (over 7 days). These don't have audit value past
 their windows.
 
 ✓ You also get a weekly email with a 7-day signed download link to
