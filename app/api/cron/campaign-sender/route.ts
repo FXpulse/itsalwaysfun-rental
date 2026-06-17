@@ -3,6 +3,7 @@
 // and sends each.
 
 import { NextRequest, NextResponse } from "next/server";
+import * as Sentry from "@sentry/nextjs";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendEmail, isEmailConfigured } from "@/lib/email/send";
 import { getTenantEmailConfig } from "@/lib/email/tenant-email";
@@ -92,6 +93,14 @@ ${personalizedBody.split(/\n\n+/).map((p: string) => `<p style="margin:14px 0">$
 </body></html>`;
 
         const tenantEmail = await getTenantEmailConfig(c.tenant_id);
+        if (!tenantEmail) {
+          Sentry.captureMessage("Tenant email skipped — no custom domain configured", {
+            level: "warning",
+            tags: { tenant_id: c.tenant_id || "", area: "tenant-email" },
+          });
+          failed++;
+          continue;
+        }
         const result = await sendEmail({
           to: r.email,
           from: tenantEmail.from,

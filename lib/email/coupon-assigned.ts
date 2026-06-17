@@ -1,6 +1,7 @@
 // Email sent to a customer when admin assigns them a coupon.
 // Fire-and-forget — failures logged but don't block the save.
 
+import * as Sentry from "@sentry/nextjs";
 import { sendEmail, isEmailConfigured } from "@/lib/email/send";
 import { getTenantEmailConfig } from "@/lib/email/tenant-email";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -91,6 +92,13 @@ View your portal: ${portalUrl}
 — ${businessName}`;
 
   const tenantEmail = await getTenantEmailConfig(getCurrentTenantId());
+  if (!tenantEmail) {
+    Sentry.captureMessage("Tenant email skipped — no custom domain configured", {
+      level: "warning",
+      tags: { tenant_id: getCurrentTenantId() || "", area: "tenant-email" },
+    });
+    return;
+  }
   await sendEmail({
     to: email,
     from: tenantEmail.from,

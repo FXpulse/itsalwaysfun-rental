@@ -10,6 +10,7 @@
 // Each send is idempotent — booking_emails_sent (unique on booking_id+type)
 // blocks duplicates.
 
+import * as Sentry from "@sentry/nextjs";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendTemplated } from "@/lib/email/send-template";
 import { isEmailConfigured } from "@/lib/email/send";
@@ -135,6 +136,13 @@ export async function sendBookingConfirmation(bookingId: string): Promise<void> 
   if (isEmailConfigured() && !(await alreadySent(bookingId, "booking_confirmation"))) {
     const tips = await fetchImportantTips((b as any).tenant_id);
     const tenantEmail = await getTenantEmailConfig((b as any).tenant_id);
+    if (!tenantEmail) {
+      Sentry.captureMessage("Tenant email skipped — no custom domain configured", {
+        level: "warning",
+        tags: { tenant_id: (b as any).tenant_id || "", area: "tenant-email" },
+      });
+      return;
+    }
     const r = await sendTemplated({
       key: "booking_confirmation",
       to: b.customer_email,
@@ -220,6 +228,13 @@ export async function processScheduledBookingEmails(): Promise<{
       try {
         if (await alreadySent(b.id, "booking_reminder_3d")) continue;
         const tenantEmail = await getTenantEmailConfig((b as any).tenant_id);
+        if (!tenantEmail) {
+          Sentry.captureMessage("Tenant email skipped — no custom domain configured", {
+            level: "warning",
+            tags: { tenant_id: (b as any).tenant_id || "", area: "tenant-email" },
+          });
+          continue;
+        }
         const r = await sendTemplated({
           key: "booking_reminder_3d",
           to: b.customer_email,
@@ -278,6 +293,13 @@ export async function processScheduledBookingEmails(): Promise<{
       try {
         if (await alreadySent(b.id, "booking_review_request")) continue;
         const tenantEmail = await getTenantEmailConfig((b as any).tenant_id);
+        if (!tenantEmail) {
+          Sentry.captureMessage("Tenant email skipped — no custom domain configured", {
+            level: "warning",
+            tags: { tenant_id: (b as any).tenant_id || "", area: "tenant-email" },
+          });
+          continue;
+        }
         const r = await sendTemplated({
           key: "booking_review_request",
           to: b.customer_email,
@@ -328,6 +350,13 @@ export async function processScheduledBookingEmails(): Promise<{
       try {
         if (await alreadySent(b.id, "booking_reengagement_90d")) continue;
         const tenantEmail = await getTenantEmailConfig((b as any).tenant_id);
+        if (!tenantEmail) {
+          Sentry.captureMessage("Tenant email skipped — no custom domain configured", {
+            level: "warning",
+            tags: { tenant_id: (b as any).tenant_id || "", area: "tenant-email" },
+          });
+          continue;
+        }
         const r = await sendTemplated({
           key: "booking_reengagement_90d",
           to: b.customer_email,

@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import * as Sentry from "@sentry/nextjs";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { ensureCustomerProfile } from "@/lib/loyalty";
@@ -130,6 +131,13 @@ ${magicUrl}
 
 — ${businessName}`;
         const tenantEmail = await getTenantEmailConfig(getCurrentTenantId());
+        if (!tenantEmail) {
+          Sentry.captureMessage("Tenant email skipped — no custom domain configured", {
+            level: "warning",
+            tags: { tenant_id: getCurrentTenantId() || "", area: "tenant-email" },
+          });
+          return { error: "Tenant has no custom domain configured — customer created but invite email skipped. Configure a domain at /admin/site." };
+        }
         const result = await sendEmail({
           to: email,
           from: tenantEmail.from,

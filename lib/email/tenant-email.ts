@@ -1,21 +1,28 @@
 // Tenant-aware email envelope (from + reply-to) for the multi-tenant SaaS.
 //
-// Two modes:
+// POLICY (2026-06-17): every tenant must have their own custom_domain.
+// No more Mode 2 fallback to `noreply@email.getrentalflow.com`. If a
+// tenant hasn't configured a custom_domain, `getTenantEmailConfig()`
+// returns null and the caller MUST skip the send.
 //
-// 1. `inbox_enabled=true` (IAF and any premium tenant with their own
-//    inbound mail infrastructure):
-//      From:     "Tenant Brand" <bookings@<custom_domain>>
-//      Reply-To: bookings@<custom_domain>.net (Cloudflare Worker)
-//    Customer replies land in /admin/inbox.
+// Why: independent DKIM/SPF per tenant = cleaner deliverability, no
+// shared reputation domain, no routing-via-which-Resend-account bug.
+// Every tenant's `From:` matches a domain in the tenant Resend account
+// they (or Ludmila) verified.
 //
-// 2. `inbox_enabled=false` (default for new tenants):
-//      From:     "Tenant Brand" <noreply@email.getrentalflow.com>
-//      Reply-To: <tenant.notification_email> (tenant's own Gmail/Outlook)
-//    Customer replies go directly to the tenant's existing personal email.
-//    Zero DNS work, zero Resend onboarding, zero /admin/inbox UI.
+// Setup per tenant:
+//   1. Tenant configures custom_domain in /admin/site → DNS at the
+//      tenant's registrar pointing at Vercel for serving the site.
+//   2. Operator (Ludmila) adds that domain to the TENANT Resend account
+//      → copy 3 DNS records (SPF + DKIM + DMARC) → tenant adds them at
+//      their DNS provider → Resend verifies.
+//   3. Once verified, customer emails from that tenant send From:
+//      `Tenant Brand <bookings@<custom_domain>>` and land in inbox.
 //
-// All sendEmail callers should use getTenantEmailConfig() instead of
-// reading process.env.EMAIL_FROM / EMAIL_REPLY_TO directly.
+// IAF Cloudflare Worker reply route (bookings@itsalwaysfun.net) stays
+// as a tenant-specific Reply-To. Other tenants get Reply-To at
+// `bookings@<custom_domain>` (their responsibility to receive mail there)
+// OR fall back to `tenant.notification_email` if set.
 
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -28,75 +35,63 @@ export interface TenantEmailConfig {
 
 const DEFAULT_TENANT_ID = "11111111-1111-1111-1111-111111111111";
 
-/** Strip characters that would break the From header's display-name segment. */
 function sanitizeDisplayName(name: string): string {
   return name.replace(/["<>]/g, "").trim() || "RentalFlow";
 }
 
-/** Operator-owned sender domain. New tenants use a subdomain of this; IAF
- *  overrides via custom_domain. Verified in Resend (DKIM + SPF). */
-const OPERATOR_SENDER_DOMAIN = "email.getrentalflow.com";
-
-/** Pull tenant email config from the DB. Pass a tenantId when sending
- *  cross-tenant (e.g. inbound webhook needs to know which tenant the
- *  reply belongs to). Defaults to IAF when omitted — preserves existing
- *  behavior for any caller that hasn't been refactored yet. */
+/** Pull tenant email config. Returns null when the tenant has no custom
+ *  domain configured — caller must skip the send and surface a warning
+ *  (admin should configure their domain before sending customer emails). */
 export async function getTenantEmailConfig(
   tenantId: string | null = null,
-): Promise<TenantEmailConfig> {
+): Promise<TenantEmailConfig | null> {
   const supabase = createAdminClient({ unscoped: true });
   const { data: tenant } = await supabase
     .from("tenants")
-    .select("id, slug, business_name, custom_domain, owner_email, notification_email, inbox_enabled")
+    .select("id, slug, business_name, custom_domain, owner_email, notification_email")
     .eq("id", tenantId || DEFAULT_TENANT_ID)
     .maybeSingle();
 
-  // Tenant missing → fall back to operator branding so the send still goes
-  // through (better than throwing). Useful for cron jobs that run before
-  // tenant data is loaded.
-  if (!tenant) {
-    return {
-      from: `RentalFlow <noreply@${OPERATOR_SENDER_DOMAIN}>`,
-      replyTo: `support@getrentalflow.com`,
-    };
-  }
+  if (!tenant) return null;
+  return buildTenantEmailConfig(tenant as any);
+}
 
-  const t = tenant as any;
-  const brand = sanitizeDisplayName(t.business_name || "RentalFlow");
+/** Synchronous helper for callers that already have the tenant row.
+ *  Returns null if the row is missing `custom_domain`. */
+export function buildTenantEmailConfig(tenant: {
+  id?: string;
+  business_name?: string | null;
+  custom_domain?: string | null;
+  owner_email?: string | null;
+  notification_email?: string | null;
+}): TenantEmailConfig | null {
+  if (!tenant.custom_domain) return null;
 
-  // Mode 1: tenant manages their own inbox + sender domain (IAF)
-  if (t.inbox_enabled && t.custom_domain) {
-    // IAF specifically: keep .net for Reply-To (Cloudflare Worker route).
-    // For other inbox_enabled tenants, fall back to bookings@custom_domain.
-    const replyTo =
-      t.id === DEFAULT_TENANT_ID
-        ? `bookings@itsalwaysfun.net`
-        : `bookings@${t.custom_domain}`;
-    return {
-      from: `${brand} <bookings@${t.custom_domain}>`,
-      replyTo,
-    };
-  }
+  const brand = sanitizeDisplayName(tenant.business_name || "RentalFlow");
 
-  // Mode 2 (default): operator-owned sender + tenant's personal reply address
-  const replyEmail = t.notification_email || t.owner_email || `support@getrentalflow.com`;
+  // IAF special case: bookings@itsalwaysfun.net is the Cloudflare Worker
+  // route that drops messages into /admin/inbox. Other tenants don't have
+  // a Worker — fall back to bookings@<custom_domain> if the tenant manages
+  // their own inbox, otherwise to notification_email / owner_email.
+  const replyTo =
+    tenant.id === DEFAULT_TENANT_ID
+      ? `bookings@itsalwaysfun.net`
+      : tenant.notification_email ||
+        tenant.owner_email ||
+        `bookings@${tenant.custom_domain}`;
+
   return {
-    from: `${brand} <noreply@${OPERATOR_SENDER_DOMAIN}>`,
-    replyTo: replyEmail,
+    from: `${brand} <bookings@${tenant.custom_domain}>`,
+    replyTo,
   };
 }
 
-/** Helper for callers that already have the tenant row in hand (skip the DB
- *  round trip). Pass the minimum tenant fields you have; missing fields
- *  fall back to operator defaults. */
 /** Where admin alerts (contact form notifications, low-stock alerts, etc.)
  *  should land for a given tenant. Falls back to the operator default if no
- *  tenant config available. Use for any tenant → admin notification path. */
+ *  tenant config available. Use for any tenant → admin notification path.
+ *  This is unrelated to customer-facing sending — does NOT require a
+ *  custom_domain. */
 export async function getTenantAdminEmail(tenantId: string | null): Promise<string> {
-  // Last-resort fallback when neither the tenant row nor ADMIN_ALERT_EMAIL
-  // is set. Defaults to the SaaS canonical inbox (info@getrentalflow.com),
-  // NOT to IAF's admin@itsalwaysfun.com — which would silently misroute
-  // alerts from OTHER tenants to IAF's mailbox.
   const fallback =
     process.env.ADMIN_ALERT_EMAIL || "info@getrentalflow.com";
   if (!tenantId) return fallback;
@@ -111,33 +106,4 @@ export async function getTenantAdminEmail(tenantId: string | null): Promise<stri
     (t as any)?.owner_email ||
     fallback
   );
-}
-
-export function buildTenantEmailConfig(tenant: {
-  id?: string;
-  business_name?: string | null;
-  custom_domain?: string | null;
-  owner_email?: string | null;
-  notification_email?: string | null;
-  inbox_enabled?: boolean | null;
-}): TenantEmailConfig {
-  const brand = sanitizeDisplayName(tenant.business_name || "RentalFlow");
-
-  if (tenant.inbox_enabled && tenant.custom_domain) {
-    const replyTo =
-      tenant.id === DEFAULT_TENANT_ID
-        ? `bookings@itsalwaysfun.net`
-        : `bookings@${tenant.custom_domain}`;
-    return {
-      from: `${brand} <bookings@${tenant.custom_domain}>`,
-      replyTo,
-    };
-  }
-
-  const replyEmail =
-    tenant.notification_email || tenant.owner_email || `support@getrentalflow.com`;
-  return {
-    from: `${brand} <noreply@${OPERATOR_SENDER_DOMAIN}>`,
-    replyTo: replyEmail,
-  };
 }

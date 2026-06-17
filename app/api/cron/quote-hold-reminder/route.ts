@@ -120,6 +120,14 @@ export async function GET() {
       }).format(expiresAt);
       const brand = tenant.business_name;
       const tenantEmail = await getTenantEmailConfig(q.tenant_id);
+      if (!tenantEmail) {
+        Sentry.captureMessage("Tenant email skipped — no custom domain configured", {
+          level: "warning",
+          tags: { tenant_id: q.tenant_id || "", area: "tenant-email" },
+        });
+        skipped++;
+        continue;
+      }
 
       const vars = {
         firstName: customerName,

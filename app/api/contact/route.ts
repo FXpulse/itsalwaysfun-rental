@@ -8,6 +8,7 @@
 // stored and admin will see it in /admin/inbox).
 
 import { NextResponse } from "next/server";
+import * as Sentry from "@sentry/nextjs";
 import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendEmail, isEmailConfigured } from "@/lib/email/send";
@@ -100,6 +101,13 @@ export async function POST(request: Request) {
   // Per-tenant admin alert email (falls back to operator default).
   const adminEmail = await getTenantAdminEmail(tenantId);
   const tenantEmail = await getTenantEmailConfig(tenantId);
+  if (!tenantEmail) {
+    Sentry.captureMessage("Tenant email skipped — no custom domain configured", {
+      level: "warning",
+      tags: { tenant_id: tenantId || "", area: "tenant-email" },
+    });
+    return NextResponse.json({ ok: false, error: "tenant_missing_custom_domain" }, { status: 200 });
+  }
   if (!isEmailConfigured()) {
     await supabase
       .from("contact_messages")

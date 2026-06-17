@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import * as Sentry from "@sentry/nextjs";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { ensureCustomerProfile } from "@/lib/loyalty";
@@ -122,6 +123,13 @@ export async function bulkImportCustomers(
         if (magicUrl) {
           const firstName = r.first_name?.trim() || email.split("@")[0];
           const tenantEmail = await getTenantEmailConfig(getCurrentTenantId());
+          if (!tenantEmail) {
+            Sentry.captureMessage("Tenant email skipped — no custom domain configured", {
+              level: "warning",
+              tags: { tenant_id: getCurrentTenantId() || "", area: "tenant-email" },
+            });
+            continue;
+          }
           const sendResult = await sendEmail({
             to: email,
             from: tenantEmail.from,

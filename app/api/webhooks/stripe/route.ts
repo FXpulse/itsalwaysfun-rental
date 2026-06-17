@@ -10,6 +10,7 @@
 
 import { NextResponse } from "next/server";
 import { headers } from "next/headers";
+import * as Sentry from "@sentry/nextjs";
 import Stripe from "stripe";
 import { getStripe, isStripeConfigured } from "@/lib/stripe/server";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -463,6 +464,13 @@ async function fulfillGiftCardPurchase(pi: Stripe.PaymentIntent) {
     const tenantBrand = await getTenantInfo((purchase as any).tenant_id);
     const brandName = tenantBrand.business_name;
     const tenantEmail = await getTenantEmailConfig((purchase as any).tenant_id);
+    if (!tenantEmail) {
+      Sentry.captureMessage("Tenant email skipped — no custom domain configured", {
+        level: "warning",
+        tags: { tenant_id: (purchase as any).tenant_id || "", area: "tenant-email" },
+      });
+      return NextResponse.json({ ok: false, error: "tenant_missing_custom_domain" }, { status: 200 });
+    }
     try {
       await sendTemplated({
         key: "gift_card_received",

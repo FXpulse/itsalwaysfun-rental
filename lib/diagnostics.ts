@@ -199,6 +199,34 @@ export async function runAllChecks(): Promise<CheckResult[]> {
   const tenantId = getCurrentTenantId();
   results.push(info(settingsG, "active tenant_id", tenantId));
 
+  // ─── TENANT SENDING DOMAIN ───────────────────────────────────────────
+  // Policy 2026-06-17: every tenant must have a custom_domain to send
+  // customer-facing emails (booking confirmation, reminders, etc.).
+  // No domain = those emails skip with a Sentry warning.
+  const tenantG = "Tenant";
+  if (tenantId && tenantId !== "__marketing__") {
+    const { data: tenantRow } = await supabase
+      .from("tenants")
+      .select("custom_domain, business_name")
+      .eq("id", tenantId)
+      .maybeSingle();
+    const customDomain = (tenantRow as any)?.custom_domain;
+    if (!customDomain) {
+      results.push(
+        fail(
+          tenantG,
+          "Custom sending domain",
+          "No custom_domain configured for this tenant",
+          "Customer emails (booking confirmation, reminders, gift card, login OTP) WILL NOT send until you configure a custom domain. Go to /admin/site to set it, then ask Ludmila to verify it in the tenant Resend account.",
+        ),
+      );
+    } else {
+      results.push(
+        ok(tenantG, "Custom sending domain", customDomain + " — verify it's added to the tenant Resend account"),
+      );
+    }
+  }
+
   const requiredSettings = [
     { key: "stripe_publishable_key", critical: false },
     { key: "default_driver_hourly_rate_cents", critical: false },

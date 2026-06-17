@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import * as Sentry from "@sentry/nextjs";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin } from "@/lib/auth/roles";
 import { uploadImage, deleteImage } from "@/lib/storage/upload";
@@ -56,6 +57,13 @@ export async function uploadCoi(requestId: string, formData: FormData) {
       process.env.NEXT_PUBLIC_APP_URL || "https://itsalwaysfun-rental.vercel.app";
     const brand = await getTenantBusinessName();
     const tenantEmail = await getTenantEmailConfig(getCurrentTenantId());
+    if (!tenantEmail) {
+      Sentry.captureMessage("Tenant email skipped — no custom domain configured", {
+        level: "warning",
+        tags: { tenant_id: getCurrentTenantId() || "", area: "tenant-email" },
+      });
+      return { error: "Tenant has no custom domain configured — file uploaded but notification email skipped. Please configure a domain at /admin/site." };
+    }
     try {
       await sendTemplated({
         key: "coi_ready",

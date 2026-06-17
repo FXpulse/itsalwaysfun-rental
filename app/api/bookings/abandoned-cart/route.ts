@@ -4,6 +4,7 @@
 // 30 min of inactivity when customer entered contact info but didn't submit.
 
 import { NextResponse } from "next/server";
+import * as Sentry from "@sentry/nextjs";
 import { z } from "zod";
 import { isEmailConfigured } from "@/lib/email/send";
 import { sendTemplated } from "@/lib/email/send-template";
@@ -71,6 +72,13 @@ export async function POST(request: Request) {
     const totalCents = Math.round(parsed.data.totalPrice * 100);
 
     const tenantEmail = await getTenantEmailConfig(getCurrentTenantId());
+    if (!tenantEmail) {
+      Sentry.captureMessage("Tenant email skipped — no custom domain configured", {
+        level: "warning",
+        tags: { tenant_id: getCurrentTenantId() || "", area: "tenant-email" },
+      });
+      return NextResponse.json({ ok: false, error: "tenant_missing_custom_domain" }, { status: 200 });
+    }
     const r = await sendTemplated({
       key: "abandoned_cart",
       to: parsed.data.email,

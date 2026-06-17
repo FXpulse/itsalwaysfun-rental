@@ -2,6 +2,7 @@
 
 import { cookies, headers } from "next/headers";
 import crypto from "crypto";
+import * as Sentry from "@sentry/nextjs";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendEmail } from "@/lib/email/send";
@@ -101,6 +102,13 @@ export async function requestPortalCode(email: string): Promise<{ ok: boolean; e
     const text = `Your sign-in code: ${code}\n\nUse this code to sign in to your ${businessName} customer portal.\nExpires in ${EXPIRY_MINUTES} minutes.\n\nIf you didn't request this, ignore this email.`;
 
     const tenantEmail = await getTenantEmailConfig(tenantId);
+    if (!tenantEmail) {
+      Sentry.captureMessage("Tenant email skipped — no custom domain configured", {
+        level: "warning",
+        tags: { tenant_id: tenantId || "", area: "tenant-email" },
+      });
+      return { ok: false, error: "This site isn't configured to send login emails yet. Please contact the operator." };
+    }
     const result = await sendEmail({
       to: normalizedEmail,
       from: tenantEmail.from,

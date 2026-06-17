@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import * as Sentry from "@sentry/nextjs";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentTenantId } from "@/lib/tenant/db";
 import { getTenantEmailConfig } from "@/lib/email/tenant-email";
@@ -283,6 +284,13 @@ async function deliverQuoteEmail(q: any) {
     const importantTipsText = String(tipsRow?.value || "").trim();
 
     const tenantEmail = await getTenantEmailConfig((q as any).tenant_id);
+    if (!tenantEmail) {
+      Sentry.captureMessage("Tenant email skipped — no custom domain configured", {
+        level: "warning",
+        tags: { tenant_id: (q as any).tenant_id || "", area: "tenant-email" },
+      });
+      return { quote_url: quoteUrl };
+    }
     const r = await sendTemplated({
       key: "quote_sent",
       to: q.customer_email,

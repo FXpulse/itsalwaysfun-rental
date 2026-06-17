@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import * as Sentry from "@sentry/nextjs";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin } from "@/lib/auth/roles";
 import { sendTemplated } from "@/lib/email/send-template";
@@ -71,6 +72,13 @@ export async function issueGiftCard(formData: FormData) {
       process.env.NEXT_PUBLIC_APP_URL || "https://itsalwaysfun-rental.vercel.app";
     const brand = await getTenantBusinessName();
     const tenantEmail = await getTenantEmailConfig(getCurrentTenantId());
+    if (!tenantEmail) {
+      Sentry.captureMessage("Tenant email skipped — no custom domain configured", {
+        level: "warning",
+        tags: { tenant_id: getCurrentTenantId() || "", area: "tenant-email" },
+      });
+      return { error: "Tenant has no custom domain configured — gift card issued but delivery email skipped. Configure a domain at /admin/site." };
+    }
     await sendTemplated({
       key: "gift_card_received",
       to: parsed.data.recipient_email,

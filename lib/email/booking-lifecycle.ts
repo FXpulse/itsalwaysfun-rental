@@ -1,6 +1,7 @@
 // Send lifecycle emails when a booking changes state by admin/customer action.
 // All idempotent via booking_emails_sent unique constraint.
 
+import * as Sentry from "@sentry/nextjs";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendTemplated } from "@/lib/email/send-template";
 import { isEmailConfigured } from "@/lib/email/send";
@@ -65,6 +66,13 @@ export async function sendBookingRefunded(
       : refundMethod.charAt(0).toUpperCase() + refundMethod.slice(1);
 
   const tenantEmail = await getTenantEmailConfig((booking as any).tenant_id);
+  if (!tenantEmail) {
+    Sentry.captureMessage("Tenant email skipped — no custom domain configured", {
+      level: "warning",
+      tags: { tenant_id: (booking as any).tenant_id || "", area: "tenant-email" },
+    });
+    return;
+  }
   const r = await sendTemplated({
     key: "booking_refunded",
     to: booking.customer_email,
@@ -110,6 +118,13 @@ export async function sendBookingCancelled(
   const hadPayment = booking.stripe_payment_status === "paid";
 
   const tenantEmail = await getTenantEmailConfig((booking as any).tenant_id);
+  if (!tenantEmail) {
+    Sentry.captureMessage("Tenant email skipped — no custom domain configured", {
+      level: "warning",
+      tags: { tenant_id: (booking as any).tenant_id || "", area: "tenant-email" },
+    });
+    return;
+  }
   const vars = {
     firstName: booking.customer_first_name,
     productName: booking.product_name,
