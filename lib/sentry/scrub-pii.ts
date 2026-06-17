@@ -11,25 +11,12 @@
 // regex below errs on the side of redaction — false positives just turn a
 // real value into `[email-redacted]` which is fine for an error report.
 
+// ORDER MATTERS. Token patterns must run BEFORE phone/card so the phone
+// regex doesn't eat 10-digit runs inside an API key (e.g. whsec_1234567890...).
+// Each pattern's `replace` is itself token-safe so a later pattern can't
+// re-match a previous redaction.
 const PATTERNS: Array<{ name: string; re: RegExp; replace: string }> = [
-  // Email — handles +tags and unicode TLDs
-  {
-    name: "email",
-    re: /\b[\w.+-]+@[\w.-]+\.[a-z]{2,}\b/gi,
-    replace: "[email-redacted]",
-  },
-  // North American phone numbers — (904) 584-3047, +1-904-584-3047, 904.584.3047
-  {
-    name: "phone",
-    re: /(?<!\d)\+?1?[\s.()-]?\(?\d{3}\)?[\s.()-]?\d{3}[\s.()-]?\d{4}(?!\d)/g,
-    replace: "[phone-redacted]",
-  },
-  // Credit-card-like 13-19 digit numbers (with spaces/dashes allowed)
-  {
-    name: "card",
-    re: /\b(?:\d[ -]*?){13,19}\b/g,
-    replace: "[card-redacted]",
-  },
+  // ── Tokens / API keys first ────────────────────────────────────────
   // JWT tokens — eyJ... three base64 segments
   {
     name: "jwt",
@@ -42,17 +29,82 @@ const PATTERNS: Array<{ name: string; re: RegExp; replace: string }> = [
     re: /\b(?:sk_live|rk_live|whsec)_[A-Za-z0-9]{20,}/g,
     replace: "[stripe-key-redacted]",
   },
-  // Supabase service role tokens (sbp_...) or anon-looking keys
+  // Supabase service role tokens (sbp_...)
   {
     name: "supabase-token",
     re: /\bsbp_[A-Za-z0-9]{20,}/g,
     replace: "[supabase-token-redacted]",
+  },
+  // RentalFlow programmatic API keys (rfk_*) — tenant-generated /api/v1 tokens
+  {
+    name: "rfk-key",
+    re: /\brfk_[A-Za-z0-9]{20,}/g,
+    replace: "[rfk-key-redacted]",
+  },
+  // GoHighLevel personal integration tokens (pit-*) — long-lived bearer
+  {
+    name: "ghl-pit",
+    re: /\bpit-[a-f0-9-]{20,}/g,
+    replace: "[ghl-pit-redacted]",
+  },
+  // Resend API keys (re_*)
+  {
+    name: "resend-key",
+    re: /\bre_[A-Za-z0-9_]{20,}/g,
+    replace: "[resend-key-redacted]",
+  },
+  // Anthropic API keys (sk-ant-*) — specific to avoid false-positive with OpenAI sk-*
+  {
+    name: "anthropic-key",
+    re: /\bsk-ant-[A-Za-z0-9_-]{20,}/g,
+    replace: "[anthropic-key-redacted]",
+  },
+  // OpenAI API keys (sk-proj-*, sk-*) — broad sk- match without prefix would
+  // hit too many false positives, so we only match the documented prefixes
+  {
+    name: "openai-key",
+    re: /\bsk-proj-[A-Za-z0-9_-]{20,}|sk-[A-Za-z0-9]{40,}/g,
+    replace: "[openai-key-redacted]",
+  },
+  // Twilio AuthToken (32 hex chars) when prefixed by AC<sid> context
+  {
+    name: "twilio-auth",
+    re: /AC[a-f0-9]{32}[:|\s]+[a-f0-9]{32}/g,
+    replace: "[twilio-auth-redacted]",
   },
   // Bearer header values
   {
     name: "bearer",
     re: /Bearer\s+[A-Za-z0-9\-._~+/]+=*/gi,
     replace: "Bearer [redacted]",
+  },
+  // ── PII content next (after token patterns) ───────────────────────
+  // Email — handles +tags and unicode TLDs
+  {
+    name: "email",
+    re: /\b[\w.+-]+@[\w.-]+\.[a-z]{2,}\b/gi,
+    replace: "[email-redacted]",
+  },
+  // North American phone numbers — (904) 584-3047, +1-904-584-3047, 904.584.3047
+  // The leading `\+?1?` allows an optional country code attached to the number
+  // (no leading separator) without eating the preceding whitespace.
+  {
+    name: "phone-na",
+    re: /(?<!\d)(?:\+?1[\s.-]?)?\(?\d{3}\)?[\s.()-]?\d{3}[\s.()-]?\d{4}(?!\d)/g,
+    replace: "[phone-redacted]",
+  },
+  // E.164 international phone — +<country code 1-3 digits><up to 12 digits>
+  // Already covered for +1 by phone-na, this catches non-NA (+44, +52, +54, etc.)
+  {
+    name: "phone-e164",
+    re: /(?<!\d)\+(?:[2-9]\d{0,2})\d{6,13}(?!\d)/g,
+    replace: "[phone-redacted]",
+  },
+  // Credit-card-like 13-19 digit numbers (with spaces/dashes allowed)
+  {
+    name: "card",
+    re: /\b(?:\d[ -]*?){13,19}\b/g,
+    replace: "[card-redacted]",
   },
 ];
 
@@ -81,6 +133,45 @@ const REDACT_QUERY_PARAMS = new Set([
   "access_token",
   "refresh_token",
   "code",
+]);
+
+// Object KEYS whose VALUES we redact verbatim — for free-form PII that
+// regexes won't catch (customer first names, free-text addresses, etc.).
+// Match is case-insensitive on the raw key name.
+const REDACT_KEYS = new Set([
+  // Customer-direct identifiers
+  "customer_email",
+  "customer_phone",
+  "customer_first_name",
+  "customer_last_name",
+  "customer_address",
+  "customer_name",
+  "first_name",
+  "last_name",
+  // Waiver e-signature: the signer's typed name
+  "signed_name",
+  "signer_name",
+  // Address fields
+  "billing_address",
+  "shipping_address",
+  "address1",
+  "address2",
+  "address_line1",
+  "address_line2",
+  // Phone variations
+  "phone",
+  "phone_number",
+  // Email fallback (in addition to the regex)
+  "email",
+  // Auth secrets
+  "password",
+  "encrypted_password",
+  "auth_token",
+  "service_role_key",
+  "api_key",
+  "client_secret",
+  // Stripe-side fields that can carry PII or customer-linking
+  "payment_method",
 ]);
 
 /** Scrub a single string by running all regex passes. */
@@ -137,6 +228,11 @@ function walk(value: any, depth: number): any {
       // URL fields — preserve structure, redact query params
       if ((klow === "url" || klow === "request_url") && typeof v === "string") {
         out[k] = scrubUrl(v);
+        continue;
+      }
+      // Known PII field names — redact the value verbatim regardless of type
+      if (REDACT_KEYS.has(klow)) {
+        out[k] = "[redacted]";
         continue;
       }
       out[k] = walk(v, depth + 1);
