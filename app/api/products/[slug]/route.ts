@@ -1,8 +1,13 @@
 // GET /api/products/[slug]
 // Single product details + unavailable dates for the next 90 days.
+//
+// Per-IP rate limit: the booking wizard hits this every time the user
+// changes the calendar selection. 60/min/IP is comfortable for legit
+// browse + restrictive enough to block a calendar-scrape attack.
 
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { rateLimit, clientIp } from "@/lib/rate-limit";
 import { z } from "zod";
 
 export const dynamic = "force-dynamic";
@@ -10,9 +15,21 @@ export const dynamic = "force-dynamic";
 const SlugSchema = z.string().min(1).max(100).regex(/^[a-z0-9-]+$/);
 
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: { slug: string } }
 ) {
+  const ip = clientIp(request);
+  const limit = await rateLimit(`public-product-detail:${ip}`, {
+    max: 60,
+    windowSeconds: 60,
+  });
+  if (!limit.allowed) {
+    return NextResponse.json(
+      { error: "Too many requests" },
+      { status: 429, headers: { "Retry-After": "60" } }
+    );
+  }
+
   const parseResult = SlugSchema.safeParse(params.slug);
   if (!parseResult.success) {
     return NextResponse.json({ error: "Invalid slug" }, { status: 400 });

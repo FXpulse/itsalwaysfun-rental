@@ -1,8 +1,13 @@
 // GET /api/availability?product_id=<uuid>&date=YYYY-MM-DD
 // Returns { available: boolean, reason: string | null }
+//
+// Per-IP rate limit: this is the cheapest endpoint to scrape (one row out)
+// and the booking wizard fires it on each (product_id, date) check. 60/min
+// is generous for legit use, restrictive enough to block automated probing.
 
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { rateLimit, clientIp } from "@/lib/rate-limit";
 import { z } from "zod";
 
 export const dynamic = "force-dynamic";
@@ -13,6 +18,18 @@ const QuerySchema = z.object({
 });
 
 export async function GET(request: Request) {
+  const ip = clientIp(request);
+  const limit = await rateLimit(`public-availability:${ip}`, {
+    max: 60,
+    windowSeconds: 60,
+  });
+  if (!limit.allowed) {
+    return NextResponse.json(
+      { error: "Too many requests" },
+      { status: 429, headers: { "Retry-After": "60" } }
+    );
+  }
+
   const { searchParams } = new URL(request.url);
   const parse = QuerySchema.safeParse({
     product_id: searchParams.get("product_id") || "",

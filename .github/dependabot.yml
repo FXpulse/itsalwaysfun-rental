@@ -1,0 +1,64 @@
+# GitHub Dependabot configuration.
+#
+# Surfaces known CVEs + version updates as PRs. The CI workflow (ci.yml)
+# runs typecheck + lint + tests + scope-check + integration tests on each
+# Dependabot PR — so a vulnerability bump goes through the same gates as
+# a human PR before merging.
+#
+# Cadence: weekly. Grouped to avoid PR storms on minor/patch updates.
+# Major bumps come as individual PRs so they get human review.
+
+version: 2
+updates:
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "America/New_York"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+    commit-message:
+      prefix: "chore(deps)"
+      include: "scope"
+    # Group non-major npm updates so we get one PR per ecosystem per week
+    # rather than 25 individual PRs.
+    groups:
+      production-minor-patch:
+        dependency-type: "production"
+        update-types:
+          - "minor"
+          - "patch"
+      development-minor-patch:
+        dependency-type: "development"
+        update-types:
+          - "minor"
+          - "patch"
+    # Major bumps are individual PRs so each gets a human review.
+    # Ignore the "next" major bump — Next.js 14 → 15 is on the 180-day roadmap,
+    # not the daily-update path. Same for React 18 → 19 (gated on Next.js 15).
+    ignore:
+      - dependency-name: "next"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "react"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "react-dom"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "eslint-config-next"
+        update-types: ["version-update:semver-major"]
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "America/New_York"
+    open-pull-requests-limit: 3
+    labels:
+      - "dependencies"
+      - "ci"
+    commit-message:
+      prefix: "chore(actions)"

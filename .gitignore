@@ -47,4 +47,19 @@ coverage/
 graphify-out/
 
 .vercel
+
+# Generated audit/reference docx — rebuild with python scripts/build_*_doc.py
 RentalFlow_Technical_Audit.docx
+RentalFlow_Technical_Reference.docx
+RentalFlow_Investor_Brief.docx
+RentalFlow_For_Rental_Owners.docx
+
+# Word temp lock files
+~$*.docx
+
+# Claude Code skills lock — local cache, not source
+skills-lock.json
+
+# Python — audit doc builder caches
+__pycache__/
+*.pyc
