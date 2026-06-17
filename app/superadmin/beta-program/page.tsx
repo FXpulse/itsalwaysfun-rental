@@ -30,7 +30,7 @@ export default async function BetaProgramPage() {
   const { data: betas } = await admin
     .from("tenants")
     .select(
-      "id, slug, business_name, owner_email, owner_phone, plan, subscription_status, suspended_at, trial_ends_at, beta_program_joined_at, custom_domain, created_at",
+      "id, slug, business_name, owner_email, owner_phone, plan, subscription_status, suspended_at, trial_ends_at, beta_program_joined_at, beta_emails_sent, custom_domain, created_at",
     )
     .eq("beta_program", true)
     .order("beta_program_joined_at", { ascending: false });
@@ -181,13 +181,14 @@ export default async function BetaProgramPage() {
               <th className="text-left py-3 px-4">Joined</th>
               <th className="text-right py-3 px-4">Products</th>
               <th className="text-right py-3 px-4">Bookings (paid)</th>
+              <th className="text-left py-3 px-4">Emails sent</th>
               <th className="text-left py-3 px-4">Status</th>
             </tr>
           </thead>
           <tbody>
             {cohort.length === 0 && (
               <tr>
-                <td colSpan={6} className="text-center text-slate-500 py-10">
+                <td colSpan={7} className="text-center text-slate-500 py-10">
                   No beta signups yet.
                 </td>
               </tr>
@@ -235,6 +236,29 @@ export default async function BetaProgramPage() {
                         ({act.paid_booking_count} paid)
                       </span>
                     )}
+                  </td>
+                  <td className="py-3 px-4">
+                    <div className="flex flex-wrap gap-1">
+                      {(["welcome", "day_30_checkin", "day_60_usage", "day_80_convert"] as const).map((k) => {
+                        const ledger: string[] = Array.isArray(t.beta_emails_sent) ? t.beta_emails_sent : [];
+                        const sent = ledger.includes(k);
+                        const short =
+                          k === "welcome" ? "W" : k === "day_30_checkin" ? "30" : k === "day_60_usage" ? "60" : "80";
+                        return (
+                          <span
+                            key={k}
+                            title={k + (sent ? " ✓ sent" : " (not yet)")}
+                            className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                              sent
+                                ? "bg-emerald-100 text-emerald-700"
+                                : "bg-slate-100 text-slate-400"
+                            }`}
+                          >
+                            {short}
+                          </span>
+                        );
+                      })}
+                    </div>
                   </td>
                   <td className="py-3 px-4">{statusBadge(t)}</td>
                 </tr>

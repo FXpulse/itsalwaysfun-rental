@@ -198,6 +198,34 @@ export async function signupTenant(formData: FormData): Promise<SignupResult> {
     console.error("[seed_default_site_settings failed, non-fatal]", e);
   }
 
+  // 4d. Beta program: send welcome email immediately if this signup is in
+  // the beta cohort. Idempotent via tenants.beta_emails_sent ledger.
+  if (betaFields.beta_program) {
+    try {
+      const { sendBetaLifecycleEmail } = await import(
+        "@/lib/email/beta-lifecycle"
+      );
+      const newLedger = await sendBetaLifecycleEmail(
+        {
+          id: tenant.id,
+          business_name: parsed.data.business_name,
+          owner_email: parsed.data.owner_email,
+          slug: tenant.slug,
+        },
+        "welcome",
+        [],
+      );
+      if (newLedger) {
+        await supabase
+          .from("tenants")
+          .update({ beta_emails_sent: newLedger })
+          .eq("id", tenant.id);
+      }
+    } catch (e) {
+      console.error("[beta welcome email failed, non-fatal]", e);
+    }
+  }
+
   // 5. Audit
   await logAuditEvent({
     userEmail: parsed.data.owner_email,
@@ -208,7 +236,8 @@ export async function signupTenant(formData: FormData): Promise<SignupResult> {
       slug: tenant.slug,
       business_name: parsed.data.business_name,
       plan: "pro",
-      trial_days: 30,
+      trial_days: trialDays,
+      beta_program: !!betaFields.beta_program,
     },
   });
 
