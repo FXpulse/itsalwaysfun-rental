@@ -1,0 +1,2186 @@
+{
+  "generated_at": "2026-06-16",
+  "source_root": "app/admin",
+  "notes": "Each entry was derived by reading page.tsx + colocated actions.ts and grepping for sendEmail/sendTemplated/stripe./ghl/logAuditEvent/revalidatePath. Trivial pages are still listed.",
+  "groups": [
+    {
+      "name": "Operations",
+      "tagline": "Daily run-of-show — what the admin uses on a busy delivery day",
+      "icon_hint": "calendar",
+      "pages": [
+        {
+          "path": "/admin/dashboard",
+          "purpose": "Today-at-a-glance KPI hub: pending payments, bookings today/this week, revenue, route plan, damages, payouts, quotes, inbox.",
+          "audience": "admin / staff (all roles after login)",
+          "ui_elements": [
+            "4 KPI cards (pending payment / bookings today / bookings this week / revenue this week) with click-through hrefs",
+            "AutoRefresh component (default 45s)",
+            "'New booking' accent button",
+            "Today + Tomorrow route columns with emoji + status badges",
+            "Color-coded AlertPanel cards: amber (inbox/pending pmt), red (damages), blue (quotes), purple (loyalty payouts ready)",
+            "'X need attention' pill in header",
+            "Recent bookings list (5 rows)"
+          ],
+          "data_tables": [
+            "bookings",
+            "dispatch_routes",
+            "booking_damages",
+            "customer_profiles",
+            "quotes",
+            "site_settings (commission_payout_threshold_cents)",
+            "contact_messages"
+          ],
+          "server_actions": [],
+          "business_rules": [
+            "Pending payment list filtered to booking_status='pending_payment'",
+            "Today/tomorrow route lookups by route_date",
+            "Loyalty payout-ready list reads commission_payout_threshold_cents from site_settings (defaults 5000)",
+            "Damage list filtered to resolved=false",
+            "Quotes filtered to status IN ('sent','viewed')"
+          ],
+          "external_effects": [
+            "No mutations — read-only dashboard"
+          ],
+          "notable_patterns": [
+            "All 11 queries fired via Promise.all for one round-trip",
+            "force-dynamic to avoid stale cached counts",
+            "Reads tenant timezone via getTenantInfo and formats via formatDateTimeInTz"
+          ]
+        },
+        {
+          "path": "/admin/bookings",
+          "purpose": "Filterable booking list by date range and status — the master event log.",
+          "audience": "admin / staff",
+          "ui_elements": [
+            "Date range form (from/to defaults: today → today+90d)",
+            "Status filter dropdown (all / pending_payment / confirmed / delivered / completed / cancelled)",
+            "AutoRefresh @ 45s",
+            "Table cols: Date (+ multi-day badge), Customer, Product, Amount, PaymentBadge, BookingBadge, View link",
+            "PaymentBadge + BookingBadge color maps"
+          ],
+          "data_tables": [
+            "bookings"
+          ],
+          "server_actions": [],
+          "business_rules": [
+            "Default view = events from today forward 90 days",
+            "Multi-day events shown with end-date + day count"
+          ],
+          "external_effects": [
+            "No mutations on list itself"
+          ],
+          "notable_patterns": [
+            "Querystring-driven filters (no client state)",
+            "Server-side dynamic page"
+          ]
+        },
+        {
+          "path": "/admin/bookings/[id]",
+          "purpose": "Full booking command center: event/customer/payment info, delivery checklist, proofs, damages, expenses, internal team chat, inspections, status actions.",
+          "audience": "admin / staff",
+          "ui_elements": [
+            "Sections: Event / Customer / Payment cards",
+            "DeliveryChecklist (driven by product_inventory_requirements + surface_type)",
+            "ProofCapture x2 (delivery + pickup) — photo + signature",
+            "BookingInspectionsSection (ERPNext-inspired Quality Inspection, shipped 2026-06-16) with suggested template",
+            "InternalMessagesThread with @mentions",
+            "DamagesSection with severity, cost_cents, customer_responsible, covered_by_protection toggles",
+            "ExpensesSection with category + payroll-hours support",
+            "BookingActions footer (status change, mark paid, refund, restore, cancel)",
+            "StatusBadge x2 for booking_status + stripe_payment_status"
+          ],
+          "data_tables": [
+            "bookings",
+            "booking_proofs",
+            "booking_damages",
+            "inventory_items",
+            "booking_expenses",
+            "booking_expense_categories",
+            "booking_inspections",
+            "booking_internal_messages",
+            "product_inventory_requirements",
+            "site_settings (damage_protection_coverage_cents, default_driver_hourly_rate_cents)"
+          ],
+          "server_actions": [
+            { "name": "updateBookingStatus", "what": "Validates with Zod enum, mutates booking_status, on 'cancelled' marks pending pmt as failed + appends audit note + sends sendBookingCancelled + reverses coupon; revalidates /admin/bookings, /admin/bookings/[id], /admin/coupons" },
+            { "name": "markAsPaidManually", "what": "Sets stripe_payment_status='paid' + booking_status='confirmed' + payment_method (cash/venmo/zelle/check/other); awardForPaidBooking (loyalty) + sendBookingConfirmation; revalidates booking pages" },
+            { "name": "refundBooking", "what": "Stripe refunds.create if stripe payment; appends audit note; sets stripe_payment_status='refunded' + booking_status='cancelled'; sendBookingRefunded; reverseCouponIfPaid; logAuditEvent('booking.refunded')" },
+            { "name": "restoreBooking", "what": "Reverses a cancellation — paid bookings → confirmed, others → pending_payment" },
+            { "name": "updateBookingNotes", "what": "Free-text notes mutation, revalidates detail page" }
+          ],
+          "business_rules": [
+            "Cancellation appends '[YYYY-MM-DD] Cancelled by {email}' to notes",
+            "Refund only allowed if stripe_payment_status='paid' and not already refunded",
+            "Stripe auto-refund requires isStripeConfigured() + stripe_payment_intent_id; otherwise admin handles manually",
+            "Cancelling a paid+coupon booking reverses the coupon use",
+            "Restore route depends on prior payment status",
+            "Inspections section uses suggestTemplateForBooking heuristic (per-product, per-category fallback)"
+          ],
+          "external_effects": [
+            "Sends booking_confirmation email on mark-paid (idempotent)",
+            "Sends booking_cancelled email on cancel",
+            "Sends booking_refunded email on refund",
+            "Calls Stripe Refunds API (stripe.refunds.create)",
+            "Writes admin_audit_log via logAuditEvent('booking.refunded')",
+            "Awards loyalty points + referral commission via awardForPaidBooking",
+            "Reverses coupon counter via reverseCouponIfPaid"
+          ],
+          "notable_patterns": [
+            "All non-page data fetched via 2 parallel Promise.all batches",
+            "Idempotent email sends wrapped in try/catch and marked non-fatal",
+            "revalidatePath includes /admin/coupons because coupon counters change on cancel/refund"
+          ]
+        },
+        {
+          "path": "/admin/bookings/new",
+          "purpose": "Manual booking creation form for phone/walk-in/offline rentals.",
+          "audience": "admin / staff",
+          "ui_elements": [
+            "NewBookingForm client component with product picker, customer fields, dates, times, total, payment method, status, notes"
+          ],
+          "data_tables": [
+            "products (active list)"
+          ],
+          "server_actions": [
+            { "name": "createManualBooking", "what": "Zod-validated form (NewBookingSchema); inserts row with computed stripe_payment_status (none→pending else paid) + 'Created manually by {email}' note; revalidates /admin/bookings" }
+          ],
+          "business_rules": [
+            "payment_method='none' → stripe_payment_status='pending', otherwise 'paid'",
+            "Dollars-to-cents conversion (input is integer dollars *100)"
+          ],
+          "external_effects": [
+            "No emails fired here — admin opts to send manually via detail page (markAsPaidManually triggers confirmation)"
+          ],
+          "notable_patterns": [
+            "Server action bound at submit, no JS-driven post"
+          ]
+        },
+        {
+          "path": "/admin/bookings/[id]/proof",
+          "purpose": "Focused driver-friendly view of just the photo + signature proof capture for delivery or pickup phases.",
+          "audience": "driver / admin / staff",
+          "ui_elements": [
+            "Phase-aware header (delivery/pickup)",
+            "ProofCapture component reused from booking detail",
+            "Back link routes to /driver or /admin/dispatch/route based on referrer query"
+          ],
+          "data_tables": [
+            "bookings (minimal columns)",
+            "booking_proofs"
+          ],
+          "server_actions": [
+            { "name": "proof-actions.ts (capturePhoto, captureSignature)", "what": "Server actions in colocated file for storing proof image + signature data URL on booking_proofs" }
+          ],
+          "business_rules": [
+            "Driver workflow stays inside dispatch chain via ?route param"
+          ],
+          "external_effects": [
+            "Uploads images to Supabase Storage 'site-assets' bucket"
+          ],
+          "notable_patterns": [
+            "Mobile-optimized minimal layout for in-the-field use"
+          ]
+        },
+        {
+          "path": "/admin/calendar",
+          "purpose": "Month-grid calendar of all bookings, multi-day events expanded across cells.",
+          "audience": "admin / staff",
+          "ui_elements": [
+            "Prev / Today / Next month nav",
+            "6×7 grid cells with stacked booking chips",
+            "Color legend for booking statuses",
+            "Multi-day badge"
+          ],
+          "data_tables": [
+            "bookings (event_date, event_end_date, start_time, booking_status, stripe_payment_status)"
+          ],
+          "server_actions": [],
+          "business_rules": [
+            "Grid pads 7 days before/after month to catch multi-day overflow",
+            "Multi-day expansion done in JS (one cell per day in span)"
+          ],
+          "external_effects": [],
+          "notable_patterns": [
+            "?month=YYYY-MM URL param for deep linking"
+          ]
+        },
+        {
+          "path": "/admin/availability",
+          "purpose": "Per-product or all-products view of blocked dates + active bookings for the next 3 months.",
+          "audience": "admin / staff",
+          "ui_elements": [
+            "Product picker (defaults to 'all products' overview)",
+            "AvailabilityCalendar (single-product blockable grid)",
+            "AvailabilityOverview (matrix of all active products vs dates)"
+          ],
+          "data_tables": [
+            "products",
+            "bookings",
+            "blocked_dates"
+          ],
+          "server_actions": [
+            { "name": "blockDate / unblockDate (availability/actions.ts)", "what": "Inserts/deletes rows in blocked_dates for maintenance, damaged unit, or personal hold" }
+          ],
+          "business_rules": [
+            "Window: today → today+3 months",
+            "Booking includes pending_payment/confirmed/delivered/completed (excludes cancelled)"
+          ],
+          "external_effects": [
+            "Mutations only on blocked_dates"
+          ],
+          "notable_patterns": [
+            "Two distinct UIs in one route based on ?product param presence"
+          ]
+        },
+        {
+          "path": "/admin/dispatch",
+          "purpose": "Day-by-day dispatch planning home: next 7 days, booking volume + route count per day, jump to plan tomorrow.",
+          "audience": "admin / staff",
+          "ui_elements": [
+            "'Plan tomorrow' primary CTA",
+            "Manage fleet link",
+            "Per-day rows: weekday + bookings count + 'X routes planned' badge",
+            "Tenant-timezone aware date formatting"
+          ],
+          "data_tables": [
+            "bookings (event_date, booking_status)",
+            "dispatch_routes (route_date)"
+          ],
+          "server_actions": [],
+          "business_rules": [
+            "Counts confirmed+delivered as 'paid' subset of total",
+            "Day labels use tenant timezone (formatDateInTz)"
+          ],
+          "external_effects": [],
+          "notable_patterns": [
+            "Requires getCurrentUserRole login — driver lands on /driver instead"
+          ]
+        },
+        {
+          "path": "/admin/dispatch/[date]",
+          "purpose": "Per-day dispatch planner: create delivery or pickup routes, assign vehicle + trailer + driver + bookings to each.",
+          "audience": "admin / staff",
+          "ui_elements": [
+            "Route type tabs (?type=delivery|pickup)",
+            "Candidate bookings list",
+            "DispatchClient component for assigning bookings to routes",
+            "Vehicle + trailer pickers (active only)",
+            "Driver picker resolved from user_roles.role='driver' joined to auth.users metadata"
+          ],
+          "data_tables": [
+            "bookings (filtered by event_date for delivery, event_end_date for pickup)",
+            "dispatch_routes",
+            "vehicles",
+            "trailers",
+            "user_roles (drivers)"
+          ],
+          "server_actions": [
+            { "name": "createRoute", "what": "Zod-validated insert of dispatch_routes row with vehicle/trailer/driver/notes/route_type; revalidates /admin/dispatch/[date]" },
+            { "name": "deleteRoute", "what": "Removes a planned route" },
+            { "name": "assignUnitsToRoute", "what": "Per-unit dispatch assignment via dispatch_route_units — marks prior assignments as 'returned' before inserting new" },
+            { "name": "unassignUnitsFromRoute", "what": "Removes assignment rows (mistakes only)" },
+            { "name": "markUnitsReturned", "what": "Sets returned_at + return_condition (good/needs_repair/broken) + propagates condition to inventory_units" }
+          ],
+          "business_rules": [
+            "Pickup candidates use OR on (event_end_date == date) OR (event_end_date IS NULL AND event_date == date)",
+            "Cancelled bookings excluded",
+            "Driver names resolved from auth.users user_metadata (first/last/email)",
+            "Returned condition non-'good' also updates inventory_units.condition"
+          ],
+          "external_effects": [
+            "No emails — routes are internal"
+          ],
+          "notable_patterns": [
+            "Uses createAdminClient({ unscoped:true }) for auth admin listUsers (bypass tenant proxy)",
+            "Two-step bookings fetch (no FK embed for dispatch_stops)"
+          ]
+        },
+        {
+          "path": "/admin/dispatch/route/[id]",
+          "purpose": "Single-route driver view: stops in order, customer phone/address, per-stop delivery/pickup status updates.",
+          "audience": "driver / admin / staff",
+          "ui_elements": [
+            "Route header with vehicle + trailer + driver + date",
+            "DriverRouteClient with per-stop checkoffs",
+            "Status pills (planned/loaded/out/completed/cancelled)",
+            "Load aggregator showing what to put on truck"
+          ],
+          "data_tables": [
+            "dispatch_routes",
+            "dispatch_stops",
+            "bookings (customer info)",
+            "vehicles",
+            "trailers"
+          ],
+          "server_actions": [
+            { "name": "updateRouteStatus", "what": "Flip planned→loaded→out→completed lifecycle" },
+            { "name": "markStopDelivered", "what": "Set delivered_at on dispatch_stops row" }
+          ],
+          "business_rules": [
+            "Back href is role-aware: driver → /driver, admin/staff → /admin/dispatch/{date}",
+            "Bookings fetched via two-step (PostgREST FK embed unavailable for dispatch_stops)"
+          ],
+          "external_effects": [
+            "No emails"
+          ],
+          "notable_patterns": [
+            "Read-once route load via getRouteLoad helper"
+          ]
+        },
+        {
+          "path": "/admin/quotes",
+          "purpose": "Quote pipeline: drafts, sent, viewed, approved, declined, expired, converted — with conversion revenue stat.",
+          "audience": "admin only (staff redirected)",
+          "ui_elements": [
+            "AutoRefresh @ 45s",
+            "Status filter pills",
+            "4 summary cards (drafts / sent-awaiting / approved / converted revenue)",
+            "Table: quote_number, customer, event, total_cents, status, sent_at"
+          ],
+          "data_tables": [
+            "quotes"
+          ],
+          "server_actions": [],
+          "business_rules": [
+            "All-time stats computed across all rows (separate query)",
+            "Latest 200 rows in main table"
+          ],
+          "external_effects": [],
+          "notable_patterns": [
+            "Status color map shared with detail page"
+          ]
+        },
+        {
+          "path": "/admin/quotes/new",
+          "purpose": "Build a new quote: customer + line items + discount + tax + waiver + protection toggles + custom message.",
+          "audience": "admin only",
+          "ui_elements": [
+            "QuoteEditor client component (shared with edit)",
+            "Product picker + manual line items",
+            "Damage protection / waiver / tax / surface / power supply settings hydrated from site_settings"
+          ],
+          "data_tables": [
+            "products (active)",
+            "site_settings (damage_protection_*, waiver_*, tax_*)",
+            "customers (loaded via loadQuoteCustomers helper)"
+          ],
+          "server_actions": [
+            { "name": "createQuote", "what": "Zod-validated, generates token via new_quote_token RPC, tenant-scoped sequential number via next_quote_number RPC (with race-retry); inserts row + computes subtotal/discount/tax/total; defaults expires_at = today+expires_days" }
+          ],
+          "business_rules": [
+            "Number generation retries up to 3x to avoid race condition on MAX+1",
+            "Default expires 14 days out (1–90 day range)",
+            "Email lowercased + trimmed on insert"
+          ],
+          "external_effects": [
+            "createQuote doesn't send email automatically; sendQuote action (on detail page actions) sends via renderQuoteEmail + sendTemplated('quote_sent')"
+          ],
+          "notable_patterns": [
+            "Settings flattened into editorSettings map for client form",
+            "buildDefaultQuoteMessage merges tenant brand + site URL"
+          ]
+        },
+        {
+          "path": "/admin/quotes/[id]",
+          "purpose": "Quote detail — editable when draft, read-only summary + customer link + lifecycle log when sent/approved/etc.",
+          "audience": "admin only",
+          "ui_elements": [
+            "QuoteActions toolbar (Send / Resend / Copy customer link / Mark as approved/declined)",
+            "When draft: full QuoteEditor",
+            "When non-draft: Customer / Event / Line items / Subtotal-discount-tax-total / Customer message / Internal notes / Lifecycle list",
+            "Converted-to-booking green confirmation card"
+          ],
+          "data_tables": [
+            "quotes",
+            "products",
+            "site_settings (protection/waiver/tax)",
+            "customers (via loader)"
+          ],
+          "server_actions": [
+            { "name": "updateQuote", "what": "Recomputes totals + persists" },
+            { "name": "sendQuote", "what": "Sends quote_sent template via sendTemplated to customer + sets status='sent', sent_at" },
+            { "name": "approveQuote / declineQuote", "what": "Manual status flips bypassing customer magic link" },
+            { "name": "convertQuoteToBooking", "what": "Creates bookings row referencing this quote, sets converted_booking_id + status='converted'" }
+          ],
+          "business_rules": [
+            "Drafts editable; sent quotes lock the line items",
+            "Tax recompute respects tax_exempt + tax_manual_override flags",
+            "Token URL pattern: {NEXT_PUBLIC_APP_URL}/quotes/{token}"
+          ],
+          "external_effects": [
+            "sendTemplated('quote_sent') via Resend",
+            "Booking creation on convert triggers downstream booking_confirmation when paid"
+          ],
+          "notable_patterns": [
+            "Single page handles two modes (edit vs view) by status check"
+          ]
+        },
+        {
+          "path": "/admin/quotes/[id]/edit",
+          "purpose": "(Implicit) — editing happens inline on /admin/quotes/[id] when status='draft'. No separate /edit route exists.",
+          "audience": "admin only",
+          "ui_elements": [
+            "Same as draft mode of /admin/quotes/[id]"
+          ],
+          "data_tables": [],
+          "server_actions": [],
+          "business_rules": [
+            "Note: filesystem has NO /admin/quotes/[id]/edit/ directory — editing is in-place on the detail page"
+          ],
+          "external_effects": [],
+          "notable_patterns": [
+            "Convention: route only used when status=draft, same component reused"
+          ]
+        },
+        {
+          "path": "/admin/inbox",
+          "purpose": "Contact-form + inbound-email message triage: read, reply via Resend, mark resolved, internal notes.",
+          "audience": "admin / staff (if tenants.inbox_enabled=true; else redirected to dashboard)",
+          "ui_elements": [
+            "3 stats: Open / Delivery issues / Total",
+            "InboxClient (client-side list + reply pane)",
+            "Per-message: replies thread sorted oldest-first, GHL webhook error flag, email send error flag"
+          ],
+          "data_tables": [
+            "contact_messages",
+            "contact_message_replies",
+            "tenants (inbox_enabled flag)"
+          ],
+          "server_actions": [
+            { "name": "replyToMessage", "what": "Validates body 1–10000 chars; sendEmail via Resend with from=EMAIL_FROM, replyTo=EMAIL_REPLY_TO (Cloudflare worker inbound address) so customer replies land back in inbox; brand resolved from msg.tenant_id; records contact_message_replies row; optionally marks resolved" },
+            { "name": "markResolved / markUnresolved", "what": "Toggles is_resolved + writes resolved_at, resolved_by" },
+            { "name": "saveAdminNotes", "what": "Inline notes field" }
+          ],
+          "business_rules": [
+            "Tenant must have tenants.inbox_enabled=true to use this page",
+            "EMAIL_REPLY_TO points at the inbound-mail address (Cloudflare worker forwards to /api/email/inbound)",
+            "Reply length capped at 10000 chars"
+          ],
+          "external_effects": [
+            "Sends customer reply email via Resend with brand from tenant_id",
+            "No GHL push from admin reply (already pushed at intake)"
+          ],
+          "notable_patterns": [
+            "HTML body assembled with paragraph escape + line-break preservation",
+            "Customer's original message quoted in <details> footer"
+          ]
+        },
+        {
+          "path": "/admin/inbox/[id]",
+          "purpose": "(Implicit) — single-message detail is rendered inline by InboxClient on the list page. No separate detail route exists in filesystem.",
+          "audience": "admin / staff",
+          "ui_elements": [
+            "Same as /admin/inbox — expandable rows handle detail"
+          ],
+          "data_tables": [],
+          "server_actions": [],
+          "business_rules": [
+            "Filesystem confirms: no app/admin/inbox/[id]/ directory exists"
+          ],
+          "external_effects": [],
+          "notable_patterns": [
+            "Single-page inbox pattern (Gmail-like)"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Catalog",
+      "tagline": "Rental products, bundles, inspection templates, promotions — what you sell",
+      "icon_hint": "package",
+      "pages": [
+        {
+          "path": "/admin/products",
+          "purpose": "Master rental inventory: pricing, stock, active toggle, grouped by category.",
+          "audience": "admin / staff",
+          "ui_elements": [
+            "ExportCsvButton + BulkUploadButton (CSV → bulkUploadProducts)",
+            "Add product CTA",
+            "Per-category table: Name+slug, Price/day, Stock, ProductActiveToggle, Edit/Availability links"
+          ],
+          "data_tables": [
+            "products"
+          ],
+          "server_actions": [
+            { "name": "toggleProductActive (products/actions.ts)", "what": "Flips is_active; revalidates /admin/products and public site" }
+          ],
+          "business_rules": [
+            "Grouped by category for UI"
+          ],
+          "external_effects": [
+            "Public site routes revalidated"
+          ],
+          "notable_patterns": [
+            "CSV bulk-upload pattern: GET /api/templates/products + POST to bulkUploadProducts action"
+          ]
+        },
+        {
+          "path": "/admin/products/new",
+          "purpose": "Create a new rental product.",
+          "audience": "admin / staff",
+          "ui_elements": [
+            "ProductForm shared with edit page",
+            "Categories dropdown (active only)"
+          ],
+          "data_tables": [
+            "products",
+            "categories (active)"
+          ],
+          "server_actions": [
+            { "name": "createProduct", "what": "Inserts a products row; slug auto-derived if missing" }
+          ],
+          "business_rules": [
+            "Cents-based pricing"
+          ],
+          "external_effects": [
+            "Revalidates /admin/products + public catalog"
+          ],
+          "notable_patterns": [
+            "Trivial wrapper around shared form"
+          ]
+        },
+        {
+          "path": "/admin/products/[id]",
+          "purpose": "Product editor: image, gallery, details, inventory requirements per surface type / per power supply / per day.",
+          "audience": "admin / staff",
+          "ui_elements": [
+            "ProductImageUploader (Supabase Storage)",
+            "ProductForm",
+            "GalleryManager (multiple sort-ordered images)",
+            "InventoryRequirements panel (per-product gear list with surface gating + only_when_needs_power + per_day flags)"
+          ],
+          "data_tables": [
+            "products",
+            "categories",
+            "inventory_items (active)",
+            "product_inventory_requirements",
+            "product_images"
+          ],
+          "server_actions": [
+            { "name": "updateProduct", "what": "Editable fields persisted; bound to product.id" },
+            { "name": "images-actions.ts (uploadImage / removeImage / reorder)", "what": "Manages product_images rows + Storage objects" },
+            { "name": "inventory-actions.ts (addRequirement / removeRequirement / updateRequirement)", "what": "CRUD on product_inventory_requirements" }
+          ],
+          "business_rules": [
+            "Requirements drive delivery checklist on /admin/bookings/[id]",
+            "surface_types and only_when_needs_power gate which gear gets recommended per booking"
+          ],
+          "external_effects": [
+            "Image uploads to Supabase Storage 'site-assets'",
+            "Public product page revalidated"
+          ],
+          "notable_patterns": [
+            "Sub-action files colocated per concern"
+          ]
+        },
+        {
+          "path": "/admin/categories",
+          "purpose": "Manage rental categories (Bounce Houses, Tents, Tables...) and setup surfaces (dirt/grass/concrete/paver/asphalt).",
+          "audience": "admin / staff",
+          "ui_elements": [
+            "CategoriesManager (CRUD list w/ display_order)",
+            "SurfacesManager",
+            "ExportCsvButton + BulkUploadButton (categories)"
+          ],
+          "data_tables": [
+            "categories",
+            "products (for counts)",
+            "setup_surfaces"
+          ],
+          "server_actions": [
+            { "name": "createCategory / updateCategory / deleteCategory / reorder", "what": "Standard CRUD in categories/actions.ts" },
+            { "name": "surface-actions.ts (CRUD on setup_surfaces)", "what": "Tenant-specific surface options" }
+          ],
+          "business_rules": [
+            "Inactive categories kept for reference (hidden from public)"
+          ],
+          "external_effects": [
+            "Revalidates public navigation + home"
+          ],
+          "notable_patterns": [
+            "Two unrelated entities on one page"
+          ]
+        },
+        {
+          "path": "/admin/packages",
+          "purpose": "Bundle products into fixed-price packages (e.g. 'Birthday Bundle = bouncer + chairs + cotton candy').",
+          "audience": "admin only",
+          "ui_elements": [
+            "PackagesSectionToggle (turn the /packages public page on/off)",
+            "Grid of package cards with LIVE/OFFLINE pill",
+            "PackageActiveToggle per row",
+            "New package CTA"
+          ],
+          "data_tables": [
+            "packages",
+            "site_settings (packages section enable)"
+          ],
+          "server_actions": [
+            { "name": "togglePackageActive", "what": "Flip is_active" },
+            { "name": "togglePackagesSection", "what": "Show/hide the public /packages page" }
+          ],
+          "business_rules": [
+            "Section toggle hides page even with active packages"
+          ],
+          "external_effects": [
+            "Revalidates public /packages"
+          ],
+          "notable_patterns": [
+            "Items embedded as JSON in packages.items column"
+          ]
+        },
+        {
+          "path": "/admin/packages/new",
+          "purpose": "Create a new package.",
+          "audience": "admin only",
+          "ui_elements": [
+            "Shared PackageEditor with products dropdown (active, non-addon)"
+          ],
+          "data_tables": [
+            "products (active non-addon)"
+          ],
+          "server_actions": [
+            { "name": "createPackage", "what": "Persists package + items JSON" }
+          ],
+          "business_rules": [
+            "Add-ons excluded from package items"
+          ],
+          "external_effects": [],
+          "notable_patterns": [
+            "Pure wrapper around shared editor"
+          ]
+        },
+        {
+          "path": "/admin/packages/[id]",
+          "purpose": "Edit a package.",
+          "audience": "admin only",
+          "ui_elements": [
+            "PackageEditor pre-populated with row data"
+          ],
+          "data_tables": [
+            "packages",
+            "products"
+          ],
+          "server_actions": [
+            { "name": "updatePackage", "what": "Persists changes" },
+            { "name": "deletePackage", "what": "Removes row" }
+          ],
+          "business_rules": [
+            "Items array JSON-typed"
+          ],
+          "external_effects": [
+            "Public /packages/[slug] revalidated"
+          ],
+          "notable_patterns": [
+            "Initial mapped to editor's expected shape"
+          ]
+        },
+        {
+          "path": "/admin/inspections",
+          "purpose": "ERPNext-inspired Quality Inspection templates: pre/post-rental checklists tied to product or category, drivers fill them at delivery/pickup.",
+          "audience": "admin / staff",
+          "ui_elements": [
+            "Templates table: name, scope (Product/Category/Global), items count, active/archived, updated_at",
+            "+ New template CTA"
+          ],
+          "data_tables": [
+            "inspection_templates"
+          ],
+          "server_actions": [
+            { "name": "createInspectionTemplate", "what": "Insert" },
+            { "name": "updateInspectionTemplate", "what": "Persist edits" },
+            { "name": "archiveInspectionTemplate", "what": "Toggle is_active" },
+            { "name": "suggestTemplateForBooking", "what": "Heuristic match used by /admin/bookings/[id]" },
+            { "name": "saveInspection", "what": "Records a filled-in inspection on booking_inspections (called from booking detail)" }
+          ],
+          "business_rules": [
+            "Scope precedence: product > category > global",
+            "Inspections feature shipped 2026-06-16"
+          ],
+          "external_effects": [
+            "No emails"
+          ],
+          "notable_patterns": [
+            "Reused on booking detail via suggestTemplateForBooking"
+          ]
+        },
+        {
+          "path": "/admin/inspections/new",
+          "purpose": "Create a new inspection template.",
+          "audience": "admin / staff",
+          "ui_elements": [
+            "TemplateEditor with item list builder, scope picker (product/category)"
+          ],
+          "data_tables": [
+            "products",
+            "categories"
+          ],
+          "server_actions": [
+            { "name": "createInspectionTemplate", "what": "Insert" }
+          ],
+          "business_rules": [
+            "requireStaffOrAdmin guard"
+          ],
+          "external_effects": [],
+          "notable_patterns": [
+            "Same TemplateEditor used for edit"
+          ]
+        },
+        {
+          "path": "/admin/inspections/[id]",
+          "purpose": "Edit an inspection template.",
+          "audience": "admin / staff",
+          "ui_elements": [
+            "TemplateEditor pre-populated"
+          ],
+          "data_tables": [
+            "inspection_templates"
+          ],
+          "server_actions": [
+            { "name": "updateInspectionTemplate", "what": "Persist" },
+            { "name": "archiveInspectionTemplate", "what": "Toggle is_active" }
+          ],
+          "business_rules": [
+            "items column is JSON array of checklist items"
+          ],
+          "external_effects": [],
+          "notable_patterns": [
+            "notFound() on missing"
+          ]
+        },
+        {
+          "path": "/admin/coupons",
+          "purpose": "Coupon CRUD: percent / fixed-amount / overnight-free discounts, optionally attributed to a referrer for commission tracking.",
+          "audience": "admin / staff",
+          "ui_elements": [
+            "CouponsManager (list + edit modal)",
+            "ReferrerPicker (search auth.users by email)"
+          ],
+          "data_tables": [
+            "coupons",
+            "auth.users (for referrer email resolution)"
+          ],
+          "server_actions": [
+            { "name": "createCoupon / updateCoupon / deleteCoupon (coupons/actions.ts)", "what": "Zod-validated CRUD on coupons" },
+            { "name": "findOrCreateCustomerByEmail", "what": "Auto-creates auth.user (email_confirmed) when admin types unknown referrer email" },
+            { "name": "sendCouponAssignedEmail", "what": "Notifies the referrer that a coupon was assigned to them" }
+          ],
+          "business_rules": [
+            "Code stored uppercased; max 50 chars; regex [A-Z0-9_-]+",
+            "Percent type: discount_value 0–100; fixed: stored in cents (raw*100); overnight_free: value=0",
+            "Referrer attribution drives loyalty commission flow"
+          ],
+          "external_effects": [
+            "sendCouponAssignedEmail via Resend",
+            "Creates auth user for new referrer"
+          ],
+          "notable_patterns": [
+            "Tenant-scoped reads, but listUsers needs unscoped"
+          ]
+        },
+        {
+          "path": "/admin/coupons/bulk-assign",
+          "purpose": "Bulk-give-coupons UX: pick customer list + discount params, system generates unique codes + emails each customer.",
+          "audience": "admin only",
+          "ui_elements": [
+            "Hero gradient card",
+            "BulkAssignForm: customer multi-select, discount type/value, expiry"
+          ],
+          "data_tables": [
+            "coupons",
+            "auth.users",
+            "customer_profiles"
+          ],
+          "server_actions": [
+            { "name": "bulkAssignCoupons (coupons/bulk-assign/actions.ts)", "what": "Generates per-customer unique code prefixed with name/email; inserts coupon rows with referrer_user_id set; loops sendCouponAssignedEmail" }
+          ],
+          "business_rules": [
+            "Unique code generation per recipient",
+            "Admin-only guard"
+          ],
+          "external_effects": [
+            "N x sendCouponAssignedEmail via Resend"
+          ],
+          "notable_patterns": [
+            "Hero gradient signals 'marketing' UX bucket"
+          ]
+        },
+        {
+          "path": "/admin/gift-cards",
+          "purpose": "Issue + manage gift cards: code, original/balance, expires, recipient email; aggregate outstanding liability.",
+          "audience": "admin only",
+          "ui_elements": [
+            "PublicSalesToggle (enable/disable public gift card store)",
+            "3 stats: Total issued / Outstanding balance / Redeemed",
+            "GiftCardsManager (table w/ deactivate, view balance, view code)"
+          ],
+          "data_tables": [
+            "gift_cards",
+            "site_settings (gift_card_sales_enabled)"
+          ],
+          "server_actions": [
+            { "name": "issueGiftCard", "what": "Zod-validated; generate_gift_card_code RPC; insert row; sendTemplated('gift_card_received') with brand-aware from/replyTo" },
+            { "name": "deactivateGiftCard", "what": "Sets is_active=false + logAuditEvent" },
+            { "name": "togglePublicSales", "what": "Flips site_settings.gift_card_sales_enabled" }
+          ],
+          "business_rules": [
+            "Amount in dollars (1–10000) converted to cents",
+            "Expiry optional (0–3650 days)",
+            "Outstanding only counts active cards"
+          ],
+          "external_effects": [
+            "Sends gift_card_received email to recipient",
+            "Writes admin_audit_log entries on deactivation"
+          ],
+          "notable_patterns": [
+            "RPC for code generation ensures uniqueness server-side"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Inventory & Fleet",
+      "tagline": "Track what you own — gear, units, vehicles, trailers — and where it is right now",
+      "icon_hint": "truck",
+      "pages": [
+        {
+          "path": "/admin/inventory",
+          "purpose": "Operational gear catalog (generators, blowers, anchors, supplies). Different from rental Products: gear is what you put ON the truck.",
+          "audience": "admin / staff (admin-only for CRUD + bulk)",
+          "ui_elements": [
+            "Low-stock alert banner (lists items where owned-in_use <= low_stock_threshold)",
+            "CategoriesPanel (CRUD on inventory_categories — admin only)",
+            "InventoryManager (list w/ inline edit)",
+            "ExportCsv + BulkUpload (admin only)"
+          ],
+          "data_tables": [
+            "inventory_items",
+            "inventory_categories"
+          ],
+          "server_actions": [
+            { "name": "createItem / updateItem / deleteItem / toggleActive (inventory/actions.ts)", "what": "Standard CRUD; staff can update qty_in_use" },
+            { "name": "createCategory / updateCategory / archiveCategory", "what": "Admin-only category management" }
+          ],
+          "business_rules": [
+            "Low-stock threshold per item drives banner",
+            "tracks_units toggle enables per-unit (serial) tracking"
+          ],
+          "external_effects": [
+            "No emails"
+          ],
+          "notable_patterns": [
+            "Category dropdown merges DB categories + orphan strings from items"
+          ]
+        },
+        {
+          "path": "/admin/inventory/[id]",
+          "purpose": "Per-item detail: maintenance log, units list, purchase + ROI stats.",
+          "audience": "admin / staff",
+          "ui_elements": [
+            "3 stat cards: Condition / Maintenance entries / Total spent",
+            "Purchase info card (cost + acquired date + spend% of cost)",
+            "UnitsPanel (per-unit tracking, admin only)",
+            "MaintenanceLog (cleaning/repair/inspection/replacement entries with cost_cents + photos)"
+          ],
+          "data_tables": [
+            "inventory_items",
+            "inventory_maintenance",
+            "inventory_units",
+            "dispatch_route_units (current assignment)"
+          ],
+          "server_actions": [
+            { "name": "addMaintenanceEntry", "what": "Insert with cost + notes + photo" },
+            { "name": "units-actions.ts (createUnit / updateUnit / retireUnit / generate batch)", "what": "Per-unit CRUD w/ unit_tag_prefix" }
+          ],
+          "business_rules": [
+            "Unit prefix defaults to acronym of item name",
+            "current_route resolved by JOIN on dispatch_route_units WHERE returned_at IS NULL"
+          ],
+          "external_effects": [
+            "No emails"
+          ],
+          "notable_patterns": [
+            "Total maintenance spent calculated client-side"
+          ]
+        },
+        {
+          "path": "/admin/inventory/units",
+          "purpose": "Fleet-wide unit registry (warehouse/loading/on_truck/at_customer/returning/maintenance/retired states) with movement filter.",
+          "audience": "admin / staff",
+          "ui_elements": [
+            "Filter pills per current_state with counts",
+            "UnitsFleetClient (sortable table linking to item detail)"
+          ],
+          "data_tables": [
+            "inventory_units",
+            "inventory_items (joined)"
+          ],
+          "server_actions": [
+            { "name": "unit-movement-actions.ts (recordUnitMovement)", "what": "Logs a state transition + maintenance.condition update" }
+          ],
+          "business_rules": [
+            "Inactive units excluded by default"
+          ],
+          "external_effects": [
+            "No emails"
+          ],
+          "notable_patterns": [
+            "ERPNext Asset Movement equivalent; shipped 2026-06-16"
+          ]
+        },
+        {
+          "path": "/admin/fleet",
+          "purpose": "Vehicles + trailers used for dispatch routes; per-vehicle compatible inventory item linkage.",
+          "audience": "admin only",
+          "ui_elements": [
+            "FleetManager (vehicles + trailers w/ requires_trailer flag, vin, license_tag, compatible_inventory_item_ids multi-select)",
+            "Bulk vehicles / trailers CSV + Export buttons"
+          ],
+          "data_tables": [
+            "vehicles",
+            "trailers",
+            "inventory_items (compatibility picker)"
+          ],
+          "server_actions": [
+            { "name": "createVehicle / updateVehicle / deactivateVehicle (fleet/actions.ts)", "what": "CRUD" },
+            { "name": "createTrailer / updateTrailer / deactivateTrailer", "what": "CRUD" }
+          ],
+          "business_rules": [
+            "Compatible inventory IDs constrain which gear can be assigned to a vehicle in dispatch"
+          ],
+          "external_effects": [
+            "No emails"
+          ],
+          "notable_patterns": [
+            "Bulk CSV pattern reused"
+          ]
+        },
+        {
+          "path": "/admin/bulk-upload",
+          "purpose": "Server-action backend for all bulk CSV uploads (products, categories, inventory, vehicles, trailers); no UI route.",
+          "audience": "admin only (CSV upload UIs live on each entity page)",
+          "ui_elements": [
+            "(No page.tsx — actions only)"
+          ],
+          "data_tables": [
+            "products",
+            "categories",
+            "inventory_items",
+            "vehicles",
+            "trailers"
+          ],
+          "server_actions": [
+            { "name": "bulkUploadProducts", "what": "parseCsv → insert products row-by-row w/ slug auto-derivation; tracks inserted/skipped/errors" },
+            { "name": "bulkUploadCategories", "what": "Insert categories" },
+            { "name": "bulkUploadInventory", "what": "Insert inventory_items" },
+            { "name": "bulkUploadVehicles", "what": "Insert vehicles" },
+            { "name": "bulkUploadTrailers", "what": "Insert trailers" }
+          ],
+          "business_rules": [
+            "Each action requireAdmin; returns { inserted, skipped, errors[] }",
+            "Skipped rows logged with row number + reason"
+          ],
+          "external_effects": [
+            "No emails"
+          ],
+          "notable_patterns": [
+            "Single shared toBool/toInt/toFloat/slugify helpers",
+            "Per-entity CSV template downloads at /api/templates/{entity}"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Financial",
+      "tagline": "Money in, money out — P&L, taxes, 1099s, overhead, Stripe Connect, RentalFlow billing",
+      "icon_hint": "dollar",
+      "pages": [
+        {
+          "path": "/admin/reports",
+          "purpose": "Period P&L, tax-collected breakdown, top products/customers/coupons, cash-flow projection, drivers payroll, customer LTV, all-time fleet profitability.",
+          "audience": "admin only",
+          "ui_elements": [
+            "DateRangeForm (defaults last 30 days)",
+            "PnLCard (revenue − direct costs − allocated overhead)",
+            "Tax-collected per-month table",
+            "AccountingExportButtons (per-period CSVs for QuickBooks)",
+            "CashFlowProjection (next 90 days, range-independent)",
+            "MonthlyPnLTable (last 12 months side-by-side)",
+            "4 summary cards: Total revenue / Bookings paid / Avg booking value / Unique customers (+ new/returning split)",
+            "Revenue-by-month horizontal bar chart",
+            "Payment-method breakdown",
+            "Top products (top 20)",
+            "DriversReport (labor hours + payroll)",
+            "CustomerLTVReport",
+            "Top customers (by spend, top 10)",
+            "Coupon usage table",
+            "All-time fleet profitability table per product (cost vs lifetime revenue vs ROI)"
+          ],
+          "data_tables": [
+            "bookings",
+            "site_settings (tax_label)",
+            "products (lifetime ROI calc)"
+          ],
+          "server_actions": [],
+          "business_rules": [
+            "Counts only paid bookings (stripe_payment_status='paid' AND status<>'cancelled') by event_date",
+            "Tax label customizable per tenant",
+            "ROI: cost vs sum(total_amount) lifetime",
+            "Products with cost=0 sorted last as 'missing cost data'"
+          ],
+          "external_effects": [
+            "No mutations — read-only report engine"
+          ],
+          "notable_patterns": [
+            "Returning customer detected by prior paid bookings before from-date",
+            "All math done in JS after a single bookings query"
+          ]
+        },
+        {
+          "path": "/admin/reports/1099-nec",
+          "purpose": "Year-end IRS 1099-NEC compilation per driver_email; threshold from site_settings, CSV export for filing.",
+          "audience": "admin only",
+          "ui_elements": [
+            "Year selector (last 4 years)",
+            "Download CSV button (/api/admin/accounting/export?type=1099-nec)",
+            "5 stat cards: Drivers w/ payments / Qualifying / Total paid out / Missing W9 / Filed-of-qualifying",
+            "NinetyNineNECManager (per-driver detail w/ mark-as-filed action)"
+          ],
+          "data_tables": [
+            "booking_expenses (driver labor)",
+            "site_settings (1099_nec_threshold_cents)",
+            "driver_w9 records"
+          ],
+          "server_actions": [
+            { "name": "compute1099Year (lib/reports-1099)", "what": "Aggregates labor payments by driver_email" },
+            { "name": "actions.ts: markAsFiled / saveW9", "what": "Records filing status per driver per year" }
+          ],
+          "business_rules": [
+            "IRS threshold defaults $50 (5000 cents)",
+            "Missing W9 flag if driver_email present but no W9 record"
+          ],
+          "external_effects": [
+            "CSV export served by API route, not server action"
+          ],
+          "notable_patterns": [
+            "Tax-year config via site_settings"
+          ]
+        },
+        {
+          "path": "/admin/reports/custom",
+          "purpose": "Hero-style 'report templates' picker (what do you want to know?) — grid of curated question cards.",
+          "audience": "admin only",
+          "ui_elements": [
+            "Hero gradient",
+            "Template cards (emoji + title + question + description) linking to /admin/reports/custom/{key}",
+            "Default range: last 30 days"
+          ],
+          "data_tables": [],
+          "server_actions": [],
+          "business_rules": [
+            "Templates defined statically in lib/admin/report-templates.ts"
+          ],
+          "external_effects": [],
+          "notable_patterns": [
+            "Minimal UX — questions, not DSL"
+          ]
+        },
+        {
+          "path": "/admin/reports/custom/[id]",
+          "purpose": "Run a single report template with adjustable date range + previous-period delta + CSV export.",
+          "audience": "admin only",
+          "ui_elements": [
+            "DateRangePresets (last 7d, 30d, etc.) + custom from/to form",
+            "Export CSV link (/api/admin/reports/custom/{id}/export)",
+            "InsightChip with delta vs previous period",
+            "ReportRenderer (chart + table)"
+          ],
+          "data_tables": [
+            "varies by template (defined in build())"
+          ],
+          "server_actions": [],
+          "business_rules": [
+            "Previous-period auto-derived from selected range length",
+            "Templates are tenant-aware via fetchReportRows(tenantId, def)"
+          ],
+          "external_effects": [],
+          "notable_patterns": [
+            "Engine separates definition (build) from data (fetchReportRows) from rendering (runReport)"
+          ]
+        },
+        {
+          "path": "/admin/overhead",
+          "purpose": "Fixed monthly overhead (rent, insurance, software, utilities) tracked with effective_from/to for accurate historical P&L allocation.",
+          "audience": "admin only",
+          "ui_elements": [
+            "3 stats: Active overhead /mo / Annualized /yr / Line items",
+            "OverheadManager (CRUD list)",
+            "Explainer block on allocation math"
+          ],
+          "data_tables": [
+            "overhead_costs",
+            "overhead_categories"
+          ],
+          "server_actions": [
+            { "name": "createOverhead / updateOverhead / endOverhead (overhead/actions.ts)", "what": "CRUD; 'end' sets effective_to instead of delete to preserve history" },
+            { "name": "category-actions.ts", "what": "CRUD on overhead_categories" }
+          ],
+          "business_rules": [
+            "End-dating preserves historical P&L accuracy",
+            "Allocation: monthly_total / bookings_in_month → per-booking overhead"
+          ],
+          "external_effects": [],
+          "notable_patterns": [
+            "Time-aware financial model"
+          ]
+        },
+        {
+          "path": "/admin/settings/payments",
+          "purpose": "Stripe Connect onboarding for tenant: connect/disconnect account, view status, open Stripe Express dashboard.",
+          "audience": "admin only",
+          "ui_elements": [
+            "StripeConnectPanel (Connect button or status card)",
+            "Explainer ordered list (1–5) of how it works"
+          ],
+          "data_tables": [
+            "tenants (stripe_account_id, stripe_account_status)"
+          ],
+          "server_actions": [
+            { "name": "payments/actions.ts: createConnectLink", "what": "Stripe Express onboarding link generation" },
+            { "name": "disconnectConnect", "what": "Clears stripe_account_id" }
+          ],
+          "business_rules": [
+            "Bookings charge customer cards → funds land in tenant's Stripe → auto-payout 2-day rolling",
+            "RentalFlow takes no per-transaction fee — flat monthly subscription"
+          ],
+          "external_effects": [
+            "Calls Stripe Connect Accounts/AccountLinks APIs"
+          ],
+          "notable_patterns": [
+            "Unscoped admin client to read tenants row"
+          ]
+        },
+        {
+          "path": "/admin/settings/billing",
+          "purpose": "RentalFlow's own subscription billing for the tenant (separate from their Stripe Connect): plan, invoices, payment method, upcoming charge.",
+          "audience": "admin only",
+          "ui_elements": [
+            "BillingPanel: current plan, status, period end, cancel-at-period-end flag, trial ends, payment method, last 12 invoices, upcoming charge, paid this year",
+            "Tier comparison from lib/stripe/billing TIERS"
+          ],
+          "data_tables": [
+            "tenants (plan, stripe_customer_id, stripe_subscription_id, subscription_status, current_period_end, cancel_at_period_end, trial_ends_at)"
+          ],
+          "server_actions": [
+            { "name": "billing/actions.ts: createCheckoutSession", "what": "Stripe Checkout for upgrade" },
+            { "name": "openBillingPortal", "what": "Stripe Billing Portal session" },
+            { "name": "cancelSubscription / pauseSubscription / resumeSubscription", "what": "Subscription mgmt" }
+          ],
+          "business_rules": [
+            "'founder' tier skips Stripe calls (free internal accounts)",
+            "Live Stripe data fetched in parallel"
+          ],
+          "external_effects": [
+            "Calls Stripe Subscriptions/Customers/Invoices APIs"
+          ],
+          "notable_patterns": [
+            "Founder tier short-circuits to avoid Stripe lookups"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Marketing & Customer",
+      "tagline": "CRM, loyalty, reviews, campaigns, automated emails — keeping customers coming back",
+      "icon_hint": "users",
+      "pages": [
+        {
+          "path": "/admin/customers",
+          "purpose": "Unified customer directory aggregated from bookings + quotes + manually-added portal accounts.",
+          "audience": "admin / staff",
+          "ui_elements": [
+            "Search box + sort (recent/spent/bookings/name)",
+            "3 summary stats: Total / Returning / Lifetime revenue",
+            "Export CSV + Bulk import + Add customer CTAs",
+            "Customer table with View link"
+          ],
+          "data_tables": [
+            "bookings",
+            "quotes",
+            "customer_profiles",
+            "auth.users (for portal-only emails)"
+          ],
+          "server_actions": [],
+          "business_rules": [
+            "Aggregation key: lowercased email",
+            "Returning = total_bookings > 1",
+            "Portal-only customers (no booking/quote) appear via auth.users + customer_profiles join",
+            "Max 200 rows shown; refine search beyond"
+          ],
+          "external_effects": [
+            "CSV export served by /api/admin/export/customers"
+          ],
+          "notable_patterns": [
+            "Three data sources merged with email-normalized dedupe"
+          ]
+        },
+        {
+          "path": "/admin/customers/new",
+          "purpose": "Manually add a customer (creates portal account, optionally sends magic link invite).",
+          "audience": "admin / staff",
+          "ui_elements": [
+            "Hero gradient",
+            "CreateCustomerForm (email, name, phone, send-invite toggle)"
+          ],
+          "data_tables": [
+            "auth.users",
+            "customer_profiles"
+          ],
+          "server_actions": [
+            { "name": "customers/new/actions.ts: createCustomer", "what": "Find-or-create auth user (email_confirmed), upsert customer_profiles, optionally send magic link via Supabase auth.admin.generateLink" }
+          ],
+          "business_rules": [
+            "Duplicate email → refresh metadata (no dup)"
+          ],
+          "external_effects": [
+            "Sends magic-link invite email via Supabase Auth (built-in)"
+          ],
+          "notable_patterns": [
+            "Idempotent customer creation"
+          ]
+        },
+        {
+          "path": "/admin/customers/[email]",
+          "purpose": "Customer 360: contact, lifetime stats, tags, favorite rentals, full booking history. Special 'portal-only' fallback if zero bookings.",
+          "audience": "admin / staff",
+          "ui_elements": [
+            "CustomerTagsPanel with tag suggestions",
+            "Contact card + Lifetime stats card (Bookings, Total spent, Avg booking, Last booking, Loyalty points)",
+            "Favorite rentals chip cloud",
+            "Booking history table"
+          ],
+          "data_tables": [
+            "bookings",
+            "customer_tags",
+            "auth.users / customer_profiles (portal-only fallback)"
+          ],
+          "server_actions": [
+            { "name": "tag-actions.ts: addCustomerTag / removeCustomerTag / listExistingTags", "what": "CRUD on customer_tags with tag_color + notes" }
+          ],
+          "business_rules": [
+            "URL email decoded + lowercased",
+            "If no bookings, fall back to auth.users lookup + customer_profiles existence check; notFound() if neither",
+            "Lifetime spent counts only paid non-cancelled bookings"
+          ],
+          "external_effects": [],
+          "notable_patterns": [
+            "Single page handles bookings-flow customer + portal-only customer in branched render"
+          ]
+        },
+        {
+          "path": "/admin/customers/bulk-import",
+          "purpose": "CSV bulk-create portal accounts (up to 500 rows), optionally send welcome emails.",
+          "audience": "admin / staff",
+          "ui_elements": [
+            "Hero gradient",
+            "CSV format helper card with example download (data:text/csv inline)",
+            "BulkImportClient (preview + send)"
+          ],
+          "data_tables": [
+            "auth.users",
+            "customer_profiles"
+          ],
+          "server_actions": [
+            { "name": "customers/bulk-import/actions.ts: bulkImportCustomers", "what": "Parse CSV; per-row find-or-create user + upsert profile; optional welcome email" }
+          ],
+          "business_rules": [
+            "Email required; first_name/last_name/phone accept variant column names",
+            "Max 500 rows"
+          ],
+          "external_effects": [
+            "Welcome emails (Supabase Auth)"
+          ],
+          "notable_patterns": [
+            "Inline data: URI for example CSV download"
+          ]
+        },
+        {
+          "path": "/admin/loyalty",
+          "purpose": "Customer loyalty + referral commission overview: points, pending commission, payouts ready, payout requests inbox.",
+          "audience": "admin only",
+          "ui_elements": [
+            "PayoutRequestsPanel (pending + approved requests w/ approve/deny)",
+            "4 stat cards: Outstanding points (+ liability $) / Pending commission (+ # ready) / Paid out / Total customers w/ profile",
+            "Current rules card (points per $, redemption rate, min to redeem, referral %, payout threshold)",
+            "Customer table w/ over-threshold alert + Open link"
+          ],
+          "data_tables": [
+            "customer_profiles",
+            "payout_requests",
+            "auth.users",
+            "site_settings (commission_payout_threshold_cents)",
+            "loyalty settings (getLoyaltySettings)"
+          ],
+          "server_actions": [
+            { "name": "payout-admin-actions.ts: approvePayoutRequest / denyPayoutRequest", "what": "Updates payout_requests + customer_profiles balances + logAuditEvent" }
+          ],
+          "business_rules": [
+            "Threshold default 5000 cents",
+            "Over-threshold customers highlighted amber",
+            "Points liability = loyalty_points / redemption_rate * 100"
+          ],
+          "external_effects": [
+            "Approval triggers payout-confirmation email (in payout-admin-actions)"
+          ],
+          "notable_patterns": [
+            "Admin-only guard"
+          ]
+        },
+        {
+          "path": "/admin/loyalty/[user_id]",
+          "purpose": "Per-customer loyalty detail: balances, payout form, manual adjustment form, assigned coupons + earnings, people they referred, full transaction ledger.",
+          "audience": "admin only",
+          "ui_elements": [
+            "3 balance cards (points / pending commission / paid out)",
+            "PayoutForm + AdjustForm side-by-side",
+            "Assigned coupons table with commission_earned_cents per coupon",
+            "Referred users table",
+            "Full ledger (booking_points / points_redeemed / referral_commission / commission_payout / admin_adjustment)"
+          ],
+          "data_tables": [
+            "customer_profiles",
+            "coupons (referrer_user_id=this user)",
+            "bookings (coupon_code lookup)",
+            "loyalty_transactions",
+            "auth.users (emails)"
+          ],
+          "server_actions": [
+            { "name": "loyalty/actions.ts: recordPayout", "what": "Decrements commission_pending_cents + increments commission_paid_cents + inserts loyalty_transactions row + logAuditEvent" },
+            { "name": "adjustLoyalty", "what": "Add/subtract points or commission w/ reason; audit logged" }
+          ],
+          "business_rules": [
+            "Negative adjustments allowed",
+            "Audit trail mandatory"
+          ],
+          "external_effects": [
+            "Audit log writes"
+          ],
+          "notable_patterns": [
+            "Commission-per-coupon calculated by joining bookings.coupon_code → loyalty_transactions.booking_id"
+          ]
+        },
+        {
+          "path": "/admin/reviews",
+          "purpose": "Manage testimonials shown on public site: feature in carousel, import from Google Places cache, add manual.",
+          "audience": "admin only",
+          "ui_elements": [
+            "4 stats: Active / Featured / Avg rating / Total",
+            "'Leave us a review' link card (from site_settings.google_review_url)",
+            "GooglePlacesPanel (live Google cached reviews w/ Import-to-site button per review)",
+            "ReviewsManager (CRUD table with Featured/Active toggles, sort_order)"
+          ],
+          "data_tables": [
+            "customer_reviews",
+            "site_settings (google_review_url, google_business_profile_url)",
+            "google_places_cache (via getCachedPlaceData)"
+          ],
+          "server_actions": [
+            { "name": "reviews/actions.ts: createReview / updateReview / deleteReview / toggleFeatured", "what": "Standard CRUD" },
+            { "name": "google-import-actions.ts: importGoogleReview", "what": "Copy cached Google review into customer_reviews" },
+            { "name": "syncGooglePlaces", "what": "Calls Google Places API + writes to cache" }
+          ],
+          "business_rules": [
+            "Already-imported detection via review_text trim match",
+            "Featured + Active drive homepage carousel"
+          ],
+          "external_effects": [
+            "Google Places API calls when sync triggered (requires GOOGLE_PLACES_API_KEY)"
+          ],
+          "notable_patterns": [
+            "Cache-first read; sync explicit"
+          ]
+        },
+        {
+          "path": "/admin/campaigns",
+          "purpose": "List of email campaigns: name, recipient/sent/failed counts, status, sent-at or scheduled-at.",
+          "audience": "admin only",
+          "ui_elements": [
+            "Fuchsia hero gradient + New campaign CTA",
+            "Status badges (draft/scheduled/sending/sent/failed)",
+            "Tenant timezone-aware formatting"
+          ],
+          "data_tables": [
+            "campaigns"
+          ],
+          "server_actions": [],
+          "business_rules": [],
+          "external_effects": [],
+          "notable_patterns": [
+            "Marketing-bucket gradient identity"
+          ]
+        },
+        {
+          "path": "/admin/campaigns/new",
+          "purpose": "Audience builder + email composer + preview + schedule/send.",
+          "audience": "admin only",
+          "ui_elements": [
+            "CampaignBuilder client (filter pickers, subject, body, preview, send/schedule buttons)",
+            "Available tags from customer_tags",
+            "{firstName} personalization helper"
+          ],
+          "data_tables": [
+            "bookings (audience resolution)",
+            "customer_tags",
+            "customer_profiles"
+          ],
+          "server_actions": [
+            { "name": "campaigns/actions.ts: resolveAudience", "what": "Builds AudienceRow[] from filter (all_customers / tags / booked_within_days / min_total_spent_cents) by joining bookings + customer_tags + profiles" },
+            { "name": "createCampaign", "what": "Insert draft" },
+            { "name": "sendCampaign", "what": "Resolve audience + loop sendEmail per recipient w/ {firstName} substitution; update sent_count/failed_count" },
+            { "name": "scheduleCampaign", "what": "Set status='scheduled' + scheduled_at" }
+          ],
+          "business_rules": [
+            "OR-match on tags",
+            "Booked-within-days requires paid bookings",
+            "Per-email try/catch to keep going on individual failures"
+          ],
+          "external_effects": [
+            "N x sendEmail via Resend"
+          ],
+          "notable_patterns": [
+            "Audience resolver shared between preview and send"
+          ]
+        },
+        {
+          "path": "/admin/campaigns/[id]",
+          "purpose": "(Not present in filesystem) — campaign detail handled in CampaignBuilder modal/state on /admin/campaigns/new flow.",
+          "audience": "admin only",
+          "ui_elements": [
+            "No dedicated route file exists"
+          ],
+          "data_tables": [],
+          "server_actions": [],
+          "business_rules": [
+            "Filesystem confirms: no app/admin/campaigns/[id]/page.tsx"
+          ],
+          "external_effects": [],
+          "notable_patterns": [
+            "Read-only list — detail viewable via DB / audit_log"
+          ]
+        },
+        {
+          "path": "/admin/email-templates",
+          "purpose": "List of all transactional email templates: subject, label, description, last edit, enabled toggle.",
+          "audience": "admin only",
+          "ui_elements": [
+            "Warning banner if Resend not configured (RESEND_API_KEY/EMAIL_FROM)",
+            "Card list with description + 'Key: {key}' + last edit",
+            "Link to /admin/email-templates/{key} editor"
+          ],
+          "data_tables": [
+            "email_templates"
+          ],
+          "server_actions": [],
+          "business_rules": [
+            "Detects email-configured status from process.env at render time"
+          ],
+          "external_effects": [],
+          "notable_patterns": [
+            "Trivial list page"
+          ]
+        },
+        {
+          "path": "/admin/email-templates/[key]",
+          "purpose": "WYSIWYG editor for one template: subject, body HTML/text, SMS body, available variables, sample preview, test send.",
+          "audience": "admin only",
+          "ui_elements": [
+            "TemplateEditor with code editor for HTML + plain-text + SMS body",
+            "Variables panel showing available_vars",
+            "Sample data preview using SAMPLE_VARS map (per key)",
+            "Test send to admin email"
+          ],
+          "data_tables": [
+            "email_templates"
+          ],
+          "server_actions": [
+            { "name": "email-templates/actions.ts: updateTemplate", "what": "Persist subject/body/SMS/is_active changes" },
+            { "name": "sendTestEmail", "what": "Calls sendTemplated to the admin's own address with sample vars" }
+          ],
+          "business_rules": [
+            "Template keys: quote_sent, referral_commission, admin_payout_alert, abandoned_cart, booking_confirmation, booking_reminder_3d, booking_review_request, booking_cancelled, coi_ready, gift_card_received, (+ more)",
+            "Mustache-like {{var}} + {{#if var}}...{{/if}} conditional blocks"
+          ],
+          "external_effects": [
+            "Test sends fire real Resend emails (rate-limited responsibility)"
+          ],
+          "notable_patterns": [
+            "Sample vars hardcoded per key for reliable preview",
+            "SMS body co-edited with email (Twilio integration)"
+          ]
+        },
+        {
+          "path": "/admin/banners",
+          "purpose": "Home page carousel banners (1920×600).",
+          "audience": "admin only",
+          "ui_elements": [
+            "BannersManager: upload + alt_text + link_url + sort_order + is_active per row"
+          ],
+          "data_tables": [
+            "home_banners"
+          ],
+          "server_actions": [
+            { "name": "banners/actions.ts: createBanner / updateBanner / deleteBanner / reorderBanners", "what": "CRUD with Storage upload" }
+          ],
+          "business_rules": [
+            "Image up to 5 MB; PNG/JPG/WEBP"
+          ],
+          "external_effects": [
+            "Upload to Supabase Storage 'site-assets'",
+            "Revalidates public home"
+          ],
+          "notable_patterns": [
+            "Trivial visual asset CRUD"
+          ]
+        },
+        {
+          "path": "/admin/faqs",
+          "purpose": "Frequently Asked Questions for public /info/faqs page.",
+          "audience": "admin / staff",
+          "ui_elements": [
+            "FaqsManager (inline edit list w/ display_order + is_active)"
+          ],
+          "data_tables": [
+            "faqs"
+          ],
+          "server_actions": [
+            { "name": "faqs/actions.ts: createFaq / updateFaq / deleteFaq / reorder / toggleActive", "what": "Standard CRUD" }
+          ],
+          "business_rules": [
+            "Inactive FAQs hidden but retained"
+          ],
+          "external_effects": [
+            "Public /info/faqs revalidated"
+          ],
+          "notable_patterns": [
+            "Trivial content editor"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Configuration",
+      "tagline": "Brand, settings, legal, integrations — wire your business into the platform",
+      "icon_hint": "settings",
+      "pages": [
+        {
+          "path": "/admin/site",
+          "purpose": "Website content editor: logo, business info, all site_settings grouped by category, Local SEO panel, link to home sections builder.",
+          "audience": "admin / staff",
+          "ui_elements": [
+            "Top CTA card linking to /admin/site/sections (Sparkles emerald gradient)",
+            "LocalSeoPanel (address, service_area, geo lat/lng, price_range, GBP URL, Places place_id, Google verification meta) with Places sync status",
+            "SiteSettingsForm bulk editor (all keys grouped by category)"
+          ],
+          "data_tables": [
+            "site_settings",
+            "google_places_cache"
+          ],
+          "server_actions": [
+            { "name": "site/actions.ts: saveSiteSettings (bulk)", "what": "Upsert N site_settings rows" },
+            { "name": "local-seo-actions.ts: saveLocalSeo / triggerPlacesSync", "what": "Persist SEO fields + manually trigger Places API sync" }
+          ],
+          "business_rules": [
+            "Places sync requires GOOGLE_PLACES_API_KEY",
+            "Settings flat-mapped for the panel; bulk form still edits same keys"
+          ],
+          "external_effects": [
+            "Google Places API calls on sync",
+            "Revalidates public pages"
+          ],
+          "notable_patterns": [
+            "Two UIs for same data — dedicated SEO panel above bulk editor"
+          ]
+        },
+        {
+          "path": "/admin/site/branding",
+          "purpose": "(Implicit redirect to /admin/settings/branding) — no separate site/branding page exists.",
+          "audience": "admin only",
+          "ui_elements": [
+            "(See /admin/settings/branding)"
+          ],
+          "data_tables": [],
+          "server_actions": [],
+          "business_rules": [],
+          "external_effects": [],
+          "notable_patterns": [
+            "Branding lives under /settings, not /site"
+          ]
+        },
+        {
+          "path": "/admin/site/sections",
+          "purpose": "Toggle + edit extra home page sections (stats banner, why-choose-us, custom CTA, custom HTML).",
+          "audience": "admin only",
+          "ui_elements": [
+            "Emerald hero gradient",
+            "SectionsClient (per-section toggle + editor)"
+          ],
+          "data_tables": [
+            "tenant_home_sections"
+          ],
+          "server_actions": [
+            { "name": "site/sections/actions.ts: upsertSection / toggleSection / reorderSections", "what": "Insert if missing, update otherwise; respect SECTION_DEFS schema" }
+          ],
+          "business_rules": [
+            "SECTION_DEFS in lib/admin/home-sections.ts drives the union list"
+          ],
+          "external_effects": [
+            "Revalidates public home"
+          ],
+          "notable_patterns": [
+            "Pre-defined section types prevent free-form chaos"
+          ]
+        },
+        {
+          "path": "/admin/settings",
+          "purpose": "Settings hub: business info, timezone, plan/billing, inventory snapshot, iCal calendar feed, quick links.",
+          "audience": "admin / staff",
+          "ui_elements": [
+            "Business info card",
+            "TimezoneSection (dropdown + save)",
+            "Plan & billing card (Stripe Connect connected/not)",
+            "Inventory snapshot (active rental count)",
+            "CalendarFeed (iCal subscribe token + URL)",
+            "Quick links: Branding / Payments / Billing / Damage protection / Security"
+          ],
+          "data_tables": [
+            "tenants (business_name, owner_email, owner_phone, custom_domain, slug, plan, trial_ends_at, stripe_account_id, calendar_feed_token, timezone)",
+            "site_settings (business_address, business_email)",
+            "products (count)"
+          ],
+          "server_actions": [
+            { "name": "timezone-actions.ts: saveTimezone", "what": "Updates tenants.timezone" },
+            { "name": "calendar-actions.ts: rotateCalendarToken / disableCalendarFeed", "what": "Manages iCal feed token" }
+          ],
+          "business_rules": [
+            "Public URL prefers custom_domain over {slug}.getrentalflow.com"
+          ],
+          "external_effects": [],
+          "notable_patterns": [
+            "Aggregator page — most work happens in sub-pages"
+          ]
+        },
+        {
+          "path": "/admin/settings/general",
+          "purpose": "(Not present in filesystem) — general settings live on the /admin/settings root page.",
+          "audience": "admin / staff",
+          "ui_elements": [
+            "(See /admin/settings)"
+          ],
+          "data_tables": [],
+          "server_actions": [],
+          "business_rules": [],
+          "external_effects": [],
+          "notable_patterns": [
+            "No /general sub-route exists"
+          ]
+        },
+        {
+          "path": "/admin/settings/branding",
+          "purpose": "Logo, brand colors (primary/accent), font family, business name.",
+          "audience": "admin only",
+          "ui_elements": [
+            "BrandingEditor with logo uploader + color pickers + font dropdown",
+            "Public site preview link"
+          ],
+          "data_tables": [
+            "tenants (business_name, branding JSON)"
+          ],
+          "server_actions": [
+            { "name": "branding/actions.ts: saveBranding", "what": "Upserts tenants.branding (logo_url, primary_color, accent_color, font_family)" },
+            { "name": "uploadLogo", "what": "Storage upload + URL persisted" }
+          ],
+          "business_rules": [
+            "Defaults: primary #1a1a6e, accent #FFD700, font Quicksand",
+            "Affects admin panel, public site, and email branding"
+          ],
+          "external_effects": [
+            "Storage upload",
+            "Revalidates public + admin layouts"
+          ],
+          "notable_patterns": [
+            "Unscoped admin client for tenants row"
+          ]
+        },
+        {
+          "path": "/admin/settings/security",
+          "purpose": "TOTP-based 2FA enrollment + AAL status.",
+          "audience": "admin only",
+          "ui_elements": [
+            "MfaPanel: enrolled factors list, enroll new (QR + manual code), unenroll"
+          ],
+          "data_tables": [
+            "Supabase Auth MFA factors (managed by auth service, not DB table)"
+          ],
+          "server_actions": [
+            { "name": "(client-side via supabase.auth.mfa.enroll/verify/unenroll)", "what": "Calls Supabase Auth MFA API directly from MfaPanel" }
+          ],
+          "business_rules": [
+            "AAL1 = password only; AAL2 = password + TOTP",
+            "Middleware redirects to /admin/mfa-verify when AAL1 but factor exists"
+          ],
+          "external_effects": [
+            "Supabase Auth API calls"
+          ],
+          "notable_patterns": [
+            "Uses requireAdmin guard"
+          ]
+        },
+        {
+          "path": "/admin/settings/damage-protection",
+          "purpose": "Toggle + price + coverage for the optional damage-protection fee at checkout.",
+          "audience": "admin / staff",
+          "ui_elements": [
+            "DamageProtectionForm with enabled toggle + price + coverage inputs",
+            "How-it-works explainer card"
+          ],
+          "data_tables": [
+            "site_settings (damage_protection_enabled, damage_protection_price_cents, damage_protection_coverage_cents)"
+          ],
+          "server_actions": [
+            { "name": "damage-protection/actions.ts: saveDamageProtection", "what": "Upserts the 3 site_settings keys" }
+          ],
+          "business_rules": [
+            "Defaults: $25 fee, $500 coverage",
+            "Off → checkbox hidden in /order-by-date"
+          ],
+          "external_effects": [
+            "Revalidates public booking flow"
+          ],
+          "notable_patterns": [
+            "Simple toggle + 2 inputs"
+          ]
+        },
+        {
+          "path": "/admin/settings/sms",
+          "purpose": "(Implicit) — SMS body editing happens in /admin/email-templates/[key] under the SMS body tab. No standalone /settings/sms route.",
+          "audience": "admin only",
+          "ui_elements": [
+            "(See /admin/email-templates/[key])"
+          ],
+          "data_tables": [],
+          "server_actions": [],
+          "business_rules": [
+            "Filesystem confirms: no app/admin/settings/sms"
+          ],
+          "external_effects": [],
+          "notable_patterns": [
+            "Per Twilio LIVE memory: SMS bodies live in email_templates.sms_body column"
+          ]
+        },
+        {
+          "path": "/admin/onboarding",
+          "purpose": "First-time setup wizard for new tenants (business name, phone, email, address, logo, Stripe Connect, first product).",
+          "audience": "admin only (auto-redirects to /admin/dashboard once onboarding_completed_at is set)",
+          "ui_elements": [
+            "OnboardingWizard (multi-step form)"
+          ],
+          "data_tables": [
+            "tenants (onboarding_completed_at)",
+            "site_settings (business_address/email/phone/logo_url)",
+            "products (count check)"
+          ],
+          "server_actions": [
+            { "name": "onboarding/actions.ts: saveOnboardingStep / completeOnboarding", "what": "Per-step persistence; final step sets onboarding_completed_at" }
+          ],
+          "business_rules": [
+            "Skipped entirely once completed timestamp present"
+          ],
+          "external_effects": [],
+          "notable_patterns": [
+            "One-shot self-bypass via redirect"
+          ]
+        },
+        {
+          "path": "/admin/waiver",
+          "purpose": "Liability waiver text + enable toggle. Snapshotted per signing so historical bookings keep original wording.",
+          "audience": "admin only",
+          "ui_elements": [
+            "Legal disclaimer card (have attorney review)",
+            "Signed-count stat",
+            "WaiverEditor (title, body, enabled toggle)"
+          ],
+          "data_tables": [
+            "site_settings (waiver_enabled, waiver_title, waiver_text)",
+            "booking_waivers (signed count only)"
+          ],
+          "server_actions": [
+            { "name": "waiver/actions.ts: saveWaiver", "what": "Upserts the 3 site_settings keys" }
+          ],
+          "business_rules": [
+            "Edits apply only to FUTURE bookings (past signatures snapshotted on booking_waivers)",
+            "Default text is industry boilerplate — admin must vet"
+          ],
+          "external_effects": [],
+          "notable_patterns": [
+            "Versioning via per-booking snapshot, not template versioning"
+          ]
+        },
+        {
+          "path": "/admin/coi",
+          "purpose": "Certificate of Insurance request queue: pending uploads, file upload + customer notification, mark delivered-to-venue.",
+          "audience": "admin only",
+          "ui_elements": [
+            "CoiRequestToggle (enable/disable public COI request checkbox)",
+            "4 stats: Pending request / Uploaded / Delivered / Cancelled",
+            "Per-request CoiPanel with venue info, additional insured, file upload, status flow"
+          ],
+          "data_tables": [
+            "coi_requests",
+            "bookings (joined for context)",
+            "site_settings (coi_request_enabled)"
+          ],
+          "server_actions": [
+            { "name": "coi/actions.ts: uploadCoi", "what": "Deletes prior file if any, uploads new PDF to Supabase Storage, updates row, sends sendTemplated('coi_ready') to customer with brand-aware from/replyTo + optional SMS" },
+            { "name": "markDeliveredToVenue", "what": "Flip status" },
+            { "name": "cancelRequest", "what": "Mark cancelled" }
+          ],
+          "business_rules": [
+            "COI ready notification uses tenant email config",
+            "SMS sent if isSmsConfigured()"
+          ],
+          "external_effects": [
+            "Resend email + Twilio SMS",
+            "Supabase Storage upload"
+          ],
+          "notable_patterns": [
+            "Templated email with HTML+text fallback inline"
+          ]
+        },
+        {
+          "path": "/admin/webhooks",
+          "purpose": "Outbound webhook subscriptions for booking/customer/quote events.",
+          "audience": "admin only",
+          "ui_elements": [
+            "Violet hero gradient with 3 stats: Active / Total deliveries / Failed",
+            "Event docs card (booking.created/confirmed/cancelled/paid, customer.created, quote.sent/approved, *)",
+            "WebhooksClient (CRUD + delivery history)"
+          ],
+          "data_tables": [
+            "tenant_webhooks",
+            "webhook_deliveries"
+          ],
+          "server_actions": [
+            { "name": "webhooks/actions.ts: createWebhook / updateWebhook / deleteWebhook / testWebhook / rotateSecret", "what": "CRUD + manual test delivery" }
+          ],
+          "business_rules": [
+            "X-RentalFlow-Signature: sha256=<hmac> header on every POST",
+            "Wildcard '*' event subscribes to all"
+          ],
+          "external_effects": [
+            "Outbound HTTP POSTs to tenant URLs",
+            "Logs deliveries to webhook_deliveries table"
+          ],
+          "notable_patterns": [
+            "HMAC-SHA256 signing"
+          ]
+        },
+        {
+          "path": "/admin/api-keys",
+          "purpose": "Personal access tokens (rfk_*) for /api/v1/* endpoints.",
+          "audience": "admin only",
+          "ui_elements": [
+            "Indigo hero gradient w/ 3 stats: Active / Revoked / Recently used (7d)",
+            "Quick start code snippet (curl)",
+            "ApiKeysClient (create + revoke + last_used_at + last_used_ip)"
+          ],
+          "data_tables": [
+            "tenant_api_keys"
+          ],
+          "server_actions": [
+            { "name": "api-keys/actions.ts: createApiKey", "what": "Generate rfk_ prefixed key + scopes; show full key once on creation" },
+            { "name": "revokeApiKey", "what": "Sets revoked_at" }
+          ],
+          "business_rules": [
+            "Endpoints exposed: /api/v1/bookings, /api/v1/customers, /api/v1/products",
+            "Last-used tracking on every authenticated call"
+          ],
+          "external_effects": [
+            "No emails"
+          ],
+          "notable_patterns": [
+            "Key shown once — stored hashed"
+          ]
+        },
+        {
+          "path": "/admin/mfa-verify",
+          "purpose": "Step-up MFA verify page — middleware lands here when AAL1 session needs TOTP.",
+          "audience": "any logged-in user with TOTP factor (any role)",
+          "ui_elements": [
+            "MfaVerifyForm (6-digit code input)",
+            "?next=/admin/... post-verify redirect"
+          ],
+          "data_tables": [],
+          "server_actions": [
+            { "name": "(client-side supabase.auth.mfa.challenge + verify)", "what": "Promotes session to AAL2" }
+          ],
+          "business_rules": [
+            "Redirects to /admin/dashboard if no verified TOTP factor",
+            "Redirects to /admin/login if no session"
+          ],
+          "external_effects": [
+            "Supabase Auth MFA challenge"
+          ],
+          "notable_patterns": [
+            "Centered card layout outside main admin shell"
+          ]
+        },
+        {
+          "path": "/admin/login",
+          "purpose": "Tenant-branded login page (resolves business_name from URL subdomain).",
+          "audience": "anonymous",
+          "ui_elements": [
+            "LoginForm client component"
+          ],
+          "data_tables": [
+            "tenants (business_name only)"
+          ],
+          "server_actions": [
+            { "name": "login/actions.ts: signIn", "what": "Supabase signInWithPassword + AAL handling + redirect" }
+          ],
+          "business_rules": [
+            "Brand name comes from tenant lookup so subdomain customers see THEIR brand"
+          ],
+          "external_effects": [
+            "Supabase Auth sign-in"
+          ],
+          "notable_patterns": [
+            "Unscoped admin client for tenant lookup"
+          ]
+        },
+        {
+          "path": "/admin/logout",
+          "purpose": "POST-only route that clears session and redirects to /admin/login.",
+          "audience": "any signed-in user",
+          "ui_elements": [
+            "(No UI — route.ts only)"
+          ],
+          "data_tables": [],
+          "server_actions": [
+            { "name": "POST handler (route.ts)", "what": "supabase.auth.signOut() + NextResponse.redirect to /admin/login" }
+          ],
+          "business_rules": [
+            "POST-only (no GET) to prevent CSRF logout"
+          ],
+          "external_effects": [
+            "Supabase Auth sign-out"
+          ],
+          "notable_patterns": [
+            "Trivial route handler"
+          ]
+        },
+        {
+          "path": "/admin/security",
+          "purpose": "(Not present in filesystem) — lives at /admin/settings/security.",
+          "audience": "admin only",
+          "ui_elements": [
+            "(See /admin/settings/security)"
+          ],
+          "data_tables": [],
+          "server_actions": [],
+          "business_rules": [],
+          "external_effects": [],
+          "notable_patterns": [
+            "Path alias; canonical route is under /settings"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Operations support",
+      "tagline": "Help, diagnostics, user management, audit trail — keeping the lights on",
+      "icon_hint": "life-buoy",
+      "pages": [
+        {
+          "path": "/admin/support",
+          "purpose": "Tenant-side support: searchable KB articles + AI-triaged ticket form.",
+          "audience": "any signed-in admin/staff",
+          "ui_elements": [
+            "Violet hero gradient",
+            "Knowledge base grouped by category (kb_articles where is_published=true)",
+            "SupportForm posts to /api/admin/support — triggers AI triage"
+          ],
+          "data_tables": [
+            "kb_articles (unscoped — shared KB across tenants)"
+          ],
+          "server_actions": [
+            { "name": "(form posts to /api/admin/support route)", "what": "Creates support_tickets row + AI background triage" }
+          ],
+          "business_rules": [
+            "KB articles shared across tenants (RentalFlow company KB)"
+          ],
+          "external_effects": [
+            "Creates ticket + AI triage (Anthropic/OpenAI)",
+            "Notifies RentalFlow support team"
+          ],
+          "notable_patterns": [
+            "Spanish copy mixed in heading text"
+          ]
+        },
+        {
+          "path": "/admin/support/kb/[slug]",
+          "purpose": "Render one KB article + bump view count.",
+          "audience": "any signed-in user",
+          "ui_elements": [
+            "Article body in <article class='prose'>",
+            "Back to support link + 'Send us a ticket' fallback CTA"
+          ],
+          "data_tables": [
+            "kb_articles (unscoped)"
+          ],
+          "server_actions": [],
+          "business_rules": [
+            "is_published guard → notFound() if not",
+            "view_count incremented best-effort (try/catch)"
+          ],
+          "external_effects": [],
+          "notable_patterns": [
+            "No client JS — pure SSR"
+          ]
+        },
+        {
+          "path": "/admin/help",
+          "purpose": "In-app help center with step-by-step manual + CSV template downloads.",
+          "audience": "any signed-in user",
+          "ui_elements": [
+            "HelpClient (long-form interactive guide w/ TOC)"
+          ],
+          "data_tables": [],
+          "server_actions": [],
+          "business_rules": [
+            "Per memory file: every new tenant feature should update HelpClient.tsx + KB seed"
+          ],
+          "external_effects": [],
+          "notable_patterns": [
+            "Static content driven by code, not DB"
+          ]
+        },
+        {
+          "path": "/admin/diagnostics",
+          "purpose": "System health check: env vars, DB tables, site settings, recent activity. Verdict banner + per-group breakdown.",
+          "audience": "admin only",
+          "ui_elements": [
+            "Verdict banner (green/amber/red) + Re-run link",
+            "Blockers section (fails) + Warnings section (warns)",
+            "Per-group accordion w/ ok/warn/fail/info icons + hint",
+            "BackupPanel (download DB snapshot)"
+          ],
+          "data_tables": [
+            "Driven by lib/diagnostics.runAllChecks() which inspects env + many tables"
+          ],
+          "server_actions": [
+            { "name": "BackupPanel actions: triggerBackup / downloadBackup", "what": "Server-side DB dump generation" }
+          ],
+          "business_rules": [
+            "Fail > 0 → red verdict; warn > 0 → amber; else green",
+            "Refresh by re-navigating (no client refetch)"
+          ],
+          "external_effects": [
+            "Backup writes file"
+          ],
+          "notable_patterns": [
+            "Single runAllChecks() returns CheckResult[]"
+          ]
+        },
+        {
+          "path": "/admin/users",
+          "purpose": "Per-tenant user roles management (admin / staff / driver).",
+          "audience": "admin only",
+          "ui_elements": [
+            "UsersManager: invite, change role, deactivate, last sign-in"
+          ],
+          "data_tables": [
+            "user_roles (auto-scoped to tenant via proxy)",
+            "auth.users (unscoped for email + last_sign_in_at)"
+          ],
+          "server_actions": [
+            { "name": "users/actions.ts: inviteUser / updateRole / deactivateUser / reactivateUser / deleteUser", "what": "CRUD on user_roles; invite calls Supabase Auth admin to send magic link" }
+          ],
+          "business_rules": [
+            "CRITICAL: filter authUsers to those whose ID appears in this tenant's user_roles. Other tenants' users must never appear here.",
+            "Staff see only Bookings/Inventory/Availability/Dashboard"
+          ],
+          "external_effects": [
+            "Supabase Auth admin invite emails"
+          ],
+          "notable_patterns": [
+            "Scoped + unscoped admin clients used carefully for cross-tenant safety"
+          ]
+        },
+        {
+          "path": "/admin/users/[id]",
+          "purpose": "(Not present in filesystem) — per-user edit happens inline on /admin/users via UsersManager modal.",
+          "audience": "admin only",
+          "ui_elements": [
+            "(See /admin/users)"
+          ],
+          "data_tables": [],
+          "server_actions": [],
+          "business_rules": [
+            "Filesystem confirms: no app/admin/users/[id]/page.tsx"
+          ],
+          "external_effects": [],
+          "notable_patterns": [
+            "Inline-edit pattern instead of detail route"
+          ]
+        },
+        {
+          "path": "/admin/audit-log",
+          "purpose": "Last 500 audit events with filters: user, entity, action. Pillstyled action badges. JSON details collapsible.",
+          "audience": "admin (sees all) / staff (sees their own)",
+          "ui_elements": [
+            "Filter form (user / entity / action contains)",
+            "Table: When / Who (email + role) / Action pill / Entity / Details JSON / IP"
+          ],
+          "data_tables": [
+            "admin_audit_log"
+          ],
+          "server_actions": [],
+          "business_rules": [
+            "Limit 500",
+            "Staff get RLS-scoped to their own actions (handled at DB/RLS level)",
+            "Action pill color derived from substring match (refund/delete → red, approve → green, etc.)"
+          ],
+          "external_effects": [],
+          "notable_patterns": [
+            "Querystring-driven filters",
+            "<details> for JSON detail rows"
+          ]
+        },
+        {
+          "path": "/admin/goals",
+          "purpose": "Tenant business goals tracker: target + window + progress bar + projected status (ahead/on_track/behind/achieved/missed) + projected hit date.",
+          "audience": "any signed-in admin/staff",
+          "ui_elements": [
+            "Orange/rose hero gradient",
+            "GoalForm (create new goal)",
+            "Goal cards w/ status-colored gradient + delete button + progress bar + projected hit date"
+          ],
+          "data_tables": [
+            "tenant_goals (via fetchTenantGoals helper)"
+          ],
+          "server_actions": [
+            { "name": "goals/actions.ts: createGoal / updateGoal / deleteTenantGoal", "what": "CRUD; live progress computed by lib/admin/goals" }
+          ],
+          "business_rules": [
+            "Status colors: emerald (ahead/achieved), blue (on_track), amber (behind), rose (missed)",
+            "Bounced to dashboard if tenantId is the marketing placeholder __marketing__"
+          ],
+          "external_effects": [],
+          "notable_patterns": [
+            "Server actions defined inline in the page tsx for delete (rare — most are in actions.ts)"
+          ]
+        }
+      ]
+    }
+  ]
+}

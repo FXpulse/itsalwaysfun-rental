@@ -2902,6 +2902,175 @@ on conflict (slug) do update set
   updated_at = now();
 
 insert into kb_articles (slug, title, body_md, category, tags, is_published) values
+  ($kbf$help-internal-messages$kbf$, $kbf$Per-booking team chat (@mentions)$kbf$, $kbf$Every booking now has its own message thread visible to admin, staff,
+and the assigned driver. Open any booking → scroll to
+**Internal messages**. Type a message, optionally
+`@mention` a teammate to notify them.
+
+What it replaces:
+
+The "WhatsApp group" most operators run for delivery coordination.
+
+**Where it shows up:**
+
+-
+Admin: `/admin/bookings/[id]` — "Internal messages" panel
+
+-
+Driver: `/driver/inbox` → tap a booking → full thread.
+Driver gets an Inbox badge when they're @mentioned in the last 7
+days.
+
+-
+Soft-delete + edit history are preserved (deleted_at, edited_at
+columns on `booking_internal_messages`).
+
+✓ All messages stay tenant-scoped via RLS. Drivers only see threads
+on bookings on their assigned routes.$kbf$, $kbf$Setup$kbf$, array[$kbf$help$kbf$, $kbf$imported$kbf$], true)
+on conflict (slug) do update set
+  title = excluded.title,
+  body_md = excluded.body_md,
+  category = excluded.category,
+  tags = excluded.tags,
+  updated_at = now();
+
+insert into kb_articles (slug, title, body_md, category, tags, is_published) values
+  ($kbf$help-booking-inspections$kbf$, $kbf$Delivery + pickup inspection checklists$kbf$, $kbf$Build reusable checklists per product (or per category, or
+tenant-wide). Drivers fill them at delivery + pickup. Results stored
+against the booking for warranty + insurance claims.
+
+**Setup (admin):**
+
+-
+Go to `/admin/inspections` → **+ New template**
+
+-
+Pick scope: specific product, category, or tenant-global
+
+-
+Add items: each is a key + label + type (checkbox or text).
+Example: `blower_inflates`, `seams_intact`,
+`customer_signed`
+
+- Save. Template is auto-suggested for matching bookings.
+
+**Usage (driver):**
+
+-
+On `/driver/booking/[id]/chat`: see suggested template,
+start a delivery / pickup / spot-check inspection
+
+- Per-item pass / fail / skip + notes + photo uploads
+
+-
+Overall status auto-computed: `passed`,
+`failed`, or `passed_with_issues`
+
+-
+Template state is **snapshotted** at inspection time —
+editing the template later does NOT change historical inspections
+
+💡 IAF uses this for damage-claim evidence: "Item passed at delivery,
+failed at pickup → customer responsible." The audit trail is
+tenant-visible in `/admin/bookings/[id]`.$kbf$, $kbf$Setup$kbf$, array[$kbf$help$kbf$, $kbf$imported$kbf$], true)
+on conflict (slug) do update set
+  title = excluded.title,
+  body_md = excluded.body_md,
+  category = excluded.category,
+  tags = excluded.tags,
+  updated_at = now();
+
+insert into kb_articles (slug, title, body_md, category, tags, is_published) values
+  ($kbf$help-driver-mobile$kbf$, $kbf$Driver mobile app — bottom-nav redesign$kbf$, $kbf$As of June 2026, the driver app uses an Uber-style bottom-nav layout
+so the driver doesn't bounce between admin pages.
+
+Bottom nav tabs:
+
+-
+**🚚 Routes** (`/driver`) — today + tomorrow's
+routes assigned to the driver's vehicle
+
+-
+**💬 Inbox** (`/driver/inbox`) — per-booking
+threads. Red badge when @mentioned.
+
+-
+**👤 Me** (`/driver/me`) — profile, 2FA,
+sign out
+
+**Per-stop card features:**
+
+-
+Tap address → opens Google Maps with turn-by-turn
+
+- Tap phone → calls customer
+
+-
+"Photos" → opens `/admin/bookings/[id]/proof` for upload
+
+-
+"Chat / Inspect" → opens
+`/driver/booking/[id]/chat` (team chat + inspection
+panel)
+
+- Big green "Delivered" button at the bottom
+
+- "Reopen stop" undo if marked by mistake
+
+✓ Installable PWA. Works offline for cached pages. Photo uploads
+tolerate up to 10MB (raised from 1MB default — iPhone photos
+previously silently failed).
+
+Drivers can save inspections directly from the app. The
+`createInspection` server action accepts the driver role
+(previously admin-only).$kbf$, $kbf$Dispatch$kbf$, array[$kbf$help$kbf$, $kbf$imported$kbf$], true)
+on conflict (slug) do update set
+  title = excluded.title,
+  body_md = excluded.body_md,
+  category = excluded.category,
+  tags = excluded.tags,
+  updated_at = now();
+
+insert into kb_articles (slug, title, body_md, category, tags, is_published) values
+  ($kbf$help-ci-pipeline$kbf$, $kbf$CI on PR — what gets checked automatically$kbf$, $kbf$Since June 2026, every PR + push to `main` runs three CI
+jobs via GitHub Actions (`.github/workflows/ci.yml`):
+
+**1. Typecheck + Lint + Tests**
+
+`npm run typecheck` + `npm run lint` +
+`npm test`. Fails the PR if any error or test
+breaks.
+
+**2. Scope-check (multi-tenant drift)**
+
+Runs `scripts/check-tenant-scope.ts`. Connects to live
+Supabase + verifies every table with a `tenant_id`
+column is registered in `lib/tenant/scope.ts`
+`MULTI_TENANT_TABLES`. Catches the "added a new
+table, forgot to register it" footgun.
+
+**3. Integration tests**
+
+Runs `npm run test:integration` against a dedicated
+test Supabase project (`TEST_SUPABASE_URL` +
+`TEST_SUPABASE_SERVICE_ROLE_KEY` secrets). Currently:
+multi-tenant isolation + booking-email idempotency.
+
+⚠️ Jobs 2 + 3 require the Supabase secrets and are skipped
+automatically on fork PRs (which don't get access to secrets). On
+push to `main` they always run.
+
+Two open follow-ups: (a) expand integration tests to 10+ scenarios
+covering refunds, holds, GHL webhook; (b) add Dependabot or Snyk for
+CVE scanning of npm deps.$kbf$, $kbf$Setup$kbf$, array[$kbf$help$kbf$, $kbf$imported$kbf$], true)
+on conflict (slug) do update set
+  title = excluded.title,
+  body_md = excluded.body_md,
+  category = excluded.category,
+  tags = excluded.tags,
+  updated_at = now();
+
+insert into kb_articles (slug, title, body_md, category, tags, is_published) values
   ($kbf$help-tests$kbf$, $kbf$Testing checklist$kbf$, $kbf$Before going live, test these end-to-end:
 
 - ☐ Public booking → Stripe test card `4242 4242 4242 4242` → check email + SMS arrive

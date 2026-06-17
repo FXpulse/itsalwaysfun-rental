@@ -33,6 +33,9 @@ import {
   Webhook,
   Sparkles as SparklesIcon,
   BarChart3,
+  MessageCircle,
+  ClipboardCheck,
+  GitBranch,
 } from "lucide-react";
 
 interface Section {
@@ -2977,6 +2980,211 @@ sofia@example.com,Sofia,Rivera,`}
           </p>
           <p className="bg-amber-50 border border-amber-200 rounded p-2 text-xs">
             ⚠️ If you haven't seeded the <code>booking_reengagement_90d</code> template yet, the email skips silently. Add it in <code>/admin/email-templates</code> by clicking "Add template" with key <code>booking_reengagement_90d</code>.
+          </p>
+        </div>
+      ),
+    },
+    {
+      id: "internal-messages",
+      title: "Per-booking team chat (@mentions)",
+      icon: MessageCircle,
+      content: (
+        <div className="space-y-3 text-sm">
+          <p>
+            Every booking now has its own message thread visible to admin, staff,
+            and the assigned driver. Open any booking → scroll to{" "}
+            <strong>Internal messages</strong>. Type a message, optionally{" "}
+            <code>@mention</code> a teammate to notify them.
+          </p>
+          <div className="bg-slate-50 border border-slate-200 rounded p-3 text-xs space-y-1">
+            <p className="font-semibold">What it replaces:</p>
+            <p>The "WhatsApp group" most operators run for delivery coordination.</p>
+          </div>
+          <p>
+            <strong>Where it shows up:</strong>
+          </p>
+          <ul className="list-disc pl-5 text-xs space-y-1">
+            <li>
+              Admin: <code>/admin/bookings/[id]</code> — "Internal messages" panel
+            </li>
+            <li>
+              Driver: <code>/driver/inbox</code> → tap a booking → full thread.
+              Driver gets an Inbox badge when they're @mentioned in the last 7
+              days.
+            </li>
+            <li>
+              Soft-delete + edit history are preserved (deleted_at, edited_at
+              columns on <code>booking_internal_messages</code>).
+            </li>
+          </ul>
+          <p className="bg-emerald-50 border border-emerald-200 rounded p-2 text-xs">
+            ✓ All messages stay tenant-scoped via RLS. Drivers only see threads
+            on bookings on their assigned routes.
+          </p>
+        </div>
+      ),
+    },
+    {
+      id: "booking-inspections",
+      title: "Delivery + pickup inspection checklists",
+      icon: ClipboardCheck,
+      content: (
+        <div className="space-y-3 text-sm">
+          <p>
+            Build reusable checklists per product (or per category, or
+            tenant-wide). Drivers fill them at delivery + pickup. Results stored
+            against the booking for warranty + insurance claims.
+          </p>
+          <p>
+            <strong>Setup (admin):</strong>
+          </p>
+          <ol className="list-decimal pl-5 text-xs space-y-1">
+            <li>
+              Go to <code>/admin/inspections</code> → <strong>+ New template</strong>
+            </li>
+            <li>
+              Pick scope: specific product, category, or tenant-global
+            </li>
+            <li>
+              Add items: each is a key + label + type (checkbox or text).
+              Example: <code>blower_inflates</code>, <code>seams_intact</code>,
+              <code>customer_signed</code>
+            </li>
+            <li>Save. Template is auto-suggested for matching bookings.</li>
+          </ol>
+          <p>
+            <strong>Usage (driver):</strong>
+          </p>
+          <ul className="list-disc pl-5 text-xs space-y-1">
+            <li>
+              On <code>/driver/booking/[id]/chat</code>: see suggested template,
+              start a delivery / pickup / spot-check inspection
+            </li>
+            <li>Per-item pass / fail / skip + notes + photo uploads</li>
+            <li>
+              Overall status auto-computed: <code>passed</code>,{" "}
+              <code>failed</code>, or <code>passed_with_issues</code>
+            </li>
+            <li>
+              Template state is <strong>snapshotted</strong> at inspection time —
+              editing the template later does NOT change historical inspections
+            </li>
+          </ul>
+          <p className="bg-amber-50 border border-amber-200 rounded p-2 text-xs">
+            💡 IAF uses this for damage-claim evidence: "Item passed at delivery,
+            failed at pickup → customer responsible." The audit trail is
+            tenant-visible in <code>/admin/bookings/[id]</code>.
+          </p>
+        </div>
+      ),
+    },
+    {
+      id: "driver-mobile",
+      title: "Driver mobile app — bottom-nav redesign",
+      icon: Smartphone,
+      content: (
+        <div className="space-y-3 text-sm">
+          <p>
+            As of June 2026, the driver app uses an Uber-style bottom-nav layout
+            so the driver doesn't bounce between admin pages.
+          </p>
+          <div className="bg-slate-50 border border-slate-200 rounded p-3 text-xs">
+            <p className="font-semibold mb-2">Bottom nav tabs:</p>
+            <ul className="list-disc pl-5 space-y-1">
+              <li>
+                <strong>🚚 Routes</strong> (<code>/driver</code>) — today + tomorrow's
+                routes assigned to the driver's vehicle
+              </li>
+              <li>
+                <strong>💬 Inbox</strong> (<code>/driver/inbox</code>) — per-booking
+                threads. Red badge when @mentioned.
+              </li>
+              <li>
+                <strong>👤 Me</strong> (<code>/driver/me</code>) — profile, 2FA,
+                sign out
+              </li>
+            </ul>
+          </div>
+          <p>
+            <strong>Per-stop card features:</strong>
+          </p>
+          <ul className="list-disc pl-5 text-xs space-y-1">
+            <li>
+              Tap address → opens Google Maps with turn-by-turn
+            </li>
+            <li>Tap phone → calls customer</li>
+            <li>
+              "Photos" → opens <code>/admin/bookings/[id]/proof</code> for upload
+            </li>
+            <li>
+              "Chat / Inspect" → opens{" "}
+              <code>/driver/booking/[id]/chat</code> (team chat + inspection
+              panel)
+            </li>
+            <li>Big green "Delivered" button at the bottom</li>
+            <li>"Reopen stop" undo if marked by mistake</li>
+          </ul>
+          <p className="bg-emerald-50 border border-emerald-200 rounded p-2 text-xs">
+            ✓ Installable PWA. Works offline for cached pages. Photo uploads
+            tolerate up to 10MB (raised from 1MB default — iPhone photos
+            previously silently failed).
+          </p>
+          <p className="text-xs text-slate-600">
+            Drivers can save inspections directly from the app. The{" "}
+            <code>createInspection</code> server action accepts the driver role
+            (previously admin-only).
+          </p>
+        </div>
+      ),
+    },
+    {
+      id: "ci-pipeline",
+      title: "CI on PR — what gets checked automatically",
+      icon: GitBranch,
+      content: (
+        <div className="space-y-3 text-sm">
+          <p>
+            Since June 2026, every PR + push to <code>main</code> runs three CI
+            jobs via GitHub Actions (<code>.github/workflows/ci.yml</code>):
+          </p>
+          <div className="bg-slate-50 border border-slate-200 rounded p-3 text-xs space-y-2">
+            <div>
+              <strong>1. Typecheck + Lint + Tests</strong>
+              <p className="text-slate-600">
+                <code>npm run typecheck</code> + <code>npm run lint</code> +{" "}
+                <code>npm test</code>. Fails the PR if any error or test
+                breaks.
+              </p>
+            </div>
+            <div>
+              <strong>2. Scope-check (multi-tenant drift)</strong>
+              <p className="text-slate-600">
+                Runs <code>scripts/check-tenant-scope.ts</code>. Connects to live
+                Supabase + verifies every table with a <code>tenant_id</code>{" "}
+                column is registered in <code>lib/tenant/scope.ts</code>{" "}
+                <code>MULTI_TENANT_TABLES</code>. Catches the "added a new
+                table, forgot to register it" footgun.
+              </p>
+            </div>
+            <div>
+              <strong>3. Integration tests</strong>
+              <p className="text-slate-600">
+                Runs <code>npm run test:integration</code> against a dedicated
+                test Supabase project (<code>TEST_SUPABASE_URL</code> +{" "}
+                <code>TEST_SUPABASE_SERVICE_ROLE_KEY</code> secrets). Currently:
+                multi-tenant isolation + booking-email idempotency.
+              </p>
+            </div>
+          </div>
+          <p className="bg-amber-50 border border-amber-200 rounded p-2 text-xs">
+            ⚠️ Jobs 2 + 3 require the Supabase secrets and are skipped
+            automatically on fork PRs (which don't get access to secrets). On
+            push to <code>main</code> they always run.
+          </p>
+          <p className="text-xs">
+            Two open follow-ups: (a) expand integration tests to 10+ scenarios
+            covering refunds, holds, GHL webhook; (b) add Dependabot or Snyk for
+            CVE scanning of npm deps.
           </p>
         </div>
       ),
