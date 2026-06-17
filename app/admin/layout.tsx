@@ -221,6 +221,33 @@ export default async function AdminLayout({
     }
   }
 
+  // MFA enforcement gate. When the tenant has require_admin_mfa=true, an
+  // admin without a verified TOTP factor is funnelled to /admin/settings/security
+  // until they enroll. Staff role is intentionally NOT gated (operators
+  // don't typically force MFA on field staff). Superadmins impersonating
+  // are also not gated — they're using their own session, not the tenant's.
+  if (userRole.role === "admin" && !impersonating) {
+    const { isAdminMfaRequired, userHasVerifiedTotpFactor } = await import(
+      "@/lib/auth/mfa-required"
+    );
+    const mfaGateAllowed = [
+      "/admin/settings/security",
+      "/admin/logout",
+    ];
+    const isAllowedWhileGated = mfaGateAllowed.some((p) =>
+      requestPath.startsWith(p),
+    );
+    if (!isAllowedWhileGated && currentTenantId) {
+      const [required, hasFactor] = await Promise.all([
+        isAdminMfaRequired(currentTenantId),
+        userHasVerifiedTotpFactor(user.id),
+      ]);
+      if (required && !hasFactor) {
+        redirect("/admin/settings/security?enroll_required=1");
+      }
+    }
+  }
+
   // On the onboarding wizard route, drop the sidebar/header — the wizard
   // owns the whole viewport. Layout still ran auth + onboarding checks.
   if (isOnboardingPath) {
