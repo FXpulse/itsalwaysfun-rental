@@ -10,9 +10,10 @@ def render(api):
         audience_tags=['Engineer', 'Operations'])
 
     api['add_callout'](doc, 'fact',
-        'Scheduled via vercel.json. Every job verifies CRON_SECRET as Bearer token. 7 of 13 are '
-        'wrapped with Sentry.withMonitor() for SLA tracking — alerts trigger on missed runs or '
-        'execution errors. Schedules in UTC; Ludmila is on America/New_York (EST/EDT).')
+        'Scheduled via vercel.json — 14 jobs as of 2026-06-17. Every job verifies CRON_SECRET as '
+        'Bearer token. 8 of 14 are wrapped with Sentry.withMonitor() for SLA tracking — alerts '
+        'trigger on missed runs or execution errors. Schedules in UTC; Ludmila is on '
+        'America/New_York (EST/EDT).')
 
     api['add_h2'](doc, '13.1  Schedule overview')
 
@@ -32,6 +33,7 @@ def render(api):
             ('webhook-retry',        '*/5 * * * *', 'every 5 min',  'Every 5 minutes'),
             ('campaign-sender',      '*/5 * * * *', 'every 5 min',  'Every 5 minutes'),
             ('google-places-sync',   '0 10 * * *',  '5am',          'Daily'),
+            ('cleanup-old-rows',     '0 5 * * *',   'midnight',     'Daily (new 2026-06-17)'),
         ],
         col_widths=[2.2, 1.4, 1.8, 1.7])
 
@@ -110,7 +112,7 @@ def render(api):
     # weekly-backup
     api['add_data_sheet'](doc,
         title='weekly-backup (Sunday 3am UTC = Saturday 10pm EST)',
-        subtitle='Dual-target database export.',
+        subtitle='Dual-target database export with auto-pruning at both ends.',
         fields=[
             ('Path', '/api/cron/weekly-backup'),
             ('What it does', [
@@ -118,16 +120,48 @@ def render(api):
                 'Format as CSV files (per entity) + a master JSON dump',
                 'Upload to Supabase Storage (backups/ bucket)',
                 'Upload same to Cloudflare R2 (rentalflow-backups bucket) for redundancy',
+                'Prune Supabase Storage > 84 days old (existing)',
+                'Prune R2 > 84 days old via pruneOldBackupsFromR2 (NEW 2026-06-17)',
                 'Email link to OPERATOR_REPORT_EMAIL',
             ]),
             ('Tables read', 'Every multi-tenant table'),
             ('Tables written', 'None'),
             ('External effects', 'Supabase Storage + Cloudflare R2 + Resend (link email)'),
             ('Sentry', 'Wrapped with withMonitor("weekly-backup")'),
+            ('Retention', '84 days at both targets — only deletes files matching the '
+                            'backup-YYYY-MM-DD.json pattern (never blind deletes by lastModified)'),
             ('Notable', [
-                'No retention/lifecycle policy on backups today (open recommendation)',
                 'Restore drill: documented in docs/runbook-restore.md (last test 2026-06-16)',
                 'See runbook-restore-findings-2026-06-16.md for known restore gotchas',
+            ]),
+        ])
+
+    # cleanup-old-rows
+    api['add_data_sheet'](doc,
+        title='cleanup-old-rows (daily 5am UTC = midnight EST)  — NEW 2026-06-17',
+        subtitle='Daily archival cron for unbounded-growth tables.',
+        fields=[
+            ('Path', '/api/cron/cleanup-old-rows'),
+            ('What it does', [
+                'webhook_deliveries succeeded=true AND created_at < now − 30d → DELETE',
+                'webhook_deliveries succeeded=false AND created_at < now − 90d → DELETE '
+                '(max_attempts=4 exhausts in ~3 hours, so 90d is plenty for debugging)',
+                'portal_otp_codes consumed_at IS NOT NULL OR expires_at < now − 7d → DELETE',
+                'Returns row counts + retention config in JSON for visibility',
+            ]),
+            ('Explicit allowlist of tables that stay forever', [
+                'booking_emails_sent (idempotency ledger)',
+                'admin_audit_log (compliance trail)',
+                'loyalty_transactions (financial audit)',
+                'inventory_unit_movements (state machine history)',
+                'contact_messages (CRM)',
+                'email_messages (superadmin inbox archive)',
+            ]),
+            ('Sentry', 'Wrapped with withMonitor("cleanup-old-rows")'),
+            ('Why this cron exists', [
+                'webhook_deliveries grew unbounded — caused /admin/webhooks query latency drift',
+                'portal_otp_codes are zero-value once consumed/expired; ~1 week audit is plenty',
+                'Listed as an open recommendation in earlier audit drafts; closed 2026-06-17',
             ]),
         ])
 

@@ -147,23 +147,42 @@ def render(api):
         ('PII scrubbing in Sentry breadcrumbs — names, emails, phone numbers redacted.', False),
     ])
 
-    api['add_h2'](doc, '16.6  Recently closed (June 2026 sprint)')
+    api['add_h2'](doc, '16.6  Recently closed (June 2026)')
 
     api['add_callout'](doc, 'good',
-        'Three security items moved from "open" to "shipped" in the June 2026 sprint:')
+        'Eight security items moved from "open" to "shipped" between the June sprint and the '
+        '2026-06-17 hardening wave:')
 
     api['add_kv_table'](doc,
         ['#', 'Finding', 'How it closed'],
         [
             ('SEC-1', 'CSP (Content-Security-Policy) headers',
-             'next.config.js now sets Content-Security-Policy with explicit Stripe + GHL + GA '
+             'next.config.js sets Content-Security-Policy with explicit Stripe + GHL + GA '
              'allowlist. XSS blast-radius reduced.'),
+            ('SEC-3', 'MFA available but NOT required',
+             'site_settings.require_admin_mfa per-tenant switch (default off) + admin layout '
+             'gate + UI toggle with anti-lockout guardrail. Shipped 2026-06-17.'),
+            ('SEC-5', 'No per-IP rate limit on public reads',
+             '/api/products, /api/products/[slug], /api/availability now use lib/rate-limit at '
+             '60/min/IP via Upstash. Returns 429 + Retry-After 60. Shipped 2026-06-17.'),
+            ('SEC-6', 'EMAIL_ENCRYPTION_KEY rotation runbook',
+             'docs/runbook-rotate-email-encryption-key.md + scripts/rotate-email-encryption-key.ts '
+             '(dry-run / --apply). 8-step operator flow + rollback. Shipped 2026-06-17.'),
+            ('SEC-9', 'Dependency CVE scanning',
+             '.github/dependabot.yml — weekly npm + GitHub Actions, grouped minor/patch, '
+             'individual majors. Already filing PRs. Shipped 2026-06-17.'),
             ('SEC-10 / OBS-1', 'MULTI_TENANT_TABLES drift detection',
              'scripts/check-tenant-scope.ts runs as the "scope-check" CI job on every PR via '
-             '.github/workflows/ci.yml. Adding a new table without registering it fails CI.'),
+             '.github/workflows/ci.yml. New tables without registration fail CI.'),
+            ('PII review', 'Sentry breadcrumbs PII coverage',
+             'lib/sentry/scrub-pii.ts hardened: +6 token patterns (rfk_, pit-, re_, sk-ant-, '
+             'sk-proj-, E.164 phone), pattern reorder so tokens redact before phone, REDACT_KEYS '
+             'field-name list (customer_email, signed_name, etc.). 27 unit tests caught 5 real '
+             'bugs during development. Shipped 2026-06-17.'),
             ('TEST-1', 'Integration test infrastructure',
-             'tests/integration/ + dedicated TEST_SUPABASE_URL project. 2 tests live (multi-'
-             'tenant isolation, booking-email idempotency). Expansion is on the 30-day list.'),
+             'tests/integration/ + dedicated TEST_SUPABASE_URL project. 5 files live: multi-'
+             'tenant isolation, booking-email idempotency, inventory availability, dispatch '
+             'status rollup, booking status machine. ~25 cases.'),
         ],
         col_widths=[0.7, 2.5, 3.9])
 
@@ -174,19 +193,13 @@ def render(api):
         [
             ('SEC-2', 'Password complexity rules not enforced (Supabase defaults)',
              '2 hours', 'Medium'),
-            ('SEC-3', 'MFA infrastructure live but NOT required at admin signup',
-             '1 day', 'High for compliance posture'),
             ('SEC-4', 'GHL webhook secret uses simple == comparison (timing attack)',
              '15 min', 'Low (attacker would need many attempts)'),
-            ('SEC-5', 'No per-IP rate limit on public read endpoints (/api/products, /api/availability)',
-             '2 hours', 'Medium — scrape protection'),
-            ('SEC-6', 'EMAIL_ENCRYPTION_KEY rotation runbook missing',
-             'half day', 'Medium — DR planning'),
             ('SEC-7', 'No SOC2 / HIPAA / formal compliance attestation',
              'months', 'Optional — depends on enterprise customer targeting'),
             ('SEC-8', 'Webhook receivers can\'t signal "permanent failure" — 4xx still retries',
              '2 hours', 'Low — tenant integrator pain'),
-            ('SEC-9', 'No automated dependency vulnerability scan in CI (Dependabot or Snyk)',
-             '1 hour', 'Medium'),
+            ('SEC-3-next', 'MFA enforcement default OFF for new tenants (policy switch ships off)',
+             '2 hours', 'Medium — raises security floor automatically'),
         ],
         col_widths=[0.7, 3.4, 1.0, 1.9])

@@ -182,13 +182,16 @@ def render(api):
         [
             ('/api/bookings/check-and-hold', '10 / min / IP', 'Upstash sliding window', '429 with retry-after'),
             ('/api/contact',                 '5 / 5min / IP', 'Upstash sliding window', '429 with retry-after'),
+            ('/api/products',                '60 / min / IP', 'Upstash sliding window', '429 with retry-after'),
+            ('/api/products/[slug]',         '60 / min / IP', 'Upstash sliding window', '429 with retry-after'),
+            ('/api/availability',            '60 / min / IP', 'Upstash sliding window', '429 with retry-after'),
             ('/api/chat/public',             '10 / 5min / IP', 'In-memory (per-process)', '429 with retry-after'),
             ('/api/v1/*',                    'Vercel plan-based', 'Vercel', 'Plan-level throttling'),
             ('Others',                       'None', '—', '—'),
         ],
         col_widths=[2.5, 1.4, 1.8, 1.5])
 
-    api['add_callout'](doc, 'warn',
-        'Public-readonly endpoints (/api/availability, /api/products) have NO rate limit today. '
-        'A scrape attack would hit Supabase directly. This is on the 30-day list — adding a '
-        'cheap per-IP limit via Upstash is ~1 hour of work.')
+    api['add_callout'](doc, 'good',
+        'Public read endpoints (/api/products, /api/products/[slug], /api/availability) gained '
+        'per-IP rate limits on 2026-06-17 via lib/rate-limit. 60/min/IP is generous for legit '
+        'catalog browse + wizard date changes, restrictive enough to block automated scrape.')

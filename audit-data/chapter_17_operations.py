@@ -68,13 +68,15 @@ def render(api):
         ['Backup', 'Frequency', 'Target', 'Retention'],
         [
             ('weekly-backup cron', 'Weekly Sunday 3am UTC',
-             'Supabase Storage + Cloudflare R2 (dual)', 'No policy — accumulates'),
+             'Supabase Storage + Cloudflare R2 (dual)', '84 days at both (since 2026-06-17)'),
             ('Supabase managed PITR', 'Continuous',
              'Supabase pro plan default', 'Up to 7 days (plan-dependent)'),
             ('Email send ledger',  'Append-only',
              'booking_emails_sent table',                'Indefinite (immutable audit)'),
             ('Admin audit log',    'Append-only',
              'admin_audit_log table',                    'Indefinite (immutable audit)'),
+            ('Operational rows',  'Daily 5am UTC cleanup',
+             'webhook_deliveries + portal_otp_codes',     'webhook succeeded 30d / failed 90d / OTP 7d'),
         ],
         col_widths=[2.0, 1.6, 2.0, 1.5])
 

@@ -14,11 +14,11 @@ def render(api):
         audience_tags=['Owner', 'Engineer', 'Investor'])
 
     api['add_callout'](doc, 'fact',
-        'Recommendations are scoped to what is NOT yet shipped. Items that landed in the '
-        'June 2026 sprint (CI on PR, scope:check CI, CSP headers, OpenAPI spec, MFA infra, '
-        'restore drill) are called out separately so the roadmap does not duplicate them.')
+        'Recommendations are scoped to what is NOT yet shipped. The June 2026 sprint AND the '
+        '2026-06-17 hardening wave together closed 14 items previously on the roadmap. They are '
+        'called out separately so the recommendation list does not duplicate them.')
 
-    api['add_h2'](doc, '19.1  Recently shipped (June 2026 sprint)')
+    api['add_h2'](doc, '19.1  Recently shipped (June 2026)')
 
     api['add_p'](doc,
         'These items appeared on earlier roadmap drafts. They are shipped on main and verified '
@@ -37,17 +37,40 @@ def render(api):
             ('CSP headers in middleware (SEC-1)',
              'next.config.js — Content-Security-Policy with Stripe + GHL + GA allowlist',
              'LIVE'),
+            ('Dependabot CVE scanning (SEC-9)',
+             '.github/dependabot.yml — weekly npm + Actions, grouped minor/patch',
+             'LIVE (shipped 2026-06-17)'),
+            ('Rate limits on public reads (SEC-5)',
+             '60/min/IP on /api/products, /api/products/[slug], /api/availability via Upstash',
+             'LIVE (shipped 2026-06-17)'),
+            ('EMAIL_ENCRYPTION_KEY rotation runbook (SEC-6)',
+             'docs/runbook-rotate-email-encryption-key.md + scripts/rotate-email-encryption-key.ts',
+             'LIVE (shipped 2026-06-17)'),
+            ('MFA enforcement policy (SEC-3)',
+             'site_settings.require_admin_mfa per-tenant switch + admin layout gate + UI toggle',
+             'LIVE (shipped 2026-06-17, default off)'),
+            ('PII scrubbing hardened',
+             'lib/sentry/scrub-pii.ts: +6 patterns (rfk_, pit-, re_, sk-ant-, sk-proj-, E.164) '
+             '+ REDACT_KEYS field-name redaction + 27 unit tests',
+             'LIVE (shipped 2026-06-17)'),
             ('OpenAPI 3.0 spec + Swagger UI',
              '/api/v1/openapi.json + /api/v1/docs (Swagger UI via CDN)',
              'LIVE'),
-            ('MFA infrastructure',
-             '/admin/settings/security (MfaPanel) + /admin/mfa-verify gate in middleware',
-             'LIVE (opt-in; required by tenant choice)'),
+            ('R2 backup retention (OPS-2)',
+             'lib/backup-r2.ts pruneOldBackupsFromR2 wired into weekly-backup, 84-day window',
+             'LIVE (shipped 2026-06-17)'),
+            ('Daily archival cron (cleanup-old-rows)',
+             '/api/cron/cleanup-old-rows: webhook_deliveries succeeded>30d / failed>90d, '
+             'portal_otp_codes consumed-or-expired>7d',
+             'LIVE (shipped 2026-06-17)'),
+            ('CONTRIBUTING.md (DOC-1)',
+             '~470-line onboarding guide — 3 mental models + local setup + workflow + 10 recipes',
+             'LIVE (shipped 2026-06-17)'),
             ('Annual + Pause subscription options',
              'Stripe billing — annual saves 2 months; pause keeps data while suspending access',
              'LIVE'),
-            ('Per-booking team chat (booking_internal_messages)',
-             'Threaded chat on /admin/bookings/[id] + /driver/booking/[id]/chat with @mentions',
+            ('Per-booking team chat',
+             'booking_internal_messages, @mentions, /admin/bookings/[id] + /driver/booking/[id]/chat',
              'LIVE (shipped 2026-06-16)'),
             ('ERPNext-style booking inspections',
              '/admin/inspections templates + booking_inspections runtime + driver app entry',
@@ -58,9 +81,10 @@ def render(api):
             ('Restore drill + runbook',
              'docs/runbook-restore.md + docs/runbook-restore-findings-2026-06-16.md',
              'LIVE'),
-            ('Integration test suite + dedicated test Supabase project',
-             'tests/integration/ + TEST_SUPABASE_URL test target',
-             'LIVE (2 tests; expansion still on 30-day list)'),
+            ('Integration test infra + 5 suites',
+             'tests/integration/ + TEST_SUPABASE_URL target. inventory-availability, '
+             'dispatch-status-rollup, booking-status-machine (un-skipped 2026-06-17, 23 cases)',
+             'LIVE (5 files, ~25 cases — TEST-1 partial)'),
             ('Per-tenant SMS body editor',
              '/admin/email-templates SMS tab',
              'LIVE'),
@@ -75,76 +99,52 @@ def render(api):
         'roadmap below is therefore both shorter AND more focused on items that genuinely '
         'are not yet built.')
 
-    api['add_h2'](doc, '19.2  Next 30 days — not yet shipped')
+    api['add_h2'](doc, '19.2  Next 30 days — what remains')
 
     api['add_kv_table'](doc,
         ['#', 'Recommendation', 'Why it matters', 'Effort', 'Impact'],
         [
             ('1', 'UptimeRobot (or BetterStack) on /api/health',
-             'External uptime monitor. Pages on outage. Today nothing pings /api/health.',
+             'External uptime monitor. Pages on outage. Today nothing pings /api/health. '
+             'Requires operator to create an account — code-side is done.',
              '15 min', 'HIGH'),
-            ('2', 'Dependency vulnerability scanning in CI (SEC-9)',
-             'Dependabot or Snyk wired to PR checks. Surfaces known CVEs early.',
-             '1h', 'MEDIUM'),
-            ('3', 'Rate limit on public read endpoints (SEC-5)',
-             '/api/products, /api/availability — protect Supabase from scrape attacks. '
-             'Upstash already wired; just add the check.',
-             '2h', 'MEDIUM'),
-            ('4', 'Expand integration test suite to 10+ scenarios',
-             'Current: 2 tests (multi-tenant isolation, email idempotency). Add: hold expiration, '
-             'refund flow, booking extension, GHL inbound webhook, abandoned cart, dispatch state '
-             'machine.',
+            ('2', 'Expand integration tests to 10+ scenarios',
+             'Current: 5 files / ~25 cases (multi-tenant isolation, email idempotency, inventory '
+             'availability, dispatch rollup, booking status machine). Want: refund flow, booking '
+             'extension, GHL inbound webhook, abandoned cart, hold expiration.',
              '1-2d', 'HIGH'),
-            ('5', 'EMAIL_ENCRYPTION_KEY rotation runbook',
-             'Document the re-encryption steps. Prerequisite for emergency rotation.',
-             'half day', 'MEDIUM'),
         ],
         col_widths=[0.4, 2.3, 2.6, 0.8, 0.8])
 
     api['add_callout'](doc, 'good',
-        'Total 30-day effort: ~3-4 days of focused work. Closes the highest-leverage gaps that '
-        'remain after the June sprint.')
+        'Total 30-day effort: ~1-2 days. Most of the original 30-day list was closed in the '
+        '2026-06-17 hardening wave.')
 
-    api['add_h2'](doc, '19.3  Next 90 days — product depth + compliance')
+    api['add_h2'](doc, '19.3  Next 90 days — what remains')
 
     api['add_kv_table'](doc,
         ['#', 'Recommendation', 'Why', 'Effort', 'Impact'],
         [
-            ('1', 'MFA enforced (not just available) for admin role',
-             'Infrastructure exists. Decision: should new tenants be required to enroll TOTP at '
-             'first login? Toggle + onboarding flow.',
-             '1d', 'HIGH'),
-            ('2', '3 e2e tests (Playwright)',
-             'Happy path: book → admin confirm → driver deliver. Smoke test before merge.',
+            ('1', '3 e2e tests (Playwright)',
+             'Happy path: book → admin confirm → driver deliver. Smoke test before merge. '
+             'CI infrastructure already in place; just needs Playwright wired.',
              '2-3d', 'HIGH'),
-            ('3', 'Approval workflow for high-ticket bookings',
+            ('2', 'Approval workflow for high-ticket bookings',
              'Tenant config: if total > $X, require admin sign-off before confirmation. '
              'Prevents staff mistakes on large orders.',
              '1-2d', 'MEDIUM'),
-            ('4', 'Customer-initiated referrer coupon creation',
+            ('3', 'Customer-initiated referrer coupon creation',
              'Today admin generates referrer codes. Let customers pick their own (after first '
              'paid booking). The ReferralBox already supports share — extend with self-create.',
              '1d', 'MEDIUM'),
-            ('5', 'Backup retention + lifecycle (OPS-2)',
-             'Auto-delete backups > 90 days from S3 + R2. Cost control + storage hygiene.',
-             '2h', 'MEDIUM'),
-            ('6', 'PII review on Sentry breadcrumbs',
-             'Validate scrub-pii.ts regex against real production payloads.',
-             '4h', 'MEDIUM'),
-            ('7', 'webhook_deliveries archival policy',
-             'Move > 30-day-old deliveries to cold storage. Keep query latency snappy.',
-             '4h', 'LOW-MED'),
-            ('8', '"Strip any" pass on lib/email',
+            ('4', '"Strip any" pass on lib/email',
              'Concentrated ~30 any usages. Strong leverage for safer refactors.',
              '1d', 'MEDIUM'),
-            ('9', 'CONTRIBUTING.md + ARCHITECTURE.md in repo',
-             'Move session-memory playbooks into repo. Helps new engineers + audit posture.',
-             '1d', 'MEDIUM'),
-            ('10', 'AI assistant tool expansion',
-             'Add tools: get_dispatch_today, get_pending_payments, get_damage_summary, '
-             'get_low_stock_items, get_quote_pipeline. Keeps the in-product assistant aware of '
-             'newer surfaces.',
-             '4h', 'MEDIUM'),
+            ('5', 'MFA enforcement defaults for new tenant signups',
+             'Policy switch (require_admin_mfa) shipped 2026-06-17 with default OFF. Next step: '
+             'flip the default to ON for new tenants after a chosen date so the security floor '
+             'rises automatically over time.',
+             '2h', 'MEDIUM'),
         ],
         col_widths=[0.4, 2.3, 2.6, 0.8, 0.8])
 
@@ -185,17 +185,17 @@ def render(api):
     api['add_h2'](doc, '19.5  Summary scorecard')
 
     api['add_kv_table'](doc,
-        ['Area', 'Current state', 'After 30-day list', 'After 90-day list'],
+        ['Area', 'Current state (post 2026-06-17)', 'After 30-day finish', 'After 90-day finish'],
         [
-            ('Multi-tenant safety',     'Strong + CI guard live', 'Strong + CI guard',     'Strong + CI guard'),
-            ('Test coverage',           'Light (2 integration)',  'Medium (10+ integration)', 'Medium-strong (+ e2e)'),
-            ('Security posture',        'Medium-strong (CSP, MFA infra)', 'Strong (dep scan, rate limits)', 'Strong (MFA enforced)'),
-            ('Operational maturity',    'Medium (runbook, no uptime)', 'Strong (uptime + dep scan)', 'Strong'),
-            ('Code quality',            'Good',                   'Good',                  'Better (any pass + doc)'),
-            ('Compliance readiness',    'Medium',                 'Medium',                'Medium-strong'),
-            ('Tenant onboarding pain',  'Medium (81 admin pages)', 'Medium', 'Lower (referral self-create)'),
+            ('Multi-tenant safety',     'Strong + CI guard live',  'Strong + CI guard',  'Strong + CI guard'),
+            ('Test coverage',           'Medium (5 integration files, ~25 cases + unit + PII)',  'Strong (10+ integration)',  'Strong (+ e2e Playwright)'),
+            ('Security posture',        'Strong (CSP, dep scan, rate limits, MFA switch, PII hardened)',  'Strong',  'Strong (MFA default-on for new tenants)'),
+            ('Operational maturity',    'Strong (R2 retention, archival cron, runbooks)',  'Strong (+ uptime)',  'Strong'),
+            ('Code quality',            'Good',  'Good',  'Better (any pass)'),
+            ('Compliance readiness',    'Medium-strong (PII scrubbing tested, key rotation runbook)',  'Medium-strong',  'Strong'),
+            ('Tenant onboarding pain',  'Medium (81 admin pages)',  'Medium',  'Lower (referral self-create)'),
         ],
-        col_widths=[1.6, 1.7, 1.9, 1.9])
+        col_widths=[1.6, 2.0, 1.7, 1.8])
 
     api['add_h2'](doc, '19.6  What not to do')
 

@@ -348,7 +348,8 @@ def render(api):
         ['Table', 'Purpose'],
         [
             ('site_settings', 'Generic key/value config (tax_rate, lead_time, timezone, '
-                               'damage_protection_enabled, sms_*, points_*, business_hours, etc.)'),
+                               'damage_protection_enabled, sms_*, points_*, business_hours, '
+                               'require_admin_mfa added 2026-06-17, etc.)'),
             ('email_templates', 'Per-tenant transactional email + SMS template overrides. Falls back to '
                                  'hardcoded defaults. Variables substituted at send time.'),
             ('home_banners', 'Hero image rotation on public home page.'),

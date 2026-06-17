@@ -184,11 +184,11 @@ def render(api):
         ],
         col_widths=[2.3, 4.8])
 
-    api['add_h2'](doc, '18.8  Recently closed (June 2026 sprint)')
+    api['add_h2'](doc, '18.8  Recently closed (June 2026)')
 
     api['add_callout'](doc, 'good',
-        'Five debt items closed in the June 2026 sprint. Worth calling out because earlier '
-        'audit drafts listed them as "open."')
+        '14 debt items closed between the June sprint and the 2026-06-17 hardening wave. Worth '
+        'calling out because earlier audit drafts listed them as "open."')
 
     api['add_kv_table'](doc,
         ['ID', 'How it closed'],
@@ -196,24 +196,30 @@ def render(api):
             ('CI-1',  '.github/workflows/ci.yml runs typecheck + lint + tests on every PR.'),
             ('OBS-1', 'scope-check CI job runs scripts/check-tenant-scope.ts on every PR.'),
             ('SEC-1', 'Content-Security-Policy headers configured in next.config.js.'),
+            ('SEC-3', 'site_settings.require_admin_mfa per-tenant policy switch + admin layout gate + UI toggle.'),
+            ('SEC-5', '60/min/IP rate limit on /api/products, /api/products/[slug], /api/availability via Upstash.'),
+            ('SEC-6', 'docs/runbook-rotate-email-encryption-key.md + scripts/rotate-email-encryption-key.ts.'),
+            ('SEC-9', '.github/dependabot.yml — weekly npm + GitHub Actions CVE scanning, already filing PRs.'),
+            ('PII review', 'lib/sentry/scrub-pii.ts hardened with +6 patterns + REDACT_KEYS + 27 unit tests.'),
+            ('OPS-2',  'R2 backup retention: lib/backup-r2.ts pruneOldBackupsFromR2 wired into weekly-backup cron, 84d window.'),
+            ('Webhook archival', '/api/cron/cleanup-old-rows daily: succeeded>30d / failed>90d / portal_otp>7d.'),
+            ('DOC-1', 'CONTRIBUTING.md — 470-line onboarding doc with local setup + workflow + 10 recipes.'),
             ('DOC-2', 'OpenAPI 3.0 spec + Swagger UI live at /api/v1/openapi.json + /api/v1/docs.'),
             ('TEST-INFRA', 'tests/integration/ + dedicated TEST_SUPABASE_URL project + integration-tests CI job.'),
+            ('TEST-1 partial', '5 integration test files / ~25 cases live (multi-tenant isolation, email idempotency, inventory, dispatch, booking status).'),
+            ('AI-1', 'Admin assistant grew from 6 → 12 tools (dispatch, payments, damages, low-stock, quotes, payouts).'),
         ],
-        col_widths=[1.0, 6.1])
+        col_widths=[1.4, 5.7])
 
     api['add_h2'](doc, '18.9  Still open')
 
     api['add_kv_table'](doc,
         ['ID', 'Description', 'Effort', 'Priority'],
         [
-            ('SEC-3', 'MFA required (not just available) for admin role', '1d', 'High'),
-            ('SEC-5', 'Rate limits on public read endpoints',  '2h', 'Medium'),
-            ('SEC-9', 'Dependency vulnerability scanning in CI', '1h', 'Medium'),
-            ('TEST-1', 'Expand to 10+ booking-flow integration tests', '1-2d', 'High'),
+            ('TEST-1 finish', 'Expand integration tests 5 → 10+ files (refund, extension, abandoned cart, GHL inbound, hold expiration)', '1-2d', 'High'),
             ('TEST-2', '3 e2e tests (Playwright)', '2-3d', 'Medium'),
-            ('OPS-1', 'UptimeRobot ping on /api/health', '15min', 'High'),
-            ('OPS-2', 'Backup retention policy + lifecycle', '2h', 'Medium'),
-            ('DOC-1', 'CONTRIBUTING.md + onboarding doc', '1d', 'Medium'),
-            ('AI-1', 'Expand admin AI assistant tools (dispatch, payouts, low-stock, etc.)', '4h', 'Medium'),
+            ('OPS-1', 'UptimeRobot (or BetterStack) ping on /api/health', '15min', 'High'),
+            ('SEC-3 next', 'Default require_admin_mfa = true for new tenants after a chosen date', '2h', 'Medium'),
+            ('SEC-4', 'GHL webhook secret constant-time compare', '15min', 'Low'),
         ],
         col_widths=[0.8, 4.0, 0.9, 1.3])
