@@ -10,18 +10,16 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentTenantId } from "@/lib/tenant/server";
 import { sendEmail, isEmailConfigured } from "@/lib/email/send";
+import {
+  getSaasOwnerEmailConfig,
+  getSaasOwnerInbox,
+} from "@/lib/email/saas-owner";
 
 const InputSchema = z.object({
   category: z.enum(["bug", "feature", "ux", "other"]),
   body: z.string().trim().min(5).max(4000),
   page_path: z.string().max(500).optional(),
 });
-
-const FEEDBACK_INBOX =
-  process.env.BETA_FEEDBACK_EMAIL ||
-  process.env.OPERATOR_REPORT_EMAIL ||
-  process.env.ADMIN_ALERT_EMAIL ||
-  "ludmilayhenry@gmail.com";
 
 export async function submitBetaFeedback(input: unknown) {
   const parsed = InputSchema.safeParse(input);
@@ -81,8 +79,11 @@ export async function submitBetaFeedback(input: unknown) {
           : parsed.data.category === "ux"
           ? "🎨"
           : "💬";
+      const owner = getSaasOwnerEmailConfig();
       await sendEmail({
-        to: FEEDBACK_INBOX,
+        to: getSaasOwnerInbox(),
+        from: owner.from,
+        replyTo: owner.replyTo,
         subject: `${categoryEmoji} Beta feedback from ${businessName} — ${parsed.data.category}`,
         html: `<div style="font-family:system-ui,sans-serif;max-width:560px;color:#0f172a;line-height:1.55">
 <p style="background:#fff8e1;border-left:4px solid #f59e0b;padding:10px 14px;border-radius:4px;margin:0 0 14px">

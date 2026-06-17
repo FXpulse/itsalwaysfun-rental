@@ -18,6 +18,7 @@
 // twice or a manual call happens.
 
 import { sendEmail, isEmailConfigured } from "@/lib/email/send";
+import { getSaasOwnerEmailConfig } from "@/lib/email/saas-owner";
 import * as Sentry from "@sentry/nextjs";
 
 export type BetaEmailKey =
@@ -178,8 +179,11 @@ export async function sendBetaLifecycleEmail(
   if (!built) return null;
 
   try {
+    const owner = getSaasOwnerEmailConfig();
     await sendEmail({
       to: tenant.owner_email,
+      from: owner.from,
+      replyTo: owner.replyTo,
       subject: built.subject,
       html: built.html,
       text: built.text,
