@@ -14,7 +14,7 @@ import { headers } from "next/headers";
 import * as Sentry from "@sentry/nextjs";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { exportFullBackup } from "@/lib/backup";
-import { uploadBackupToR2 } from "@/lib/backup-r2";
+import { uploadBackupToR2, pruneOldBackupsFromR2 } from "@/lib/backup-r2";
 import { sendEmail, isEmailConfigured } from "@/lib/email/send";
 
 export const dynamic = "force-dynamic";
@@ -77,6 +77,12 @@ export async function GET() {
   if (toDelete.length > 0) {
     await supabase.storage.from("backups").remove(toDelete);
   }
+
+  // 3b. Prune R2 too — same retention window. If R2 isn't configured this
+  // is a no-op. Failures are non-fatal (the Supabase prune already ran +
+  // the new backup is already uploaded; an R2-only failure isn't worth
+  // breaking the cron over).
+  const r2Prune = await pruneOldBackupsFromR2(RETENTION_DAYS);
 
   // 4. Generate 7-day signed URL for the admin email
   const { data: signed } = await supabase.storage
@@ -176,6 +182,7 @@ ${
         pruned: toDelete.length,
         email_sent: emailSent,
         r2: r2Result,
+        r2_prune: r2Prune,
         errors: backup.errors,
       });
     },

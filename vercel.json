@@ -51,6 +51,10 @@
     {
       "path": "/api/cron/google-places-sync",
       "schedule": "0 10 * * *"
+    },
+    {
+      "path": "/api/cron/cleanup-old-rows",
+      "schedule": "0 5 * * *"
     }
   ]
 }
