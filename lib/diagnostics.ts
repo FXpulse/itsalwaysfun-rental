@@ -207,7 +207,7 @@ export async function runAllChecks(): Promise<CheckResult[]> {
   if (tenantId && tenantId !== "__marketing__") {
     const { data: tenantRow } = await supabase
       .from("tenants")
-      .select("custom_domain, business_name")
+      .select("custom_domain, business_name, ghl_location_id")
       .eq("id", tenantId)
       .maybeSingle();
     const customDomain = (tenantRow as any)?.custom_domain;
@@ -223,6 +223,28 @@ export async function runAllChecks(): Promise<CheckResult[]> {
     } else {
       results.push(
         ok(tenantG, "Custom sending domain", customDomain + " — verify it's added to the tenant Resend account"),
+      );
+    }
+
+    // GHL sub-account (per-tenant Location). Without ghl_location_id, all
+    // outbound GHL pushes (booking contacts, abandoned cart, contact form)
+    // are skipped — booking still saves, but CRM workflows won't fire.
+    const ghlLocationId = (tenantRow as any)?.ghl_location_id;
+    if (!ghlLocationId) {
+      results.push(
+        warn(
+          tenantG,
+          "GHL sub-account",
+          "No GHL sub-account configured for this tenant — booking contacts won't push to GHL. Operator needs to provision the sub-account.",
+        ),
+      );
+    } else {
+      results.push(
+        ok(
+          tenantG,
+          "GHL sub-account",
+          `Location ${ghlLocationId.length > 10 ? ghlLocationId.slice(0, 10) + "…" : ghlLocationId}`,
+        ),
       );
     }
   }

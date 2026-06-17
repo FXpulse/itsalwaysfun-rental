@@ -10,6 +10,7 @@ import { isEmailConfigured } from "@/lib/email/send";
 import { sendTemplated } from "@/lib/email/send-template";
 import { renderAbandonedCartEmail } from "@/lib/email/templates";
 import { getTenantEmailConfig } from "@/lib/email/tenant-email";
+import { getTenantGhlConfig } from "@/lib/ghl/tenant-config";
 import { getCurrentTenantId } from "@/lib/tenant/db";
 import { getTenantInfo, tenantToEmailBrand } from "@/lib/tenant/business";
 
@@ -45,10 +46,39 @@ export async function POST(request: Request) {
   }
 
   const results: any = {};
+  const tenantId = getCurrentTenantId();
 
-  // 1. GHL webhook (CRM sync)
-  const webhookUrl = process.env.GHL_ABANDONED_CART_WEBHOOK_URL;
-  if (webhookUrl) {
+  // 1. GHL webhook (CRM sync) — per-tenant. Skip silently if the tenant has
+  // no GHL location or no abandoned-cart webhook URL configured.
+  const ghlConfig = await getTenantGhlConfig(tenantId);
+  const webhookUrl = ghlConfig?.abandoned_cart_webhook_url || null;
+  if (!ghlConfig) {
+    Sentry.addBreadcrumb({
+      category: "ghl",
+      message: "GHL push skipped — tenant has no location_id",
+      level: "info",
+      data: { reason: "no_location" },
+    });
+    Sentry.captureMessage("GHL push skipped — no tenant location", {
+      level: "info",
+      tags: { area: "ghl", tenant_id: tenantId || "" },
+      extra: { reason: "no_location" },
+    });
+    results.ghl = { ok: false, skipped: "no_location" };
+  } else if (!webhookUrl) {
+    Sentry.addBreadcrumb({
+      category: "ghl",
+      message: "GHL webhook skipped — no abandoned_cart_webhook_url for tenant",
+      level: "info",
+      data: { reason: "no_abandoned_cart_webhook_url" },
+    });
+    Sentry.captureMessage("GHL abandoned-cart webhook skipped — no URL configured", {
+      level: "info",
+      tags: { area: "ghl", tenant_id: tenantId || "" },
+      extra: { reason: "no_abandoned_cart_webhook_url" },
+    });
+    results.ghl = { ok: false, skipped: "no_abandoned_cart_webhook_url" };
+  } else {
     try {
       const r = await fetch(webhookUrl, {
         method: "POST",

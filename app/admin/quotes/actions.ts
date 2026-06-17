@@ -239,7 +239,24 @@ async function deliverQuoteEmail(q: any) {
   const quoteUrl = `${baseUrl}/quotes/${q.token}`;
 
   // 1. Best-effort GHL webhook (for CRM sync — contact tag/notes/custom fields)
-  const webhookUrl = process.env.GHL_QUOTE_WEBHOOK_URL;
+  // Per-tenant GHL config — agency model. Each tenant has their own sub-account
+  // Location + webhook URLs. Skip if not configured for this tenant.
+  const { getTenantGhlConfig } = await import("@/lib/ghl/tenant-config");
+  const ghlConfig = await getTenantGhlConfig((q as any).tenant_id);
+  const webhookUrl = ghlConfig?.quote_webhook_url || null;
+  if (!ghlConfig?.location_id) {
+    Sentry.captureMessage("GHL quote push skipped — no tenant location", {
+      level: "info",
+      tags: { area: "ghl", tenant_id: (q as any).tenant_id || "" },
+      extra: { reason: "no_location" },
+    });
+  } else if (!webhookUrl) {
+    Sentry.captureMessage("GHL quote push skipped — no quote webhook URL", {
+      level: "info",
+      tags: { area: "ghl", tenant_id: (q as any).tenant_id || "" },
+      extra: { reason: "no_quote_webhook_url" },
+    });
+  }
   if (webhookUrl) {
     try {
       await fetch(webhookUrl, {

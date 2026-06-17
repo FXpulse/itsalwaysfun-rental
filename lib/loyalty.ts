@@ -278,8 +278,26 @@ export async function awardForPaidBooking(bookingId: string): Promise<void> {
   const readyForPayout = newPendingCents >= thresholdCents;
 
   // 1. Fire GHL webhook (for CRM sync if configured)
+  // Per-tenant GHL config — agency model. Each tenant has their own
+  // sub-account Location + webhook URLs. Skip if not configured.
   try {
-    const webhookUrl = process.env.GHL_REFERRAL_WEBHOOK_URL;
+    const Sentry = await import("@sentry/nextjs");
+    const { getTenantGhlConfig } = await import("@/lib/ghl/tenant-config");
+    const ghlConfig = await getTenantGhlConfig(booking.tenant_id);
+    const webhookUrl = ghlConfig?.referral_webhook_url || null;
+    if (!ghlConfig?.location_id) {
+      Sentry.captureMessage("GHL referral push skipped — no tenant location", {
+        level: "info",
+        tags: { area: "ghl", tenant_id: booking.tenant_id || "" },
+        extra: { reason: "no_location" },
+      });
+    } else if (!webhookUrl) {
+      Sentry.captureMessage("GHL referral push skipped — no referral webhook URL", {
+        level: "info",
+        tags: { area: "ghl", tenant_id: booking.tenant_id || "" },
+        extra: { reason: "no_referral_webhook_url" },
+      });
+    }
     if (webhookUrl) {
       await fetch(webhookUrl, {
         method: "POST",

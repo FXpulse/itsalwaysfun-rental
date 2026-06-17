@@ -13,6 +13,7 @@ import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendEmail, isEmailConfigured } from "@/lib/email/send";
 import { getTenantEmailConfig, getTenantAdminEmail } from "@/lib/email/tenant-email";
+import { getTenantGhlConfig } from "@/lib/ghl/tenant-config";
 import { resolveTenantByHostname } from "@/lib/tenant/resolve";
 import { rateLimit, clientIp } from "@/lib/rate-limit";
 
@@ -167,8 +168,37 @@ export async function POST(request: Request) {
     }
   }
 
-  // 3. Fire GHL webhook (best-effort, non-blocking failure)
-  const webhookUrl = process.env.GHL_BOOKING_WEBHOOK_URL;
+  // 3. Fire GHL webhook (best-effort, non-blocking failure). Per-tenant config
+  // — use the tenant's booking webhook URL, not the platform env. When the
+  // tenant has no GHL location or no booking webhook URL, skip the push so
+  // other tenants' contacts don't leak into IAF's CRM.
+  const ghlConfig = await getTenantGhlConfig(tenantId);
+  const webhookUrl = ghlConfig?.booking_webhook_url || null;
+  if (!ghlConfig) {
+    Sentry.addBreadcrumb({
+      category: "ghl",
+      message: "GHL push skipped — tenant has no location_id",
+      level: "info",
+      data: { reason: "no_location" },
+    });
+    Sentry.captureMessage("GHL push skipped — no tenant location", {
+      level: "info",
+      tags: { area: "ghl", tenant_id: tenantId || "" },
+      extra: { reason: "no_location" },
+    });
+  } else if (!webhookUrl) {
+    Sentry.addBreadcrumb({
+      category: "ghl",
+      message: "GHL webhook skipped — no booking_webhook_url for tenant",
+      level: "info",
+      data: { reason: "no_booking_webhook_url" },
+    });
+    Sentry.captureMessage("GHL booking webhook skipped — no URL configured", {
+      level: "info",
+      tags: { area: "ghl", tenant_id: tenantId || "" },
+      extra: { reason: "no_booking_webhook_url" },
+    });
+  }
   if (webhookUrl) {
     try {
       const r = await fetch(webhookUrl, {

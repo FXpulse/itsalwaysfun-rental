@@ -1,5 +1,12 @@
 // GHL API wrapper — outbound calls.
-// Uses GHL_API_KEY (PIT) for the It's Always Fun, LLC sub-account.
+//
+// AGENCY MODEL (clarified 2026-06-17):
+//   - GHL_API_KEY (master agency PIT) is platform-side, ONE token that
+//     accesses all sub-accounts under our agency.
+//   - locationId is PER-TENANT. Pass it explicitly to each call.
+//   - For backward compat, if no locationId is passed, the call uses
+//     GHL_LOCATION_ID env. Migrate callers to pass tenant context —
+//     see lib/ghl/tenant-config.ts.
 
 const BASE = process.env.GHL_API_BASE || "https://services.leadconnectorhq.com";
 const VERSION = process.env.GHL_API_VERSION || "2021-07-28";
@@ -14,17 +21,28 @@ function authHeaders(): HeadersInit {
   };
 }
 
+/** True iff the master GHL credentials are configured. Doesn't check any
+ *  specific tenant's location — that gate is in getTenantGhlConfig(). */
 export function isGhlConfigured() {
   const key = process.env.GHL_API_KEY || "";
-  return key.startsWith("pit-") && !!process.env.GHL_LOCATION_ID;
+  return key.startsWith("pit-");
+}
+
+function resolveLocationId(override?: string): string | null {
+  return override || process.env.GHL_LOCATION_ID || null;
 }
 
 /** Find a contact by email. Returns contact object or null. */
-export async function lookupContactByEmail(email: string) {
+export async function lookupContactByEmail(
+  email: string,
+  opts?: { locationId?: string },
+) {
   if (!isGhlConfigured()) return { error: "ghl_not_configured" };
+  const locationId = resolveLocationId(opts?.locationId);
+  if (!locationId) return { error: "ghl_location_not_set" };
 
   const params = new URLSearchParams({
-    locationId: process.env.GHL_LOCATION_ID!,
+    locationId,
     query: email,
     limit: "1",
   });
@@ -50,15 +68,18 @@ export async function upsertContact(input: {
   phone?: string;
   address?: string;
   tags?: string[];
+  locationId?: string;
 }) {
   if (!isGhlConfigured()) return { error: "ghl_not_configured" };
+  const locationId = resolveLocationId(input.locationId);
+  if (!locationId) return { error: "ghl_location_not_set" };
 
   try {
     const r = await fetch(`${BASE}/contacts/upsert`, {
       method: "POST",
       headers: authHeaders(),
       body: JSON.stringify({
-        locationId: process.env.GHL_LOCATION_ID,
+        locationId,
         firstName: input.firstName,
         lastName: input.lastName,
         email: input.email,

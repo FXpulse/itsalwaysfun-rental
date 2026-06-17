@@ -15,6 +15,7 @@ import Stripe from "stripe";
 import { getStripe, isStripeConfigured } from "@/lib/stripe/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { addContactNote, upsertContact, addContactTags } from "@/lib/ghl/client";
+import { getTenantGhlConfig } from "@/lib/ghl/tenant-config";
 import { awardForPaidBooking } from "@/lib/loyalty";
 import { sendBookingConfirmation } from "@/lib/email/scheduled-emails";
 import { sendTemplated } from "@/lib/email/send-template";
@@ -144,29 +145,49 @@ export async function POST(request: Request) {
         .catch((e) => console.error("[webhook booking.confirmed failed]", e?.message));
     }
 
-    // Best-effort GHL sync (don't fail the webhook if GHL fails)
+    // Best-effort GHL sync (don't fail the webhook if GHL fails). Per-tenant
+    // GHL sub-account — pull location_id from tenant config (NOT env). When
+    // the tenant has no GHL location configured, skip the push entirely so
+    // other tenants' customers don't leak into IAF's CRM.
+    const ghlTenantId = booking.tenant_id || pi.metadata?.tenant_id || null;
     try {
-      const { contact } = await upsertContact({
-        firstName: booking.customer_first_name,
-        lastName: booking.customer_last_name,
-        email: booking.customer_email,
-        phone: booking.customer_phone || undefined,
-        address: booking.customer_address || undefined,
-        tags: ["paid-customer", "prospector-rental-customer"],
-      });
+      const ghlConfig = await getTenantGhlConfig(ghlTenantId);
+      if (!ghlConfig) {
+        Sentry.addBreadcrumb({
+          category: "ghl",
+          message: "GHL push skipped — tenant has no location_id",
+          level: "info",
+          data: { reason: "no_location" },
+        });
+        Sentry.captureMessage("GHL push skipped — no tenant location", {
+          level: "info",
+          tags: { area: "ghl", tenant_id: ghlTenantId || "" },
+          extra: { reason: "no_location" },
+        });
+      } else {
+        const { contact } = await upsertContact({
+          firstName: booking.customer_first_name,
+          lastName: booking.customer_last_name,
+          email: booking.customer_email,
+          phone: booking.customer_phone || undefined,
+          address: booking.customer_address || undefined,
+          tags: ["paid-customer", "prospector-rental-customer"],
+          locationId: ghlConfig.location_id,
+        });
 
-      if (contact?.id) {
-        await addContactTags(contact.id, ["paid-customer"]);
-        await addContactNote(
-          contact.id,
-          `📅 Booking confirmed\n` +
-            `Product: ${booking.product_name}\n` +
-            `Date: ${booking.event_date}\n` +
-            (booking.start_time ? `Time: ${booking.start_time} – ${booking.end_time || "?"}\n` : "") +
-            `Amount paid: $${(booking.total_amount / 100).toFixed(2)}\n` +
-            `Stripe PI: ${pi.id}\n` +
-            `Booking ID: ${booking.id}`
-        );
+        if (contact?.id) {
+          await addContactTags(contact.id, ["paid-customer"]);
+          await addContactNote(
+            contact.id,
+            `📅 Booking confirmed\n` +
+              `Product: ${booking.product_name}\n` +
+              `Date: ${booking.event_date}\n` +
+              (booking.start_time ? `Time: ${booking.start_time} – ${booking.end_time || "?"}\n` : "") +
+              `Amount paid: $${(booking.total_amount / 100).toFixed(2)}\n` +
+              `Stripe PI: ${pi.id}\n` +
+              `Booking ID: ${booking.id}`
+          );
+        }
       }
     } catch (e) {
       console.error("[GHL sync failed, non-fatal]", e);
