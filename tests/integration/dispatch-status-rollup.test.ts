@@ -24,15 +24,32 @@ import {
   testClient,
 } from "./fixtures";
 
+async function createTestVehicle(tenantId: string): Promise<string> {
+  const supabase = testClient();
+  const { data, error } = await supabase
+    .from("vehicles")
+    .insert({
+      tenant_id: tenantId,
+      name: `Test Truck ${Date.now()}`,
+      vehicle_type: "truck",
+    })
+    .select("id")
+    .single();
+  if (error || !data) throw new Error(`createTestVehicle failed: ${error?.message}`);
+  return data.id as string;
+}
+
 async function createTestRoute(
   tenantId: string,
   routeType: "delivery" | "pickup" = "delivery",
 ): Promise<string> {
   const supabase = testClient();
+  const vehicleId = await createTestVehicle(tenantId);
   const { data, error } = await supabase
     .from("dispatch_routes")
     .insert({
       tenant_id: tenantId,
+      vehicle_id: vehicleId,
       route_date: "2027-01-15",
       route_type: routeType,
       status: "planned",
