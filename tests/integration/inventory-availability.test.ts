@@ -39,12 +39,7 @@ async function countBlockingBookings(productId: string, date: string): Promise<n
   return (data || []).length;
 }
 
-// TODO: investigate CI failure on the integration-tests job. Suspected:
-//   - createTestProduct + immediate UPDATE may race the test schema
-//   - OR an RLS policy on products is rejecting the service-role UPDATE
-// Skipping for now to keep main green. Re-enable once reproduced locally
-// against the test Supabase project.
-describe.skip("inventory availability — paid-only blocking", () => {
+describe("inventory availability — paid-only blocking", () => {
   let tenantId: string;
   let productId: string;
 
@@ -132,7 +127,7 @@ describe.skip("inventory availability — paid-only blocking", () => {
   });
 });
 
-describe.skip("inventory availability — blocked_dates respected", () => {
+describe("inventory availability — blocked_dates respected", () => {
   let tenantId: string;
   let productId: string;
 

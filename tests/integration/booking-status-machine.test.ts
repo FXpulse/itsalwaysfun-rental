@@ -19,9 +19,7 @@ import {
   testClient,
 } from "./fixtures";
 
-// TODO: investigate CI failure. Schema looks compatible but tests fail in CI.
-// Re-enable once reproduced locally against the test Supabase project.
-describe.skip("booking status transitions", () => {
+describe("booking status transitions", () => {
   let tenantId: string;
   let productId: string;
   let bookingId: string;
@@ -58,19 +56,19 @@ describe.skip("booking status transitions", () => {
       .update({
         booking_status: "confirmed",
         stripe_payment_status: "paid",
-        confirmed_at: new Date().toISOString(),
+        customer_confirmed_at: new Date().toISOString(),
       })
       .eq("id", bookingId);
 
     const { data } = await testClient()
       .from("bookings")
-      .select("booking_status, stripe_payment_status, confirmed_at")
+      .select("booking_status, stripe_payment_status, customer_confirmed_at")
       .eq("id", bookingId)
       .single();
     const row = data as any;
     expect(row.booking_status).toBe("confirmed");
     expect(row.stripe_payment_status).toBe("paid");
-    expect(row.confirmed_at).toBeTruthy();
+    expect(row.customer_confirmed_at).toBeTruthy();
   });
 
   it("confirmed → delivered preserves payment status", async () => {
@@ -157,7 +155,7 @@ describe.skip("booking status transitions", () => {
   });
 });
 
-describe.skip("booking webhook idempotency guard pattern", () => {
+describe("booking webhook idempotency guard pattern", () => {
   let tenantId: string;
   let productId: string;
   let bookingId: string;
