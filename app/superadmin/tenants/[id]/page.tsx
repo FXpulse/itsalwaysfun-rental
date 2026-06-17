@@ -254,6 +254,48 @@ export default async function TenantDetailPage({
         </div>
       </Link>
 
+      {/* Twilio SMS config CTA */}
+      <Link
+        href={`/superadmin/tenants/${tenant.id}/sms`}
+        className={`group flex items-center justify-between mb-6 rounded-xl border-2 ${
+          (tenant as any).twilio_from_number
+            ? "border-emerald-300 bg-emerald-50"
+            : "border-amber-300 bg-amber-50"
+        } p-4 hover:shadow-md transition`}
+      >
+        <div className="flex items-center gap-3">
+          <div
+            className={`h-6 w-6 rounded ${
+              (tenant as any).twilio_from_number ? "bg-emerald-200" : "bg-amber-200"
+            } flex items-center justify-center text-xs font-bold`}
+          >
+            SMS
+          </div>
+          <div>
+            <div className="font-bold text-brand-navy">
+              Twilio SMS number
+              {(tenant as any).twilio_from_number ? (
+                <span className="ml-2 text-xs font-bold px-2 py-0.5 rounded bg-emerald-200 text-emerald-800">
+                  Configured
+                </span>
+              ) : (
+                <span className="ml-2 text-xs font-bold px-2 py-0.5 rounded bg-amber-200 text-amber-900">
+                  Not configured
+                </span>
+              )}
+            </div>
+            <div className="text-xs text-slate-500 mt-0.5">
+              {(tenant as any).twilio_from_number
+                ? `Customer SMS sends from ${(tenant as any).twilio_from_number}`
+                : "Buy a Twilio number in the platform console, paste it here to enable SMS for this tenant's customers"}
+            </div>
+          </div>
+        </div>
+        <div className="text-xs font-semibold group-hover:underline">
+          {(tenant as any).twilio_from_number ? "Edit →" : "Configure →"}
+        </div>
+      </Link>
+
       {/* AI Brief panel */}
       <div className="mb-6">
         <TenantBrief tenantId={tenant.id} />

@@ -10,7 +10,8 @@ import { isEmailConfigured } from "@/lib/email/send";
 import { getTenantEmailConfig } from "@/lib/email/tenant-email";
 import { getTenantBusinessName } from "@/lib/tenant/business";
 import { getCurrentTenantId } from "@/lib/tenant/db";
-import { sendSms, isSmsConfigured } from "@/lib/sms/send";
+import { isSmsConfigured } from "@/lib/sms/send";
+import { sendTenantSms } from "@/lib/sms/tenant-config";
 import { renderTemplateSms } from "@/lib/email/render-template";
 
 export async function uploadCoi(requestId: string, formData: FormData) {
@@ -105,7 +106,11 @@ export async function uploadCoi(requestId: string, formData: FormData) {
           portalUrl: `${baseUrl}/portal/bookings/${req.booking_id}`,
         });
         if (smsBody) {
-          await sendSms({ to: booking.customer_phone, body: smsBody }).catch(() => {});
+          await sendTenantSms({
+            tenantId: getCurrentTenantId(),
+            to: booking.customer_phone,
+            body: smsBody,
+          }).catch(() => {});
         }
       }
     }

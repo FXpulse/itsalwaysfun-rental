@@ -22,7 +22,8 @@ import { sendTemplated } from "@/lib/email/send-template";
 import { isEmailConfigured } from "@/lib/email/send";
 import { getTenantEmailConfig } from "@/lib/email/tenant-email";
 import { getTenantInfo } from "@/lib/tenant/business";
-import { sendSms, isSmsConfigured } from "@/lib/sms/send";
+import { isSmsConfigured } from "@/lib/sms/send";
+import { sendTenantSms } from "@/lib/sms/tenant-config";
 import { renderTemplateSms } from "@/lib/email/render-template";
 
 export const dynamic = "force-dynamic";
@@ -543,7 +544,11 @@ ${purchase.message ? `<blockquote>"${purchase.message}"</blockquote>` : ""}
           (purchase as any).tenant_id,
         );
         if (smsBody) {
-          await sendSms({ to: purchase.recipient_phone, body: smsBody }).catch(() => {});
+          await sendTenantSms({
+            tenantId: (purchase as any).tenant_id,
+            to: purchase.recipient_phone,
+            body: smsBody,
+          }).catch(() => {});
         }
       } catch (e) {
         console.error("[gift card recipient SMS failed, non-fatal]", e);

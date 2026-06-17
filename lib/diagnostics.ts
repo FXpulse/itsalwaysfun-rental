@@ -207,7 +207,7 @@ export async function runAllChecks(): Promise<CheckResult[]> {
   if (tenantId && tenantId !== "__marketing__") {
     const { data: tenantRow } = await supabase
       .from("tenants")
-      .select("custom_domain, business_name, ghl_location_id")
+      .select("custom_domain, business_name, ghl_location_id, twilio_from_number")
       .eq("id", tenantId)
       .maybeSingle();
     const customDomain = (tenantRow as any)?.custom_domain;
@@ -246,6 +246,22 @@ export async function runAllChecks(): Promise<CheckResult[]> {
           `Location ${ghlLocationId.length > 10 ? ghlLocationId.slice(0, 10) + "…" : ghlLocationId}`,
         ),
       );
+    }
+
+    // Twilio from-number (per-tenant SMS sender). Without it, customer-facing
+    // SMS (booking confirmation, reminders, review, COI, gift cards) skip
+    // silently — email still goes out.
+    const twilioFromNumber = (tenantRow as any)?.twilio_from_number;
+    if (!twilioFromNumber) {
+      results.push(
+        warn(
+          tenantG,
+          "Twilio SMS number",
+          "No Twilio number assigned to this tenant — customer SMS (booking confirmation, 3-day reminder, review request) won't send. Assign one at /superadmin/tenants/[id]/sms.",
+        ),
+      );
+    } else {
+      results.push(ok(tenantG, "Twilio SMS number", twilioFromNumber));
     }
   }
 

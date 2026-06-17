@@ -15,7 +15,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { sendTemplated } from "@/lib/email/send-template";
 import { isEmailConfigured } from "@/lib/email/send";
 import { getTenantEmailConfig } from "@/lib/email/tenant-email";
-import { sendSms, isSmsConfigured } from "@/lib/sms/send";
+import { isSmsConfigured } from "@/lib/sms/send";
+import { sendTenantSms } from "@/lib/sms/tenant-config";
 import { renderTemplateSms } from "@/lib/email/render-template";
 
 type EmailType =
@@ -171,7 +172,11 @@ export async function sendBookingConfirmation(bookingId: string): Promise<void> 
       (b as any).tenant_id,
     );
     if (smsBody) {
-      await sendSms({ to: b.customer_phone, body: smsBody }).catch(() => {});
+      await sendTenantSms({
+        tenantId: (b as any).tenant_id,
+        to: b.customer_phone,
+        body: smsBody,
+      }).catch(() => {});
     }
   }
 }
@@ -261,7 +266,11 @@ export async function processScheduledBookingEmails(): Promise<{
             (b as any).tenant_id,
           );
           if (smsBody) {
-            await sendSms({ to: b.customer_phone, body: smsBody }).catch(() => {});
+            await sendTenantSms({
+              tenantId: (b as any).tenant_id,
+              to: b.customer_phone,
+              body: smsBody,
+            }).catch(() => {});
           }
         }
       } catch (e: any) {
@@ -327,7 +336,11 @@ export async function processScheduledBookingEmails(): Promise<{
             (b as any).tenant_id,
           );
           if (smsBody) {
-            await sendSms({ to: b.customer_phone, body: smsBody }).catch(() => {});
+            await sendTenantSms({
+              tenantId: (b as any).tenant_id,
+              to: b.customer_phone,
+              body: smsBody,
+            }).catch(() => {});
           }
         }
       } catch (e: any) {

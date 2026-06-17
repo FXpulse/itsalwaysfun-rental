@@ -6,7 +6,9 @@ import { requireAdmin } from "@/lib/auth/roles";
 import { sendEmail, isEmailConfigured } from "@/lib/email/send";
 import { renderTemplate, renderTemplateSms, substitute, wrapInBaseLayout } from "@/lib/email/render-template";
 import { getTenantInfo, tenantToEmailBrand } from "@/lib/tenant/business";
-import { sendSms, isSmsConfigured } from "@/lib/sms/send";
+import { isSmsConfigured } from "@/lib/sms/send";
+import { sendTenantSms } from "@/lib/sms/tenant-config";
+import { getCurrentTenantId } from "@/lib/tenant/db";
 import { z } from "zod";
 
 const UpdateSchema = z.object({
@@ -129,7 +131,14 @@ export async function sendTestSms(
   const rendered = await renderTemplateSms(key, vars);
   if (!rendered) return { error: "This template has no SMS body to send. Add one and save first." };
 
-  const r = await sendSms({ to: toPhone, body: `[TEST] ${rendered}` });
+  const r = await sendTenantSms({
+    tenantId: getCurrentTenantId(),
+    to: toPhone,
+    body: `[TEST] ${rendered}`,
+  });
+  if (r.skipped === "no_tenant_from_number") {
+    return { error: "No SMS number assigned to this tenant yet. RentalFlow support can set one up." };
+  }
   return r.ok ? { success: true, sid: r.sid } : { error: r.error || "Send failed" };
 }
 

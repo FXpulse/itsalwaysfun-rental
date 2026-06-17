@@ -261,9 +261,9 @@ const SECTIONS: PlaybookSection[] = [
           "Toll-Free Verification (5-14 days) for TFN, or A2P 10DLC (1-3 days low-volume) for long-code. Check status: Console → Messaging → Regulatory Compliance.",
       },
       {
-        title: "Per-tenant numbers (future enhancement)",
+        title: "Per-tenant numbers (assign at /superadmin/tenants/[id]/sms)",
         detail:
-          "Would require tenants.twilio_from_number column + refactor sendSms() to pick per-tenant. Not built yet.",
+          "Buy 1 Twilio number per tenant in the platform's Twilio console, paste it (E.164) into the tenant's SMS config page. Without a number, customer-facing SMS for that tenant is skipped silently (email still goes out).",
       },
       {
         title: "Skip Twilio entirely",

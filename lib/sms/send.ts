@@ -1,15 +1,19 @@
 // Twilio SMS sender — HTTP-based, no SDK dep needed.
-// Env vars:
+// Env vars (platform account, shared across all tenants):
 //   TWILIO_ACCOUNT_SID    (starts with AC...)
 //   TWILIO_AUTH_TOKEN     (Twilio dashboard)
-//   TWILIO_FROM_NUMBER    (in E.164: +19045551234)
+//   TWILIO_FROM_NUMBER    (platform-side default in E.164: +19045551234)
 //
-// If any are missing, isSmsConfigured() returns false and sends are skipped
-// silently — same gracefully-degrades pattern as Resend.
+// Per-tenant: every customer-facing SMS should pass `from` resolved from
+// getTenantSmsConfig(tenantId). When `from` is omitted, the env default is
+// used (fine for platform→operator SMS, NOT for customer-facing — those
+// must always go from the tenant's own number for branding + 10DLC).
 
 export interface SendSmsParams {
-  to: string;       // E.164 or US-formatted; we normalize
-  body: string;     // <= 1600 chars (auto-split by Twilio if longer)
+  to: string;                       // E.164 or US-formatted; we normalize
+  body: string;                     // <= 1600 chars (auto-split by Twilio if longer)
+  from?: string;                    // Override TWILIO_FROM_NUMBER (per-tenant number)
+  messagingServiceSid?: string;     // Optional — when set, Twilio routes via the service
 }
 
 export function isSmsConfigured(): boolean {
@@ -44,14 +48,21 @@ export async function sendSms(
 
   const sid = process.env.TWILIO_ACCOUNT_SID!;
   const token = process.env.TWILIO_AUTH_TOKEN!;
-  const from = process.env.TWILIO_FROM_NUMBER!;
+  const from = params.from || process.env.TWILIO_FROM_NUMBER!;
 
   const url = `https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`;
-  const body = new URLSearchParams({
+  const formFields: Record<string, string> = {
     To: to,
-    From: from,
     Body: params.body.substring(0, 1600),
-  });
+  };
+  if (params.messagingServiceSid) {
+    // When MessagingServiceSid is set, Twilio picks the number from the
+    // service pool — `From` is ignored if both are present.
+    formFields.MessagingServiceSid = params.messagingServiceSid;
+  } else {
+    formFields.From = from;
+  }
+  const body = new URLSearchParams(formFields);
 
   try {
     const res = await fetch(url, {
