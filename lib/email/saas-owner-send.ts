@@ -23,11 +23,26 @@
 // var (default "info@getrentalflow.com") controls which account this
 // module looks up.
 
+import * as Sentry from "@sentry/nextjs";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { smtpSend } from "./smtp-client";
 import { sendEmail, isEmailConfigured } from "./send";
 import { getSaasOwnerEmailConfig } from "./saas-owner";
 import type { EmailAccount } from "./types";
+
+// Transport selection:
+//   SAAS_OWNER_PREFER_SMTP=true  → try SMTP first, fall back to Resend on failure
+//   SAAS_OWNER_PREFER_SMTP unset → use Resend only (default; matches what was
+//                                  working before the SMTP refactor)
+//
+// To use the SMTP path:
+//   1. /superadmin/email/accounts already has the info@ account row
+//      (verified for stackmail.com — IMAP sync working)
+//   2. Set SAAS_OWNER_PREFER_SMTP=true in Vercel production env
+//   3. Redeploy
+//   4. Check /superadmin/diagnostics or Sentry for SMTP errors after first
+//      cron run. If clean for a week, you can leave it on permanently.
+const PREFER_SMTP = process.env.SAAS_OWNER_PREFER_SMTP === "true";
 
 let cached: EmailAccount | null | undefined = undefined;
 let cachedAt = 0;
@@ -71,37 +86,58 @@ export interface SaasOwnerSendResult {
 }
 
 /** Send an email FROM the SaaS owner inbox (info@getrentalflow.com).
- *  Prefers the configured email_accounts SMTP row; falls back to Resend
- *  with the same From + Reply-To so the recipient always sees the same
- *  address regardless of transport. */
+ *
+ *  Transport order depends on SAAS_OWNER_PREFER_SMTP:
+ *    - true  → SMTP from the configured email_accounts row first; if it
+ *              throws, fall back to Resend so the message still goes out
+ *    - false → Resend only (default). Set SAAS_OWNER_PREFER_SMTP=true once
+ *              SMTP is verified to work for your provider.
+ *
+ *  Either way the recipient sees the same From + Reply-To. */
 export async function sendFromSaasOwner(
   input: SaasOwnerSendInput,
 ): Promise<SaasOwnerSendResult> {
   const owner = getSaasOwnerEmailConfig();
   const text = input.text || stripHtml(input.html);
 
-  // Prefer SMTP from the configured account
-  const account = await getSaasOwnerAccount();
-  if (account) {
-    try {
-      const r = await smtpSend(account, {
-        from: owner.from,
-        to: [input.to],
-        subject: input.subject,
-        text,
-        html: input.html,
-      });
-      return { ok: true, via: "smtp", messageId: r.messageId };
-    } catch (e: any) {
-      // SMTP failed — fall through to Resend so the message still goes out.
-      console.error(
-        "[saas-owner SMTP failed, falling back to Resend]",
-        e?.message,
-      );
+  // Try SMTP first only if explicitly enabled
+  if (PREFER_SMTP) {
+    const account = await getSaasOwnerAccount();
+    if (account) {
+      try {
+        const r = await smtpSend(account, {
+          // Use the account's own label + email so the From: header matches
+          // exactly what the provider expects to send (some SMTP servers
+          // reject mismatched From under strict policy).
+          from: `${account.label || "RentalFlow"} <${account.email_address}>`,
+          to: [input.to],
+          subject: input.subject,
+          text,
+          html: input.html,
+        });
+        return { ok: true, via: "smtp", messageId: r.messageId };
+      } catch (e: any) {
+        // SMTP failed — capture for visibility so we can fix the path,
+        // then fall through to Resend so the email still goes out.
+        Sentry.captureException(e, {
+          tags: { area: "saas-owner-smtp" },
+          extra: {
+            host: account.smtp_host,
+            port: account.smtp_port,
+            tls: account.smtp_tls,
+            email: account.email_address,
+            errorMessage: e?.message,
+          },
+        });
+        console.error(
+          "[saas-owner SMTP failed, falling back to Resend]",
+          e?.message,
+        );
+      }
     }
   }
 
-  // Fallback to Resend
+  // Default path — Resend
   if (isEmailConfigured()) {
     const r = await sendEmail({
       to: input.to,
