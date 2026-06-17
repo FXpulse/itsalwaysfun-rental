@@ -40,6 +40,12 @@ export default async function BetaProgramPage() {
   const programOpen = isBetaProgramActive();
   const programEnd = betaProgramEndAt();
 
+  // Open feedback count for the summary card
+  const { count: openFeedbackCount } = await admin
+    .from("beta_feedback")
+    .select("id", { count: "exact", head: true })
+    .eq("resolved", false);
+
   // Per-row enrichment — activity counts.
   // Run a single grouped query to avoid N+1.
   const tenantIds = cohort.map((t) => t.id);
@@ -159,15 +165,21 @@ export default async function BetaProgramPage() {
         </div>
         <div className="bg-white border border-slate-200 rounded-lg p-4">
           <p className="text-xs text-slate-500 uppercase font-bold tracking-wider">
-            Public landing
+            Open feedback
           </p>
+          <Link
+            href="/superadmin/beta-program/feedback"
+            className="text-brand-navy font-bold mt-1 inline-block underline text-lg"
+          >
+            {openFeedbackCount ?? 0} open
+          </Link>
           <a
             href="https://getrentalflow.com/beta"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-brand-navy font-bold mt-1 inline-block underline text-sm"
+            className="text-slate-400 text-xs mt-1 block hover:underline"
           >
-            getrentalflow.com/beta
+            getrentalflow.com/beta ↗
           </a>
         </div>
       </div>

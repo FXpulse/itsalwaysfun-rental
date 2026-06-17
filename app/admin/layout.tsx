@@ -8,6 +8,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getCurrentUserRole } from "@/lib/auth/roles";
 import { RealtimeNotifications } from "@/components/admin/RealtimeNotifications";
 import { AdminAssistantBubble } from "@/components/admin/AssistantBubble";
+import { BetaFeedbackBubble } from "@/components/admin/BetaFeedbackBubble";
 import {
   LogOut,
   Calendar,
@@ -155,13 +156,14 @@ export default async function AdminLayout({
       .maybeSingle(),
     adminClient
       .from("tenants")
-      .select("business_name, onboarding_completed_at, inbox_enabled")
+      .select("business_name, onboarding_completed_at, inbox_enabled, beta_program")
       .eq("id", currentTenantId)
       .maybeSingle(),
   ]);
 
   const isSuperadmin = !!superadminRow?.is_superadmin;
   const businessName = (tenantRow as any)?.business_name || "Rental management";
+  const isBetaTenant = !!(tenantRow as any)?.beta_program;
 
   // Resolve effective role for this tenant
   let userRole: { id: string; email: string | null; role: "admin" | "staff" | "driver"; is_active: boolean } | null = null;
@@ -273,7 +275,17 @@ export default async function AdminLayout({
       {/* Sidebar */}
       <aside className="w-64 bg-brand-navy text-white flex flex-col">
         <div className="p-6 border-b border-white/10">
-          {roleBadge}
+          <div className="flex items-center gap-2 flex-wrap mb-2">
+            {roleBadge}
+            {isBetaTenant && (
+              <span
+                className="inline-block bg-brand-yellow/20 text-brand-yellow text-[10px] font-bold tracking-widest px-2 py-0.5 rounded border border-brand-yellow/40"
+                title="Your account is part of the 90-day RentalFlow beta program"
+              >
+                BETA
+              </span>
+            )}
+          </div>
           <h1 className="text-lg font-bold">{businessName}</h1>
           <p className="text-xs text-white/60">Rental management</p>
           {isSuperadmin && (
@@ -333,6 +345,7 @@ export default async function AdminLayout({
       </main>
       <RealtimeNotifications />
       <AdminAssistantBubble />
+      {isBetaTenant && <BetaFeedbackBubble />}
     </div>
   );
 }
