@@ -212,6 +212,48 @@ export default async function TenantDetailPage({
         </div>
       </Link>
 
+      {/* GHL config CTA */}
+      <Link
+        href={`/superadmin/tenants/${tenant.id}/ghl`}
+        className={`group flex items-center justify-between mb-6 rounded-xl border-2 ${
+          (tenant as any).ghl_location_id
+            ? "border-emerald-300 bg-emerald-50"
+            : "border-amber-300 bg-amber-50"
+        } p-4 hover:shadow-md transition`}
+      >
+        <div className="flex items-center gap-3">
+          <div
+            className={`h-6 w-6 rounded ${
+              (tenant as any).ghl_location_id ? "bg-emerald-200" : "bg-amber-200"
+            } flex items-center justify-center text-xs font-bold`}
+          >
+            GHL
+          </div>
+          <div>
+            <div className="font-bold text-brand-navy">
+              GoHighLevel sub-account
+              {(tenant as any).ghl_location_id ? (
+                <span className="ml-2 text-xs font-bold px-2 py-0.5 rounded bg-emerald-200 text-emerald-800">
+                  Configured
+                </span>
+              ) : (
+                <span className="ml-2 text-xs font-bold px-2 py-0.5 rounded bg-amber-200 text-amber-900">
+                  Not configured
+                </span>
+              )}
+            </div>
+            <div className="text-xs text-slate-500 mt-0.5">
+              {(tenant as any).ghl_location_id
+                ? `Location ${((tenant as any).ghl_location_id as string).slice(0, 12)}… — bookings + contacts push to this sub-account`
+                : "Provision a sub-account in HighLevel, then paste Location ID + workflow webhook URLs here"}
+            </div>
+          </div>
+        </div>
+        <div className="text-xs font-semibold group-hover:underline">
+          {(tenant as any).ghl_location_id ? "Edit →" : "Configure →"}
+        </div>
+      </Link>
+
       {/* AI Brief panel */}
       <div className="mb-6">
         <TenantBrief tenantId={tenant.id} />
