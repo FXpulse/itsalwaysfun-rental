@@ -41,8 +41,11 @@ def render(api):
                 'subscription_status: trialing|active|past_due|canceled|incomplete|unpaid|paused',
                 'suspended_at (nullable — middleware checks)',
                 'inbox_enabled, timezone, branding fields (logo, accent_color, font, hero_image)',
+                'twilio_from_number, twilio_messaging_service_sid (per-tenant SMS — added 2026-06-18)',
+                'ghl_location_id + 4 ghl_*_webhook_url columns (per-tenant GoHighLevel — added 2026-06-18)',
             ]),
-            ('Constraints', 'subscription_status IN (...). Slug regex enforced.'),
+            ('Constraints', 'subscription_status IN (...). Slug regex enforced. '
+                           'twilio_from_number CHECK E.164 format.'),
             ('RLS', 'Public read of selected columns (for branding). Service role for writes.'),
         ])
 
@@ -64,6 +67,25 @@ def render(api):
             ('Tenancy', 'multi-tenant (one row per tenant)'),
             ('Purpose', 'Used by superadmin /tenants/[id] snapshot and by onboarding flow.'),
             ('Key columns', 'industry, goals, decision_maker, acquisition_source, notes'),
+        ])
+
+    api['add_data_sheet'](doc,
+        title='driver_schedule_profiles',
+        subtitle='Driver skills + availability used by the AI route optimizer (added 2026-06-18).',
+        fields=[
+            ('Tenancy', 'multi-tenant ((tenant_id, driver_email) UNIQUE)'),
+            ('Purpose', 'GPT-4o optimizer reads these to match drivers → bookings by skill, ZIP, '
+                         'available days, and weekly hour cap. Lives under /admin/drivers/schedule.'),
+            ('Key columns', [
+                'id (uuid PK), tenant_id (FK), driver_email (text)',
+                'skills text[] (small_inflatables, large_slides, trailer_pull, concession, etc.)',
+                'home_zip text (geographic clustering hint)',
+                'weekly_max_hours int (default 40, soft cap)',
+                'available_days int[] (0=Sun..6=Sat, empty = all days)',
+                'notes text (operator free-form context)',
+            ]),
+            ('RLS', 'Standard tenant_isolation policy + service-role bypass.'),
+            ('Triggers', 'updated_at touch trigger on UPDATE.'),
         ])
 
     api['add_h2'](doc, '14.2  Booking pipeline (the heart)')
@@ -404,6 +426,13 @@ def render(api):
             ('webhook_deliveries', 'Outbound webhook attempt log. attempt_count, succeeded, '
                                       'next_retry_at, response_status, response_body.'),
             ('blocked_dates', 'Blackouts per product. blocked_date, reason, created_by.'),
+            ('lead_magnet_signups', 'Lead capture for /marketing/free-tools/* (1099 tracker, '
+                                       'calculators). email, tool_name, payload_json, marketing_opt_in, '
+                                       'tags text[] (added 2026-06-18). ghl_synced_at/ghl_contact_id '
+                                       'retained for historical rows only — new rows no longer push to GHL.'),
+            ('driver_schedule_profiles', 'AI route optimizer skill + availability profile. '
+                                           '(tenant_id, driver_email) UNIQUE. skills[], home_zip, '
+                                           'weekly_max_hours, available_days[], notes. Added 2026-06-18.'),
         ],
         col_widths=[2.5, 4.6])
 

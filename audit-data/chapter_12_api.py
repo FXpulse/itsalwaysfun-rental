@@ -80,6 +80,10 @@ def render(api):
             ('POST', '/api/admin/support', 'Support ticket creation.'),
             ('POST', '/api/admin/diagnose-places', 'Test Google Places integration (admin diagnostics).'),
             ('GET',  '/api/templates/[entity]', 'Download CSV template for bulk import.'),
+            ('GET',  '/api/admin/accounting/export?type=...',
+             'CSV export. Types: expenses, overhead, pnl, tax, 1099-nec (year-scoped), '
+             'sales-receipts (QBO Sales Receipt format, paid bookings in date range — '
+             'added 2026-06-18), customers (deduplicated list with totals, added 2026-06-18).'),
         ],
         col_widths=[0.5, 2.5, 4.1])
 

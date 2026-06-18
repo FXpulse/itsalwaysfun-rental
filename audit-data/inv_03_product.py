@@ -86,6 +86,15 @@ def render(api):
             ('AI admin assistant',
              'Asking your accountant',
              'Claude API answers "what made money last month" against your own data.'),
+            ('AI route optimizer',
+             'Friday-night puzzle on paper',
+             'GPT-4o reads bookings + drivers + skill/ZIP profiles + vehicles, proposes Saturday '
+             'routes with reasoning + warnings. Operator approves or adjusts. Saves ~30 min/week '
+             'per tenant. Added 2026-06-18.'),
+            ('QuickBooks Online export',
+             'Manual data entry into QBO',
+             'Sales Receipts + Customers CSV exports match QBO import format directly. '
+             'Bookkeeper imports in 3 clicks. Added 2026-06-18.'),
         ],
         col_widths=[2.0, 2.0, 3.1])
 

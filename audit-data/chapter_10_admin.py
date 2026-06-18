@@ -38,6 +38,13 @@ def render(api):
         f'page.tsx + actions.ts file and grepping for sendEmail/stripe.*/ghl/revalidatePath/'
         f'logAuditEvent. Trivial pages still listed for completeness.')
 
+    api['add_callout'](doc, 'good',
+        'Added 2026-06-18 (not yet in admin-pages.json snapshot): '
+        '/admin/drivers/schedule (skill + availability editor for AI route optimizer) and '
+        'a new "✨ Optimize routes" button on /admin/dispatch/[date] that calls GPT-4o and '
+        'shows a proposed plan modal before any DB writes. Both reach the AI route optimizer '
+        'documented in §17.')
+
     # Summary stats
     groups = data.get('groups', [])
     total_pages = sum(len(g.get('pages', [])) for g in groups)
