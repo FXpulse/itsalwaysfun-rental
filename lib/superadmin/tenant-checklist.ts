@@ -355,6 +355,17 @@ export const CHECKLIST_ITEMS: ChecklistItem[] = [
     description: "Default text covers common cases — review for your jurisdiction",
     manualOnly: true,
   },
+  {
+    key: "mfa_policy_decided",
+    category: "legal",
+    label: "MFA policy decided (enable or explicitly skip)",
+    description:
+      "Decide whether to require MFA for all admin users on your account. " +
+      "Visit /admin/settings/security to choose — enable + enroll your own factor, " +
+      "or keep it off if you have a reason. Either way, mark this checked once you've decided.",
+    manualOnly: true,
+    required: true,
+  },
 
   // ── OPERATIONS ──
   {
