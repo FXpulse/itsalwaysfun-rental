@@ -27,6 +27,9 @@ installed if you ran the setup script.
 | `01-public-smoke.spec.ts` | Apex page renders + book CTA navigates + 404 handling |
 | `02-admin-auth.spec.ts` | Throwaway admin → login → dashboard mounts |
 | `03-booking-wizard.spec.ts` | Date pick + advance + contact step + state preserved |
+| `04-admin-dispatch.spec.ts` | Admin → `/admin/dispatch/[date]` mounts + Add route CTA visible |
+| `05-driver-auth.spec.ts` | Throwaway driver → login → redirects to `/driver` + BottomNav visible |
+| `06-paid-booking-list.spec.ts` | Seed paid booking via admin client + visible in `/admin/bookings` |
 
 ## Adding a new test
 
