@@ -82,6 +82,8 @@ export const MULTI_TENANT_TABLES = new Set([
   "tenant_profile",             // profile/metadata del tenant
   // In-app beta feedback widget submissions (2026-06-17)
   "beta_feedback",
+  // Driver skill/availability profile used by AI route optimizer (2026-06-18)
+  "driver_schedule_profiles",
 ]);
 
 /** Tablas que SÍ tienen columna `tenant_id` (o conceptualmente son por-tenant)

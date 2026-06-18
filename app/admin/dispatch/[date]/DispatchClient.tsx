@@ -28,6 +28,7 @@ import {
   reorderStop,
 } from "../actions";
 import { RouteUnitAssignment, type UnitOption } from "./RouteUnitAssignment";
+import { OptimizeButton } from "./OptimizeButton";
 
 interface RouteUnitsMap {
   [routeId: string]: {
@@ -233,14 +234,19 @@ export function DispatchClient({
 
   return (
     <div className="space-y-6">
-      {/* New route button */}
+      {/* Toolbar — New route + AI optimize */}
       {!creating && (
-        <button
-          onClick={() => setCreating(true)}
-          className="btn-primary inline-flex items-center gap-2"
-        >
-          <Plus className="h-4 w-4" /> Add {routeType} route
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            onClick={() => setCreating(true)}
+            className="btn-primary inline-flex items-center gap-2"
+          >
+            <Plus className="h-4 w-4" /> Add {routeType} route
+          </button>
+          {routeType === "delivery" && unassigned.length > 0 && (
+            <OptimizeButton routeDate={routeDate} />
+          )}
+        </div>
       )}
 
       {/* Create route form */}
