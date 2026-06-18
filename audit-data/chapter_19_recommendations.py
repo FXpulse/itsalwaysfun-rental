@@ -158,6 +158,12 @@ def render(api):
              'row, where-they-win + where-we-win, honest TL;DR. Data lives in '
              'lib/marketing/competitors.ts so adding new entries is one array push.',
              'LIVE (shipped 2026-06-18)'),
+            ('MFA actually enabled for IAF + onboarding prompt for new tenants',
+             'Bug fix 429b4b1 (cancelEnroll was deleting the verified factor) unblocked the '
+             'flow. IAF flipped require_admin_mfa=true 2026-06-18 evening with admin TOTP '
+             'verified. New tenants see a required "mfa_policy_decided" checklist item that '
+             'sends them to /admin/settings/security to consciously decide.',
+             'LIVE (shipped 2026-06-18)'),
         ],
         col_widths=[2.4, 3.0, 1.7])
 
@@ -193,15 +199,11 @@ def render(api):
     api['add_kv_table'](doc,
         ['#', 'Recommendation', 'Why', 'Effort', 'Impact'],
         [
-            ('1', 'MFA enforcement defaults for new tenant signups',
-             'Policy switch (require_admin_mfa) shipped 2026-06-17 with default OFF. Next step: '
-             'flip the default to ON for new tenants after a chosen date so the security floor '
-             'rises automatically over time.',
-             '2h', 'MEDIUM'),
-            ('2', 'Multi-warehouse support',
+            ('1', 'Multi-warehouse support',
              'Today: single warehouse per tenant. Flagged as a wins-for-them column in the '
              'TapGoods + Goodshuffle Pro /vs pages. Mid-size operators with 2+ locations need '
-             'transfer + per-warehouse inventory.',
+             'transfer + per-warehouse inventory. Do not build proactively — wait until a '
+             'paying prospect asks for it.',
              '3-5d', 'MEDIUM'),
         ],
         col_widths=[0.4, 2.3, 2.6, 0.8, 0.8])

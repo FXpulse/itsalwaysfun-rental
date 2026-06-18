@@ -33,9 +33,13 @@ def render(api):
         'Password complexity rules are not visible in code — relies on Supabase Auth defaults. '
         'Consider adding minimum length + HIBP breach check for admin accounts.')
 
-    api['add_callout'](doc, 'warn',
-        'MFA is OPTIONAL today. For a payment-handling SaaS, requiring MFA for admin role at '
-        'tenant creation is the right default. Today it\'s opt-in via /admin/settings/security.')
+    api['add_callout'](doc, 'good',
+        'MFA enforcement policy is LIVE (shipped 2026-06-17) and IAF flipped its policy '
+        '"Require 2FA for all admins" to ON on 2026-06-18 evening — IAF\'s admin user '
+        '(admin@itsalwaysfun.com) has a verified TOTP factor and the require_admin_mfa '
+        'site_setting is "true". For NEW tenants, the policy still defaults to OFF — they '
+        'see a required onboarding checklist item "mfa_policy_decided" prompting them to '
+        'make the choice consciously instead of being silently forced on.')
 
     api['add_h2'](doc, '16.2  Authorization')
 
@@ -161,7 +165,11 @@ def render(api):
              'allowlist. XSS blast-radius reduced.'),
             ('SEC-3', 'MFA available but NOT required',
              'site_settings.require_admin_mfa per-tenant switch (default off) + admin layout '
-             'gate + UI toggle with anti-lockout guardrail. Shipped 2026-06-17.'),
+             'gate + UI toggle with anti-lockout guardrail. Shipped 2026-06-17. Bug found + '
+             'fixed 2026-06-18: post-verify path called cancelEnroll() which unenrolled the '
+             'just-verified factor → toast said "enabled" but DB had 0 rows. Refactored to '
+             'closeEnrollUi(discardFactor) with explicit control (commit 429b4b1). IAF '
+             'flipped the policy to require_admin_mfa=true 2026-06-18 evening.'),
             ('SEC-5', 'No per-IP rate limit on public reads',
              '/api/products, /api/products/[slug], /api/availability now use lib/rate-limit at '
              '60/min/IP via Upstash. Returns 429 + Retry-After 60. Shipped 2026-06-17.'),
