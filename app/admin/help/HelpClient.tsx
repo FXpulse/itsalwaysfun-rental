@@ -3254,8 +3254,9 @@ sofia@example.com,Sofia,Rivera,`}
       content: (
         <div className="space-y-3 text-sm">
           <p>
-            Since June 2026, every PR + push to <code>main</code> runs three CI
-            jobs via GitHub Actions (<code>.github/workflows/ci.yml</code>):
+            Since June 2026, every PR + push to <code>main</code> runs FOUR CI
+            jobs via GitHub Actions (<code>.github/workflows/ci.yml</code>) —
+            the 4th (E2E Playwright) was added 2026-06-18:
           </p>
           <div className="bg-slate-50 border border-slate-200 rounded p-3 text-xs space-y-2">
             <div>
@@ -3282,7 +3283,19 @@ sofia@example.com,Sofia,Rivera,`}
                 Runs <code>npm run test:integration</code> against a dedicated
                 test Supabase project (<code>TEST_SUPABASE_URL</code> +{" "}
                 <code>TEST_SUPABASE_SERVICE_ROLE_KEY</code> secrets). Currently:
-                multi-tenant isolation + booking-email idempotency.
+                multi-tenant isolation + booking-email idempotency + inventory
+                availability + dispatch rollup + booking status machine (5 files,
+                ~29 tests).
+              </p>
+            </div>
+            <div>
+              <strong>4. E2E (Playwright)</strong>
+              <p className="text-slate-600">
+                Runs <code>npm run e2e</code> against <code>npm run dev</code> +
+                test Stripe + test Supabase. 6 chromium smoke tests covering
+                public site, admin auth, booking wizard mount, dispatch page,
+                driver auth, paid booking visibility. Skips gracefully with a
+                warning when test secrets are missing.
               </p>
             </div>
           </div>
@@ -3295,6 +3308,114 @@ sofia@example.com,Sofia,Rivera,`}
             Two open follow-ups: (a) expand integration tests to 10+ scenarios
             covering refunds, holds, GHL webhook; (b) add Dependabot or Snyk for
             CVE scanning of npm deps.
+          </p>
+        </div>
+      ),
+    },
+    {
+      id: "approval-workflow",
+      title: "High-ticket booking approval",
+      icon: ShieldCheck,
+      content: (
+        <div className="space-y-3 text-sm">
+          <p>
+            Shipped 2026-06-18. Lets you require admin sign-off before
+            high-ticket bookings get a confirmation email. Stops staff
+            mistakes on big orders + gives you a final review.
+          </p>
+          <p className="font-semibold">How to enable</p>
+          <ol className="list-decimal pl-5 text-xs space-y-1">
+            <li>Go to <code>/admin/settings</code></li>
+            <li>Find the "High-ticket booking approval" card</li>
+            <li>Tick "Require approval above a dollar threshold"</li>
+            <li>Set the threshold (e.g. $1,000) → Save</li>
+          </ol>
+          <p className="font-semibold">What happens then</p>
+          <ul className="list-disc pl-5 text-xs space-y-1">
+            <li>Customer pays $1,500 via Stripe → booking lands in <code>approval_status=pending</code></li>
+            <li>Confirmation email is HELD (not sent yet)</li>
+            <li>You see a yellow banner on <code>/admin/bookings/[id]</code>: "Awaiting admin approval"</li>
+            <li>Click <strong>Approve</strong> → confirmation email fires immediately. Customer never knew.</li>
+            <li>Click <strong>Reject</strong> → required reason → no email goes out. You handle the refund + customer comms manually.</li>
+          </ul>
+          <p className="text-xs text-slate-500">
+            💡 Admin-created bookings (from <code>/admin/bookings/new</code>) bypass
+            the workflow entirely — operator already approved by creating.
+          </p>
+        </div>
+      ),
+    },
+    {
+      id: "ai-route-optimizer",
+      title: "AI route optimizer (Saturday in 1 click)",
+      icon: Sparkles,
+      content: (
+        <div className="space-y-3 text-sm">
+          <p>
+            Shipped 2026-06-18. GPT-4o reads your unassigned paid bookings +
+            active drivers + their skill/availability profiles + vehicles, and
+            proposes a complete day's routes — driver assignment, vehicle, stop
+            order, reasoning. You approve or adjust before anything is written.
+          </p>
+          <p className="font-semibold">One-time setup — driver profiles</p>
+          <ol className="list-decimal pl-5 text-xs space-y-1">
+            <li>Go to <code>/admin/drivers/schedule</code></li>
+            <li>For each driver: click <strong>Edit</strong></li>
+            <li>Skills (chips): small_inflatables, large_slides, trailer_pull, concession, etc.</li>
+            <li>Home ZIP — geographic clustering hint</li>
+            <li>Weekly max hours — default 40, soft cap</li>
+            <li>Available days — pick the days they work</li>
+            <li>Notes — "prefers mornings", "don't pair with John", etc.</li>
+            <li>Save</li>
+          </ol>
+          <p className="font-semibold">Use it (every Friday)</p>
+          <ol className="list-decimal pl-5 text-xs space-y-1">
+            <li>Go to <code>/admin/dispatch/&lt;Saturday-date&gt;</code></li>
+            <li>If there's any unassigned booking, you see a purple <strong>✨ Optimize routes</strong> button</li>
+            <li>Click → ~5-10 sec → modal shows proposed plan</li>
+            <li>For each route: driver, vehicle, stop order, reasoning, R:R warnings</li>
+            <li>Click <strong>Apply</strong> → routes + stops written to DB</li>
+          </ol>
+          <p className="text-xs bg-amber-50 border border-amber-200 rounded p-2">
+            ⚠️ Requires <code>OPENAI_API_KEY</code> in env. Cost: ~$0.02 per
+            optimization. Optimizer NEVER auto-applies — operator always
+            confirms.
+          </p>
+          <p className="text-xs text-slate-500">
+            💡 The optimizer respects: available_days (won't pick a driver who
+            doesn't work that day), weekly_max_hours (warns if exceeding),
+            skills (prefers drivers with matching skills for big slides etc.).
+          </p>
+        </div>
+      ),
+    },
+    {
+      id: "quickbooks-export",
+      title: "QuickBooks Online export",
+      icon: Receipt,
+      content: (
+        <div className="space-y-2 text-sm">
+          <p>
+            Shipped 2026-06-18. Two new CSVs in <code>/admin/reports</code> that
+            drop directly into QuickBooks Online's import wizard:
+          </p>
+          <p className="font-semibold">Workflow (your bookkeeper, every month)</p>
+          <ol className="list-decimal pl-5 text-xs space-y-1">
+            <li>Set date range on <code>/admin/reports</code></li>
+            <li>Click <strong>Customers (QBO)</strong> → downloads CSV</li>
+            <li>In QBO: New → Import data → Customers → upload that CSV</li>
+            <li>Back to RentalFlow → click <strong>Sales receipts (QBO)</strong> → downloads CSV</li>
+            <li>In QBO: New → Import data → Sales Receipts → upload → receipts auto-link to customers you just imported</li>
+          </ol>
+          <p className="text-xs text-slate-500">
+            💡 Dates use ISO format (YYYY-MM-DD); QBO auto-detects. Amounts are
+            plain decimals (no $ signs). Customer column is matched by exact
+            string — first import creates, subsequent skip existing.
+          </p>
+          <p className="text-xs">
+            The original CSV buttons (Booking expenses, Overhead, P&amp;L, Tax,
+            1099-NEC) are still on the same page for the cost side / state tax
+            filing. The QBO ones are new in green-filled style at the top.
           </p>
         </div>
       ),

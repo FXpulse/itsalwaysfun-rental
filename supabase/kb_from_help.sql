@@ -3126,8 +3126,9 @@ on conflict (slug) do update set
   updated_at = now();
 
 insert into kb_articles (slug, title, body_md, category, tags, is_published) values
-  ($kbf$help-ci-pipeline$kbf$, $kbf$CI on PR — what gets checked automatically$kbf$, $kbf$Since June 2026, every PR + push to `main` runs three CI
-jobs via GitHub Actions (`.github/workflows/ci.yml`):
+  ($kbf$help-ci-pipeline$kbf$, $kbf$CI on PR — what gets checked automatically$kbf$, $kbf$Since June 2026, every PR + push to `main` runs FOUR CI
+jobs via GitHub Actions (`.github/workflows/ci.yml`) —
+the 4th (E2E Playwright) was added 2026-06-18:
 
 **1. Typecheck + Lint + Tests**
 
@@ -3148,7 +3149,17 @@ table, forgot to register it" footgun.
 Runs `npm run test:integration` against a dedicated
 test Supabase project (`TEST_SUPABASE_URL` +
 `TEST_SUPABASE_SERVICE_ROLE_KEY` secrets). Currently:
-multi-tenant isolation + booking-email idempotency.
+multi-tenant isolation + booking-email idempotency + inventory
+availability + dispatch rollup + booking status machine (5 files,
+~29 tests).
+
+**4. E2E (Playwright)**
+
+Runs `npm run e2e` against `npm run dev` +
+test Stripe + test Supabase. 6 chromium smoke tests covering
+public site, admin auth, booking wizard mount, dispatch page,
+driver auth, paid booking visibility. Skips gracefully with a
+warning when test secrets are missing.
 
 ⚠️ Jobs 2 + 3 require the Supabase secrets and are skipped
 automatically on fork PRs (which don't get access to secrets). On
@@ -3157,6 +3168,122 @@ push to `main` they always run.
 Two open follow-ups: (a) expand integration tests to 10+ scenarios
 covering refunds, holds, GHL webhook; (b) add Dependabot or Snyk for
 CVE scanning of npm deps.$kbf$, $kbf$Setup$kbf$, array[$kbf$help$kbf$, $kbf$imported$kbf$], true)
+on conflict (slug) do update set
+  title = excluded.title,
+  body_md = excluded.body_md,
+  category = excluded.category,
+  tags = excluded.tags,
+  updated_at = now();
+
+insert into kb_articles (slug, title, body_md, category, tags, is_published) values
+  ($kbf$help-approval-workflow$kbf$, $kbf$High-ticket booking approval$kbf$, $kbf$Shipped 2026-06-18. Lets you require admin sign-off before
+high-ticket bookings get a confirmation email. Stops staff
+mistakes on big orders + gives you a final review.
+
+How to enable
+
+- Go to `/admin/settings`
+
+- Find the "High-ticket booking approval" card
+
+- Tick "Require approval above a dollar threshold"
+
+- Set the threshold (e.g. $1,000) → Save
+
+What happens then
+
+- Customer pays $1,500 via Stripe → booking lands in `approval_status=pending`
+
+- Confirmation email is HELD (not sent yet)
+
+- You see a yellow banner on `/admin/bookings/[id]`: "Awaiting admin approval"
+
+- Click **Approve** → confirmation email fires immediately. Customer never knew.
+
+- Click **Reject** → required reason → no email goes out. You handle the refund + customer comms manually.
+
+💡 Admin-created bookings (from `/admin/bookings/new`) bypass
+the workflow entirely — operator already approved by creating.$kbf$, $kbf$Setup$kbf$, array[$kbf$help$kbf$, $kbf$imported$kbf$], true)
+on conflict (slug) do update set
+  title = excluded.title,
+  body_md = excluded.body_md,
+  category = excluded.category,
+  tags = excluded.tags,
+  updated_at = now();
+
+insert into kb_articles (slug, title, body_md, category, tags, is_published) values
+  ($kbf$help-ai-route-optimizer$kbf$, $kbf$AI route optimizer (Saturday in 1 click)$kbf$, $kbf$Shipped 2026-06-18. GPT-4o reads your unassigned paid bookings +
+active drivers + their skill/availability profiles + vehicles, and
+proposes a complete day's routes — driver assignment, vehicle, stop
+order, reasoning. You approve or adjust before anything is written.
+
+One-time setup — driver profiles
+
+- Go to `/admin/drivers/schedule`
+
+- For each driver: click **Edit**
+
+- Skills (chips): small_inflatables, large_slides, trailer_pull, concession, etc.
+
+- Home ZIP — geographic clustering hint
+
+- Weekly max hours — default 40, soft cap
+
+- Available days — pick the days they work
+
+- Notes — "prefers mornings", "don't pair with John", etc.
+
+- Save
+
+Use it (every Friday)
+
+- Go to `/admin/dispatch/<Saturday-date>`
+
+- If there's any unassigned booking, you see a purple **✨ Optimize routes** button
+
+- Click → ~5-10 sec → modal shows proposed plan
+
+- For each route: driver, vehicle, stop order, reasoning, R:R warnings
+
+- Click **Apply** → routes + stops written to DB
+
+⚠️ Requires `OPENAI_API_KEY` in env. Cost: ~$0.02 per
+optimization. Optimizer NEVER auto-applies — operator always
+confirms.
+
+💡 The optimizer respects: available_days (won't pick a driver who
+doesn't work that day), weekly_max_hours (warns if exceeding),
+skills (prefers drivers with matching skills for big slides etc.).$kbf$, $kbf$Dispatch$kbf$, array[$kbf$help$kbf$, $kbf$imported$kbf$], true)
+on conflict (slug) do update set
+  title = excluded.title,
+  body_md = excluded.body_md,
+  category = excluded.category,
+  tags = excluded.tags,
+  updated_at = now();
+
+insert into kb_articles (slug, title, body_md, category, tags, is_published) values
+  ($kbf$help-quickbooks-export$kbf$, $kbf$QuickBooks Online export$kbf$, $kbf$Shipped 2026-06-18. Two new CSVs in `/admin/reports` that
+drop directly into QuickBooks Online's import wizard:
+
+Workflow (your bookkeeper, every month)
+
+- Set date range on `/admin/reports`
+
+- Click **Customers (QBO)** → downloads CSV
+
+- In QBO: New → Import data → Customers → upload that CSV
+
+- Back to RentalFlow → click **Sales receipts (QBO)** → downloads CSV
+
+- In QBO: New → Import data → Sales Receipts → upload → receipts auto-link to customers you just imported
+
+💡 Dates use ISO format (YYYY-MM-DD); QBO auto-detects. Amounts are
+plain decimals (no $ signs). Customer column is matched by exact
+string — first import creates, subsequent skip existing.
+
+The original CSV buttons (Booking expenses, Overhead, P&L, Tax,
+1099-NEC) are still on the same page for the cost side / state tax
+filing. The QBO ones are new in green-filled style at the top.$kbf$, $kbf$Policies$kbf$, array[$kbf$help$kbf$, $kbf$imported$kbf$], true)
 on conflict (slug) do update set
   title = excluded.title,
   body_md = excluded.body_md,
