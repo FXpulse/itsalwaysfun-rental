@@ -175,6 +175,17 @@ def render(api):
              'quickbooks-export) + ci-pipeline updated 3→4 jobs. KB regenerated to 73 sections, '
              'applied to prod. AI admin assistant can answer feature questions directly.',
              'LIVE (shipped 2026-06-18)'),
+            ('Operator-controlled MFA reset + recovery codes',
+             '/superadmin/users-mfa lists every active user with factor count + "Reset MFA" '
+             'button. /superadmin/recovery-codes for Ludmila\'s own emergency codes (SHA-256 + '
+             'salt, single-use, shown once). NO tenant-facing self-service — operator controls '
+             'all reset paths.',
+             'LIVE (shipped 2026-06-18)'),
+            ('Beta lifecycle cron health endpoint',
+             'GET /api/cron/beta-lifecycle-status returns 200/503 based on whether the daily '
+             'beta lifecycle cron has fired emails within the last 25h when there are active '
+             'beta tenants. Public endpoint; wire to UptimeRobot.',
+             'LIVE (shipped 2026-06-18)'),
         ],
         col_widths=[2.4, 3.0, 1.7])
 

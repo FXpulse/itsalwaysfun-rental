@@ -39,7 +39,11 @@ def render(api):
         '(admin@itsalwaysfun.com) has a verified TOTP factor and the require_admin_mfa '
         'site_setting is "true". For NEW tenants, the policy still defaults to OFF — they '
         'see a required onboarding checklist item "mfa_policy_decided" prompting them to '
-        'make the choice consciously instead of being silently forced on.')
+        'make the choice consciously instead of being silently forced on. MFA reset is '
+        'operator-controlled (not tenant self-service): /superadmin/users-mfa lets Ludmila '
+        'reset MFA for any locked-out user by deleting their TOTP factor (commit 79a500c). '
+        'Ludmila\'s own emergency codes live at /superadmin/recovery-codes — single-use, '
+        'SHA-256 + salt, shown once.')
 
     api['add_h2'](doc, '16.2  Authorization')
 
