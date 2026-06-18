@@ -213,6 +213,34 @@ export async function POST(request: Request) {
       console.error("[loyalty award failed, non-fatal]", e);
     }
 
+    // Approval workflow gate: if tenant has approval_threshold_cents AND
+    // booking total exceeds it, hold the confirmation email + mark pending
+    // until an admin approves via the booking detail page.
+    const { shouldRequireApproval, markBookingPendingApproval } = await import(
+      "@/lib/bookings/approval"
+    );
+    const approval = await shouldRequireApproval({
+      tenantId: booking.tenant_id,
+      totalCents: booking.total_amount,
+      source: "customer", // webhook path = customer-paid
+    });
+    if (approval.required) {
+      await markBookingPendingApproval(bookingId);
+      console.log(
+        "[approval] booking",
+        bookingId,
+        "held — total",
+        booking.total_amount,
+        ">=",
+        approval.thresholdCents,
+      );
+      return NextResponse.json({
+        received: true,
+        booking_id: bookingId,
+        status: "pending_approval",
+      });
+    }
+
     // Send booking confirmation email (idempotent via booking_emails_sent)
     try {
       await sendBookingConfirmation(bookingId);

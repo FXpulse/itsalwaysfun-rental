@@ -4,6 +4,7 @@ import { getCurrentTenantId } from "@/lib/tenant/server";
 import { CreditCard, Palette, Receipt, ShieldCheck, ExternalLink, Calendar, KeyRound } from "lucide-react";
 import { CalendarFeed } from "./CalendarFeed";
 import { TimezoneSection } from "./TimezoneSection";
+import { ApprovalThresholdSection } from "./ApprovalThresholdSection";
 
 export const dynamic = "force-dynamic";
 
@@ -13,7 +14,7 @@ export default async function AdminSettingsPage() {
 
   const { data: tenant } = await unscoped
     .from("tenants")
-    .select("business_name, owner_email, owner_phone, custom_domain, slug, plan, trial_ends_at, stripe_account_id, calendar_feed_token, timezone")
+    .select("business_name, owner_email, owner_phone, custom_domain, slug, plan, trial_ends_at, stripe_account_id, calendar_feed_token, timezone, approval_threshold_cents")
     .eq("id", tenantId)
     .maybeSingle();
 
@@ -70,6 +71,10 @@ export default async function AdminSettingsPage() {
 
       {/* Timezone */}
       <TimezoneSection current={(tenant as any)?.timezone || "America/New_York"} />
+
+      <ApprovalThresholdSection
+        currentCents={(tenant as any)?.approval_threshold_cents ?? null}
+      />
 
       {/* Account / Plan */}
       <div className="card mb-6">

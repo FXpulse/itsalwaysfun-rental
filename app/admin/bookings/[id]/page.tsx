@@ -9,6 +9,7 @@ import { ProofCapture } from "./ProofCapture";
 import { DamagesSection } from "./DamagesSection";
 import { BookingInspectionsSection } from "./BookingInspectionsSection";
 import { InternalMessagesThread } from "./InternalMessagesThread";
+import { ApprovalBanner } from "./ApprovalBanner";
 import { suggestTemplateForBooking } from "@/app/admin/inspections/actions";
 import { listMentionableUsers } from "./internal-messages-actions";
 import { getCurrentUserRole } from "@/lib/auth/roles";
@@ -168,6 +169,21 @@ export default async function BookingDetailPage({
           <StatusBadge label="Payment" status={b.stripe_payment_status} />
         </div>
       </div>
+
+      <ApprovalBanner
+        bookingId={b.id}
+        approvalStatus={(b as any).approval_status ?? null}
+        requestedAt={(b as any).approval_requested_at ?? null}
+        decidedAt={(b as any).approval_decided_at ?? null}
+        decidedBy={(b as any).approval_decided_by ?? null}
+        notes={(b as any).approval_notes ?? null}
+        totalDollars={(b.total_amount / 100).toFixed(2)}
+        thresholdDollars={
+          (tenant as any).approval_threshold_cents
+            ? ((tenant as any).approval_threshold_cents / 100).toFixed(0)
+            : null
+        }
+      />
 
       {/* Booking info */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
