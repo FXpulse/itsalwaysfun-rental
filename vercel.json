@@ -21,10 +21,6 @@
       "schedule": "0 3 * * 0"
     },
     {
-      "path": "/api/cron/lead-magnet-resync",
-      "schedule": "15 4 * * *"
-    },
-    {
       "path": "/api/cron/email-sync",
       "schedule": "*/5 * * * *"
     },
