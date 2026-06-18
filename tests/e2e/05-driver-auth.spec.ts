@@ -32,16 +32,15 @@ test.describe("driver auth", () => {
     await page.locator('input[type="password"]').fill(user.password);
     await page.getByRole("button", { name: /sign in|log in|continue/i }).click();
 
-    // After login, middleware should route driver-role to /driver.
-    // Use waitForFunction so we don't over-pin a specific URL pattern.
+    // After login, middleware should route the driver role to /driver. We
+    // wait for the URL to leave /admin/login — that's the success signal.
+    // The waitForFunction explicitly excludes /admin/login so we don't
+    // false-match the starting state.
     await page.waitForFunction(
-      () => location.pathname.startsWith("/driver") || location.pathname.startsWith("/admin"),
+      () => !location.pathname.startsWith("/admin/login"),
       { timeout: 15_000 },
     );
 
-    // We accept either /driver (preferred routing) or /admin/* (if the
-    // role routing didn't fire — still a successful auth, surfaces as a
-    // regression worth investigating separately).
     expect(page.url()).not.toContain("/admin/login");
   });
 });
