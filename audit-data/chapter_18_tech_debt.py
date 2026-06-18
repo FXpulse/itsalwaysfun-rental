@@ -106,10 +106,10 @@ def render(api):
         ],
         col_widths=[2.5, 1.5, 3.1])
 
-    api['add_callout'](doc, 'warn',
-        '335 `any` usages is the single largest type-safety opportunity. Concentrated in '
-        '/admin/diagnose-places (24 in one file) + email infrastructure. A focused '
-        '"strip any" pass on lib/email would unlock cleaner refactor opportunities.')
+    api['add_callout'](doc, 'good',
+        '305 `any` usages now (down from 335). lib/email focused pass shipped 2026-06-18 '
+        '(commit 7c93132) cleared ~30 unwarranted casts — only catch clauses and ImapFlow '
+        'library workarounds remain. Next-biggest concentration is /admin/diagnose-places (24).')
 
     api['add_h2'](doc, '18.5  Documentation debt')
 
@@ -117,7 +117,7 @@ def render(api):
         ['Doc', 'Status'],
         [
             ('README.md',                        'Present (~7.7 KB)'),
-            ('CONTRIBUTING.md',                  'MISSING'),
+            ('CONTRIBUTING.md',                  'Present (~470 lines, shipped 2026-06-17)'),
             ('ARCHITECTURE.md',                  'MISSING (this audit doc is a partial substitute)'),
             ('API_REFERENCE.md / OpenAPI',       'MISSING'),
             ('docs/runbook-restore.md',          'Present + 2026-06-16 findings file'),

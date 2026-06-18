@@ -1,7 +1,11 @@
 """Chapter 19 — Recommendations & Roadmap. 30 / 90 / 180 day plan.
 
-Reflects state AS OF 2026-06-16 — items that shipped before this audit are
-listed in the "Recently shipped" block, not in the recommendation list.
+Reflects state AS OF 2026-06-18 — items that shipped before this audit are
+listed in the "Recently shipped" block, not in the recommendation list. The
+2026-06-18 marathon session closed 8 additional items (UptimeRobot live,
+AI route optimizer, Playwright e2e setup, QBO export, lead-magnet decouple
+from GHL, referrer coupon self-rename, strip any in lib/email, per-tenant
+Twilio numbers).
 """
 
 
@@ -14,9 +18,10 @@ def render(api):
         audience_tags=['Owner', 'Engineer', 'Investor'])
 
     api['add_callout'](doc, 'fact',
-        'Recommendations are scoped to what is NOT yet shipped. The June 2026 sprint AND the '
-        '2026-06-17 hardening wave together closed 14 items previously on the roadmap. They are '
-        'called out separately so the recommendation list does not duplicate them.')
+        'Recommendations are scoped to what is NOT yet shipped. The June 2026 sprint, the '
+        '2026-06-17 hardening wave, AND the 2026-06-18 marathon (8 features) together closed '
+        '22 items previously on the roadmap. They are called out separately so the '
+        'recommendation list does not duplicate them.')
 
     api['add_h2'](doc, '19.1  Recently shipped (June 2026)')
 
@@ -91,6 +96,55 @@ def render(api):
             ('1099 tracker lead magnet + 1099-NEC generation',
              '/marketing/free-tools/1099-tracker (public) + /admin/reports/1099-nec (admin)',
              'LIVE'),
+            ('UptimeRobot on /api/health',
+             'Monitor 803176669 — free tier, 5-min interval, email alerts. Pages on outage.',
+             'LIVE (shipped 2026-06-18)'),
+            ('AI route optimizer + driver schedule profiles',
+             'GPT-4o reads bookings + drivers + skill/zip profiles + vehicles, returns '
+             'proposed routes with reasoning. /admin/drivers/schedule editor + /admin/dispatch '
+             'Optimize button. driver_schedule_profiles table.',
+             'LIVE (shipped 2026-06-18)'),
+            ('Playwright E2E setup + 3 smoke tests',
+             'public smoke + admin auth + booking wizard. CI workflow wired with chromium-only. '
+             'Helpers create isolated throwaway users via timestamped emails.',
+             'LIVE (shipped 2026-06-18)'),
+            ('QuickBooks Online sales-receipts + customers export',
+             'Two new types on /api/admin/accounting/export. Columns match QBO CSV import '
+             'format directly. AccountingExportButtons rebranded "QuickBooks / Xero export".',
+             'LIVE (shipped 2026-06-18)'),
+            ('Customer-initiated referrer coupon rename',
+             '/portal/referrals: referrer can rename their code (MARIA10 → MARIA-FAVS). '
+             'Discount value stays fixed. Rejects unique violations with friendly errors.',
+             'LIVE (shipped 2026-06-18)'),
+            ('lib/email "strip any" pass',
+             '~30 unwarranted any casts replaced with proper types across 8 files. '
+             'Remaining any are catch clauses + ImapFlow library workarounds.',
+             'LIVE (shipped 2026-06-18)'),
+            ('Per-tenant Twilio from-number (decoupled from env)',
+             'tenants.twilio_from_number + tenants.twilio_messaging_service_sid. sendSms() '
+             'accepts optional from/messagingServiceSid override. New /superadmin/tenants/[id]/sms '
+             'page. All 7 customer-facing SMS callsites refactored.',
+             'LIVE (shipped 2026-06-18)'),
+            ('Per-tenant GoHighLevel sub-account config',
+             'Agency model — master PIT platform-side, per-tenant location_id + 4 workflow '
+             'webhook URLs. /superadmin/tenants/[id]/ghl page.',
+             'LIVE (shipped 2026-06-18)'),
+            ('Lead-magnet decoupled from GHL',
+             'lead_magnet_signups.tags text[] replaces the GHL contact sync. Leads stay '
+             'platform-side; tenant CRMs no longer polluted with SaaS prospects.',
+             'LIVE (shipped 2026-06-18)'),
+            ('Custom-domain-required policy for tenant emails',
+             'getTenantEmailConfig returns null if tenant has no custom_domain (was: fall back '
+             'to IAF brand). All 19 callers updated with null guards + Sentry breadcrumbs.',
+             'LIVE (shipped 2026-06-18)'),
+            ('Two Resend account support',
+             'RESEND_API_KEY (tenant) + RESEND_API_KEY_PLATFORM (operator). sendEmail accepts '
+             'optional apiKey override. Operator emails do not pollute tenant Resend sending reputation.',
+             'LIVE (shipped 2026-06-18)'),
+            ('Beta program — signup variant + lifecycle + feedback widget',
+             '/beta landing, 90-day trial, 4 lifecycle emails (welcome/30/60/80), in-app feedback '
+             'bubble, /superadmin/beta-program cohort + inbox views.',
+             'LIVE (shipped 2026-06-17)'),
         ],
         col_widths=[2.4, 3.0, 1.7])
 
@@ -104,47 +158,42 @@ def render(api):
     api['add_kv_table'](doc,
         ['#', 'Recommendation', 'Why it matters', 'Effort', 'Impact'],
         [
-            ('1', 'UptimeRobot (or BetterStack) on /api/health',
-             'External uptime monitor. Pages on outage. Today nothing pings /api/health. '
-             'Requires operator to create an account — code-side is done.',
-             '15 min', 'HIGH'),
-            ('2', 'Expand integration tests to 10+ scenarios',
+            ('1', 'Expand integration tests to 10+ scenarios',
              'Current: 5 files / ~25 cases (multi-tenant isolation, email idempotency, inventory '
              'availability, dispatch rollup, booking status machine). Want: refund flow, booking '
              'extension, GHL inbound webhook, abandoned cart, hold expiration.',
+             '1-2d', 'HIGH'),
+            ('2', 'Add 3 more Playwright e2e tests',
+             'Public-smoke + admin-auth + booking-wizard shipped 2026-06-18. Pattern proven. '
+             'Want: admin dispatch flow, driver mobile (deliver + proof upload), payment flow '
+             '(faking Stripe webhook from a test).',
              '1-2d', 'HIGH'),
         ],
         col_widths=[0.4, 2.3, 2.6, 0.8, 0.8])
 
     api['add_callout'](doc, 'good',
-        'Total 30-day effort: ~1-2 days. Most of the original 30-day list was closed in the '
-        '2026-06-17 hardening wave.')
+        'Total 30-day effort: ~2-4 days. UptimeRobot shipped 2026-06-18 — the original 30-day '
+        'list is now empty.')
 
     api['add_h2'](doc, '19.3  Next 90 days — what remains')
 
     api['add_kv_table'](doc,
         ['#', 'Recommendation', 'Why', 'Effort', 'Impact'],
         [
-            ('1', '3 e2e tests (Playwright)',
-             'Happy path: book → admin confirm → driver deliver. Smoke test before merge. '
-             'CI infrastructure already in place; just needs Playwright wired.',
-             '2-3d', 'HIGH'),
-            ('2', 'Approval workflow for high-ticket bookings',
+            ('1', 'Approval workflow for high-ticket bookings',
              'Tenant config: if total > $X, require admin sign-off before confirmation. '
              'Prevents staff mistakes on large orders.',
              '1-2d', 'MEDIUM'),
-            ('3', 'Customer-initiated referrer coupon creation',
-             'Today admin generates referrer codes. Let customers pick their own (after first '
-             'paid booking). The ReferralBox already supports share — extend with self-create.',
-             '1d', 'MEDIUM'),
-            ('4', '"Strip any" pass on lib/email',
-             'Concentrated ~30 any usages. Strong leverage for safer refactors.',
-             '1d', 'MEDIUM'),
-            ('5', 'MFA enforcement defaults for new tenant signups',
+            ('2', 'MFA enforcement defaults for new tenant signups',
              'Policy switch (require_admin_mfa) shipped 2026-06-17 with default OFF. Next step: '
              'flip the default to ON for new tenants after a chosen date so the security floor '
              'rises automatically over time.',
              '2h', 'MEDIUM'),
+            ('3', 'Comparison landing /vs-inflatableoffice',
+             'InflatableOffice has 2,000 customers + a feature checklist (IO Phone, Workers, '
+             'Vendors). Direct comparison page positions RentalFlow as "AI-native vs built '
+             'before AI." Closes deals where prospects compare side by side.',
+             '3h', 'MEDIUM'),
         ],
         col_widths=[0.4, 2.3, 2.6, 0.8, 0.8])
 
@@ -188,12 +237,12 @@ def render(api):
         ['Area', 'Current state (post 2026-06-17)', 'After 30-day finish', 'After 90-day finish'],
         [
             ('Multi-tenant safety',     'Strong + CI guard live',  'Strong + CI guard',  'Strong + CI guard'),
-            ('Test coverage',           'Medium (5 integration files, ~25 cases + unit + PII)',  'Strong (10+ integration)',  'Strong (+ e2e Playwright)'),
+            ('Test coverage',           'Medium-strong (5 integration files, ~25 cases + 3 e2e Playwright + unit + PII)',  'Strong (10+ integration + 6 e2e)',  'Strong'),
             ('Security posture',        'Strong (CSP, dep scan, rate limits, MFA switch, PII hardened)',  'Strong',  'Strong (MFA default-on for new tenants)'),
-            ('Operational maturity',    'Strong (R2 retention, archival cron, runbooks)',  'Strong (+ uptime)',  'Strong'),
-            ('Code quality',            'Good',  'Good',  'Better (any pass)'),
+            ('Operational maturity',    'Strong (R2 retention, archival cron, runbooks, UptimeRobot live)',  'Strong',  'Strong'),
+            ('Code quality',            'Better (lib/email any pass 2026-06-18)',  'Better',  'Best (codegen types from schema)'),
             ('Compliance readiness',    'Medium-strong (PII scrubbing tested, key rotation runbook)',  'Medium-strong',  'Strong'),
-            ('Tenant onboarding pain',  'Medium (81 admin pages)',  'Medium',  'Lower (referral self-create)'),
+            ('Tenant onboarding pain',  'Medium (81 admin pages, AI route optimizer reduces friction)',  'Medium',  'Lower'),
         ],
         col_widths=[1.6, 2.0, 1.7, 1.8])
 
