@@ -25,9 +25,42 @@ function getAdmin() {
   return createClient(url, key, { auth: { persistSession: false } });
 }
 
-/** Pick the IAF (default) tenant id. Tests don't need multi-tenant unless
- *  they're explicitly verifying tenant isolation. */
-const DEFAULT_TENANT_ID = "11111111-1111-1111-1111-111111111111";
+/** Resolve a tenant id we can use for the test row inserts. The TEST
+ *  Supabase project may not have IAF's historical default UUID seeded —
+ *  we look up the first tenant that exists OR create a minimal one. The
+ *  result is cached for the run so all helpers see the same id. */
+let cachedTenantId: string | null = null;
+async function resolveTenantId(): Promise<string> {
+  if (cachedTenantId) return cachedTenantId;
+  const admin = getAdmin();
+  const { data: existing } = await admin
+    .from("tenants")
+    .select("id")
+    .limit(1)
+    .maybeSingle();
+  if (existing && (existing as { id: string }).id) {
+    cachedTenantId = (existing as { id: string }).id;
+    return cachedTenantId;
+  }
+  // No tenants yet — seed one with the minimum required columns.
+  const slug = `e2e-${Date.now().toString().slice(-8)}`;
+  const { data, error } = await admin
+    .from("tenants")
+    .insert({
+      slug,
+      business_name: "E2E Test Tenant",
+      owner_email: `e2e-owner-${Date.now()}@example.test`,
+    })
+    .select("id")
+    .single();
+  if (error || !data) {
+    throw new Error(
+      `resolveTenantId: could not find or create a tenant — ${error?.message}`,
+    );
+  }
+  cachedTenantId = (data as { id: string }).id;
+  return cachedTenantId;
+}
 
 export interface TestUser {
   email: string;
@@ -55,7 +88,7 @@ export async function createTestAdmin(): Promise<TestUser> {
   // Add user_roles row so middleware/role checks pass.
   const { error: roleErr } = await admin.from("user_roles").insert({
     user_id: data.user.id,
-    tenant_id: DEFAULT_TENANT_ID,
+    tenant_id: await resolveTenantId(),
     role: "admin",
     is_active: true,
   });
@@ -133,7 +166,7 @@ export async function createTestDriver(): Promise<TestUser> {
 
   const { error: roleErr } = await admin.from("user_roles").insert({
     user_id: data.user.id,
-    tenant_id: DEFAULT_TENANT_ID,
+    tenant_id: await resolveTenantId(),
     role: "driver",
     is_active: true,
   });
@@ -164,7 +197,7 @@ export async function createPaidTestBooking(args: {
   const { data, error } = await admin
     .from("bookings")
     .insert({
-      tenant_id: DEFAULT_TENANT_ID,
+      tenant_id: await resolveTenantId(),
       customer_first_name: "E2E",
       customer_last_name: `Test ${stamp}`,
       customer_email: `e2e-booking-${stamp}@example.test`,
