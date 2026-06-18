@@ -90,7 +90,7 @@ export default async function PortalReferralsPage() {
   // For each coupon, sum commission earned from loyalty_transactions where the
   // booking used this coupon code. Cheap query — most users have 1-2 coupons.
   type AssignedCoupon = {
-    code: string; description: string | null;
+    id: string; code: string; description: string | null;
     discount_type: "percent" | "fixed" | "overnight_free";
     discount_value: number; current_uses: number;
     commission_earned_cents: number;
@@ -111,6 +111,7 @@ export default async function PortalReferralsPage() {
       earned = ((tx as any[]) || []).reduce((s, t) => s + (t.commission_cents || 0), 0);
     }
     couponsWithEarnings.push({
+      id: c.id,
       code: c.code,
       description: c.description,
       discount_type: c.discount_type,
