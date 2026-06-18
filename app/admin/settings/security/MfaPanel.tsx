@@ -62,9 +62,12 @@ export function MfaPanel({ userEmail, enrolledFactors, currentAal }: Props) {
     setNewFactorId(data.id);
   }
 
-  function cancelEnroll() {
-    if (newFactorId) {
-      // Best-effort: limpiar el factor unverified
+  /** Close the enroll modal + clear UI state. When `discardFactor` is true
+   *  (user cancelled mid-flow), also unenroll the unverified factor so it
+   *  doesn't linger. NEVER pass true after a successful verify — that would
+   *  delete the factor we just confirmed. */
+  function closeEnrollUi(discardFactor: boolean) {
+    if (discardFactor && newFactorId) {
       supabase.auth.mfa.unenroll({ factorId: newFactorId }).catch(() => {});
     }
     setEnrollOpen(false);
@@ -72,6 +75,10 @@ export function MfaPanel({ userEmail, enrolledFactors, currentAal }: Props) {
     setSecret(null);
     setNewFactorId(null);
     setCode("");
+  }
+
+  function cancelEnroll() {
+    closeEnrollUi(true);
   }
 
   function verifyCode() {
@@ -97,7 +104,11 @@ export function MfaPanel({ userEmail, enrolledFactors, currentAal }: Props) {
         return;
       }
       toast.success("Two-factor authentication enabled");
-      cancelEnroll();
+      // Close modal but DO NOT unenroll — the factor was just verified.
+      // Calling cancelEnroll() here was the bug: it deleted the verified
+      // factor milliseconds after creation, leaving the DB empty and the
+      // UI flipping back to "2FA is not enabled".
+      closeEnrollUi(false);
       router.refresh();
     });
   }
