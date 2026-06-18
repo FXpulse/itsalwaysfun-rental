@@ -25,40 +25,44 @@ function getAdmin() {
   return createClient(url, key, { auth: { persistSession: false } });
 }
 
-/** Resolve a tenant id we can use for the test row inserts. The TEST
- *  Supabase project may not have IAF's historical default UUID seeded —
- *  we look up the first tenant that exists OR create a minimal one. The
- *  result is cached for the run so all helpers see the same id. */
+/** Hardcoded in middleware (lib/tenant/resolve.ts) as the fallback for
+ *  unknown hosts (localhost, vercel preview URLs). Must match exactly. */
+const DEFAULT_TENANT_ID = "11111111-1111-1111-1111-111111111111";
+
+/** Resolve a tenant id we can use for the test row inserts. We need the
+ *  middleware-default UUID so the role lookup at /admin succeeds — if we
+ *  used a random uuid, middleware would resolve to DEFAULT_TENANT_ID but
+ *  the user's role would be on a different tenant, and admin layout would
+ *  bounce back to login forever (ERR_TOO_MANY_REDIRECTS). */
 let cachedTenantId: string | null = null;
 async function resolveTenantId(): Promise<string> {
   if (cachedTenantId) return cachedTenantId;
   const admin = getAdmin();
+  // We need the SPECIFIC default UUID that middleware falls back to for
+  // unknown hosts (localhost). Without this alignment, user_roles would
+  // point at a random tenant id while middleware resolved /admin requests
+  // to the default — admin layout would loop until ERR_TOO_MANY_REDIRECTS.
   const { data: existing } = await admin
     .from("tenants")
     .select("id")
-    .limit(1)
+    .eq("id", DEFAULT_TENANT_ID)
     .maybeSingle();
   if (existing && (existing as { id: string }).id) {
-    cachedTenantId = (existing as { id: string }).id;
+    cachedTenantId = DEFAULT_TENANT_ID;
     return cachedTenantId;
   }
-  // No tenants yet — seed one with the minimum required columns.
-  const slug = `e2e-${Date.now().toString().slice(-8)}`;
-  const { data, error } = await admin
-    .from("tenants")
-    .insert({
-      slug,
-      business_name: "E2E Test Tenant",
-      owner_email: `e2e-owner-${Date.now()}@example.test`,
-    })
-    .select("id")
-    .single();
-  if (error || !data) {
+  const { error } = await admin.from("tenants").insert({
+    id: DEFAULT_TENANT_ID,
+    slug: "e2e-default",
+    business_name: "E2E Default Tenant",
+    owner_email: `e2e-owner-${Date.now()}@example.test`,
+  });
+  if (error) {
     throw new Error(
-      `resolveTenantId: could not find or create a tenant — ${error?.message}`,
+      `resolveTenantId: could not seed default tenant — ${error.message}`,
     );
   }
-  cachedTenantId = (data as { id: string }).id;
+  cachedTenantId = DEFAULT_TENANT_ID;
   return cachedTenantId;
 }
 
