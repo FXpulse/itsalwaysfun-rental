@@ -63,3 +63,8 @@ skills-lock.json
 # Python — audit doc builder caches
 __pycache__/
 *.pyc
+
+# Playwright e2e
+/playwright-report/
+/test-results/
+/playwright/.cache/
