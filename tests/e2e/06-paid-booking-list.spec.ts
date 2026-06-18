@@ -46,7 +46,10 @@ test.describe("paid booking visibility", () => {
     await page.locator('input[type="email"]').fill(user.email);
     await page.locator('input[type="password"]').fill(user.password);
     await page.getByRole("button", { name: /sign in|log in|continue/i }).click();
-    await page.waitForURL("**/admin", { timeout: 15_000 });
+    await page.waitForFunction(
+      () => location.pathname.startsWith("/admin") && !location.pathname.startsWith("/admin/login"),
+      { timeout: 15_000 },
+    );
 
     // Bookings list
     await page.goto("/admin/bookings");

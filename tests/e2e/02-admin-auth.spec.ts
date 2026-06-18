@@ -35,14 +35,20 @@ test.describe("admin auth", () => {
     const submit = page.getByRole("button", { name: /sign in|log in|continue/i });
     await submit.click();
 
-    // After login: middleware should land the user on /admin (the dashboard).
-    // If MFA is required this would redirect to /admin/mfa-verify — for our
-    // throwaway user MFA is off by default.
-    await page.waitForURL("**/admin", { timeout: 15_000 });
+    // After login the middleware can land the user on any admin route
+    // depending on tenant state (/admin, /admin/dashboard, /admin/settings/...
+    // for MFA gating, /admin/setup-stripe, etc). Wait for any URL under /admin
+    // that's NOT /admin/login — that proves the auth flow succeeded.
+    await page.waitForFunction(
+      () => {
+        const p = location.pathname;
+        return p.startsWith("/admin") && !p.startsWith("/admin/login");
+      },
+      { timeout: 15_000 },
+    );
 
-    // Dashboard should render *something* with admin in the URL — we don't
-    // pin specific copy because the dashboard layout changes often. We just
-    // want to see no 5xx and that the layout mounted.
+    // Sanity-check we're not still in the login URL.
+    expect(page.url()).not.toContain("/admin/login");
     expect(page.url()).toContain("/admin");
     // Sidebar / topbar are always present — match a stable element. The
     // word "Bookings" appears in the main nav of /admin.
