@@ -61,6 +61,9 @@ export class ImapClient {
   ): Promise<{ uid: number; raw: Buffer }[]> {
     const lock = await this.flow.getMailboxLock(folderPath);
     try {
+      // ImapFlow's `mailbox` property is typed as `MailboxLockObject | boolean`
+      // in its .d.ts but the runtime shape always has `exists`. Casting to any
+      // is the cheapest way around the union without bloating type defs.
       const mailbox: any = (this.flow as any).mailbox;
       const exists = typeof mailbox?.exists === "number" ? mailbox.exists : -1;
       if (exists === 0) {
@@ -69,6 +72,9 @@ export class ImapClient {
       const out: { uid: number; raw: Buffer }[] = [];
       // Two-step approach: SEARCH for UIDs first, then FETCH each by UID.
       // More robust than range fetch — works the same across all IMAP servers.
+      // ImapFlow's `search` overload signature only accepts a narrow set of
+      // criteria objects; `{ uid: "N:*" }` is supported at runtime but not in
+      // the published types — hence the cast.
       const searchResult = await (this.flow as any).search(
         sinceUid > 0 ? { uid: `${sinceUid + 1}:*` } : { all: true },
         { uid: true },
@@ -78,6 +84,9 @@ export class ImapClient {
       const newUids = uids.filter((u) => u > sinceUid);
       if (newUids.length === 0) return [];
 
+      // `fetch` second/third params are FetchQueryObject in the types but the
+      // runtime accepts a richer subset — narrow types reject `source: true`
+      // even though it's documented in the README. Cast to any to use it.
       for await (const msg of this.flow.fetch(
         newUids,
         { uid: true, source: true } as any,
@@ -105,6 +114,9 @@ export class ImapClient {
   async folderMessageCount(folderPath: string): Promise<number> {
     const lock = await this.flow.getMailboxLock(folderPath);
     try {
+      // Same ImapFlow type/runtime mismatch as fetchSinceUid above — see
+      // comment there. Don't try to "fix" the cast without checking ImapFlow's
+      // current published types first.
       const mailbox: any = (this.flow as any).mailbox;
       return typeof mailbox?.exists === "number" ? mailbox.exists : 0;
     } finally {

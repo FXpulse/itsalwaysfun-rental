@@ -207,8 +207,8 @@ export async function renderTemplate(
  *  sms_body (i.e. SMS not enabled for that event). */
 export async function renderTemplateSms(
   key: string,
-  vars: Record<string, any>,
-  tenantId?: string,
+  vars: Record<string, unknown>,
+  tenantId?: string | null,
 ): Promise<string | null> {
   const tmpl = await loadTemplate(key);
   if (!tmpl || !tmpl.sms_body) return null;

@@ -156,8 +156,8 @@ export async function sendFromSaasOwner(
     return {
       ok: !!r.ok,
       via: "resend",
-      error: r.ok ? undefined : (r as any).error,
-      messageId: r.ok ? (r as any).id : undefined,
+      error: r.ok ? undefined : r.error,
+      messageId: r.ok ? r.id : undefined,
     };
   }
 

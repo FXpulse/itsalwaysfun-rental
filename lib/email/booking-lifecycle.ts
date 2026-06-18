@@ -1,6 +1,29 @@
 // Send lifecycle emails when a booking changes state by admin/customer action.
 // All idempotent via booking_emails_sent unique constraint.
 
+// Local row shapes for the two SELECT queries below. Previously read via
+// `(booking as any).…` because Supabase's untyped `.select(string)` returns
+// `any`-ish — defining these here lets the call sites access fields with
+// real type safety.
+interface RefundedRow {
+  customer_first_name: string;
+  customer_email: string;
+  product_name: string;
+  event_date: string;
+  tenant_id: string | null;
+}
+
+interface CancelledRow {
+  customer_first_name: string;
+  customer_email: string;
+  customer_phone: string | null;
+  customer_phone_sms_consent_at: string | null;
+  product_name: string;
+  event_date: string;
+  stripe_payment_status: string;
+  tenant_id: string | null;
+}
+
 import * as Sentry from "@sentry/nextjs";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendTemplated } from "@/lib/email/send-template";
@@ -52,25 +75,26 @@ export async function sendBookingRefunded(
   if (await alreadySent(bookingId, "booking_refunded")) return;
 
   const supabase = createAdminClient();
-  const { data: booking } = await supabase
+  const { data: bookingRaw } = await supabase
     .from("bookings")
     .select(
       "customer_first_name, customer_email, product_name, event_date, tenant_id",
     )
     .eq("id", bookingId)
     .single();
-  if (!booking) return;
+  if (!bookingRaw) return;
+  const booking = bookingRaw as RefundedRow;
 
   const methodLabel =
     refundMethod === "stripe"
       ? "Credit card (via Stripe)"
       : refundMethod.charAt(0).toUpperCase() + refundMethod.slice(1);
 
-  const tenantEmail = await getTenantEmailConfig((booking as any).tenant_id);
+  const tenantEmail = await getTenantEmailConfig(booking.tenant_id);
   if (!tenantEmail) {
     Sentry.captureMessage("Tenant email skipped — no custom domain configured", {
       level: "warning",
-      tags: { tenant_id: (booking as any).tenant_id || "", area: "tenant-email" },
+      tags: { tenant_id: booking.tenant_id || "", area: "tenant-email" },
     });
     return;
   }
@@ -107,22 +131,23 @@ export async function sendBookingCancelled(
   if (await alreadySent(bookingId, "booking_cancelled")) return;
 
   const supabase = createAdminClient();
-  const { data: booking } = await supabase
+  const { data: bookingRaw } = await supabase
     .from("bookings")
     .select(
       "customer_first_name, customer_email, customer_phone, customer_phone_sms_consent_at, product_name, event_date, stripe_payment_status, tenant_id",
     )
     .eq("id", bookingId)
     .single();
-  if (!booking) return;
+  if (!bookingRaw) return;
+  const booking = bookingRaw as CancelledRow;
 
   const hadPayment = booking.stripe_payment_status === "paid";
 
-  const tenantEmail = await getTenantEmailConfig((booking as any).tenant_id);
+  const tenantEmail = await getTenantEmailConfig(booking.tenant_id);
   if (!tenantEmail) {
     Sentry.captureMessage("Tenant email skipped — no custom domain configured", {
       level: "warning",
-      tags: { tenant_id: (booking as any).tenant_id || "", area: "tenant-email" },
+      tags: { tenant_id: booking.tenant_id || "", area: "tenant-email" },
     });
     return;
   }
@@ -154,16 +179,16 @@ export async function sendBookingCancelled(
   if (
     isSmsConfigured() &&
     booking.customer_phone &&
-    (booking as any).customer_phone_sms_consent_at
+    booking.customer_phone_sms_consent_at
   ) {
     const smsBody = await renderTemplateSms(
       "booking_cancelled",
       vars,
-      (booking as any).tenant_id,
+      booking.tenant_id,
     );
     if (smsBody) {
       await sendTenantSms({
-        tenantId: (booking as any).tenant_id,
+        tenantId: booking.tenant_id,
         to: booking.customer_phone,
         body: smsBody,
       }).catch(() => {});

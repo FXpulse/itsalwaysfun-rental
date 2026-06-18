@@ -41,7 +41,7 @@ export function tenantToEmailBrand(t: TenantInfo): {
 /** Fetch a tenant's branding info. Used in email templates.
  *  Pass tenantId explicitly when called from a webhook or cron (no
  *  request context). Falls back to request context if omitted. */
-export async function getTenantInfo(tenantId?: string): Promise<TenantInfo> {
+export async function getTenantInfo(tenantId?: string | null): Promise<TenantInfo> {
   const id = tenantId || (() => {
     try {
       return getCurrentTenantId();

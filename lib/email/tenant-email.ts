@@ -53,7 +53,15 @@ export async function getTenantEmailConfig(
     .maybeSingle();
 
   if (!tenant) return null;
-  return buildTenantEmailConfig(tenant as any);
+  return buildTenantEmailConfig(tenant as TenantRowForEmail);
+}
+
+interface TenantRowForEmail {
+  id?: string;
+  business_name?: string | null;
+  custom_domain?: string | null;
+  owner_email?: string | null;
+  notification_email?: string | null;
 }
 
 /** Synchronous helper for callers that already have the tenant row.
@@ -101,9 +109,8 @@ export async function getTenantAdminEmail(tenantId: string | null): Promise<stri
     .select("notification_email, owner_email")
     .eq("id", tenantId)
     .maybeSingle();
-  return (
-    (t as any)?.notification_email ||
-    (t as any)?.owner_email ||
-    fallback
-  );
+  const row = t as
+    | { notification_email: string | null; owner_email: string | null }
+    | null;
+  return row?.notification_email || row?.owner_email || fallback;
 }

@@ -29,7 +29,8 @@ export async function sendCouponAssignedEmail(input: CouponAssignedEmailInput): 
   const { data: userRes } = await supabase.auth.admin.getUserById(input.customer_user_id);
   const email = userRes?.user?.email;
   if (!email) return;
-  const firstName = (userRes.user?.user_metadata as any)?.first_name || email.split("@")[0];
+  const meta = userRes.user?.user_metadata as { first_name?: string } | undefined;
+  const firstName = meta?.first_name || email.split("@")[0];
 
   let businessName = "us";
   try { businessName = await getTenantBusinessName(); } catch {}

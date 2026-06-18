@@ -43,6 +43,16 @@ interface BookingRow {
   stripe_payment_status: string;
   booking_status: string;
   created_at: string;
+  // Multi-tenant + Twilio-consent fields. Previously read via `(b as any).…`
+  // because they weren't in the type — adding them here eliminates ~18
+  // `as any` casts further down (booking_confirmation, reminder_3d,
+  // review_request, anniversary handlers all reach for these).
+  tenant_id: string | null;
+  customer_phone_sms_consent_at: string | null;
+}
+
+interface SiteSettingValueRow {
+  value: string | null;
 }
 
 const BASE_URL =
@@ -114,7 +124,7 @@ async function fetchImportantTips(tenantId: string | null | undefined): Promise<
     .eq("tenant_id", tenantId)
     .eq("key", "important_tips")
     .maybeSingle();
-  const text = String((data as any)?.value || "").trim();
+  const text = String((data as SiteSettingValueRow | null)?.value || "").trim();
   return {
     importantTips: text,
     importantTipsHtml: text ? text.replace(/\n/g, "<br>") : "",
@@ -135,12 +145,12 @@ export async function sendBookingConfirmation(bookingId: string): Promise<void> 
 
   // Email (idempotent via ledger)
   if (isEmailConfigured() && !(await alreadySent(bookingId, "booking_confirmation"))) {
-    const tips = await fetchImportantTips((b as any).tenant_id);
-    const tenantEmail = await getTenantEmailConfig((b as any).tenant_id);
+    const tips = await fetchImportantTips(b.tenant_id);
+    const tenantEmail = await getTenantEmailConfig(b.tenant_id);
     if (!tenantEmail) {
       Sentry.captureMessage("Tenant email skipped — no custom domain configured", {
         level: "warning",
-        tags: { tenant_id: (b as any).tenant_id || "", area: "tenant-email" },
+        tags: { tenant_id: b.tenant_id || "", area: "tenant-email" },
       });
       return;
     }
@@ -164,16 +174,16 @@ export async function sendBookingConfirmation(bookingId: string): Promise<void> 
   if (
     isSmsConfigured() &&
     b.customer_phone &&
-    (b as any).customer_phone_sms_consent_at
+    b.customer_phone_sms_consent_at
   ) {
     const smsBody = await renderTemplateSms(
       "booking_confirmation",
       buildVars(b),
-      (b as any).tenant_id,
+      b.tenant_id,
     );
     if (smsBody) {
       await sendTenantSms({
-        tenantId: (b as any).tenant_id,
+        tenantId: b.tenant_id,
         to: b.customer_phone,
         body: smsBody,
       }).catch(() => {});
@@ -232,11 +242,11 @@ export async function processScheduledBookingEmails(): Promise<{
     for (const b of (bookings as BookingRow[]) || []) {
       try {
         if (await alreadySent(b.id, "booking_reminder_3d")) continue;
-        const tenantEmail = await getTenantEmailConfig((b as any).tenant_id);
+        const tenantEmail = await getTenantEmailConfig(b.tenant_id);
         if (!tenantEmail) {
           Sentry.captureMessage("Tenant email skipped — no custom domain configured", {
             level: "warning",
-            tags: { tenant_id: (b as any).tenant_id || "", area: "tenant-email" },
+            tags: { tenant_id: b.tenant_id || "", area: "tenant-email" },
           });
           continue;
         }
@@ -258,16 +268,16 @@ export async function processScheduledBookingEmails(): Promise<{
         if (
           isSmsConfigured() &&
           b.customer_phone &&
-          (b as any).customer_phone_sms_consent_at
+          b.customer_phone_sms_consent_at
         ) {
           const smsBody = await renderTemplateSms(
             "booking_reminder_3d",
             buildVars(b),
-            (b as any).tenant_id,
+            b.tenant_id,
           );
           if (smsBody) {
             await sendTenantSms({
-              tenantId: (b as any).tenant_id,
+              tenantId: b.tenant_id,
               to: b.customer_phone,
               body: smsBody,
             }).catch(() => {});
@@ -301,11 +311,11 @@ export async function processScheduledBookingEmails(): Promise<{
     for (const b of (bookings as BookingRow[]) || []) {
       try {
         if (await alreadySent(b.id, "booking_review_request")) continue;
-        const tenantEmail = await getTenantEmailConfig((b as any).tenant_id);
+        const tenantEmail = await getTenantEmailConfig(b.tenant_id);
         if (!tenantEmail) {
           Sentry.captureMessage("Tenant email skipped — no custom domain configured", {
             level: "warning",
-            tags: { tenant_id: (b as any).tenant_id || "", area: "tenant-email" },
+            tags: { tenant_id: b.tenant_id || "", area: "tenant-email" },
           });
           continue;
         }
@@ -328,16 +338,16 @@ export async function processScheduledBookingEmails(): Promise<{
         if (
           isSmsConfigured() &&
           b.customer_phone &&
-          (b as any).customer_phone_sms_consent_at
+          b.customer_phone_sms_consent_at
         ) {
           const smsBody = await renderTemplateSms(
             "booking_review_request",
             buildVars(b, { googleReviewUrl }),
-            (b as any).tenant_id,
+            b.tenant_id,
           );
           if (smsBody) {
             await sendTenantSms({
-              tenantId: (b as any).tenant_id,
+              tenantId: b.tenant_id,
               to: b.customer_phone,
               body: smsBody,
             }).catch(() => {});
@@ -362,11 +372,11 @@ export async function processScheduledBookingEmails(): Promise<{
     for (const b of (bookings as BookingRow[]) || []) {
       try {
         if (await alreadySent(b.id, "booking_reengagement_90d")) continue;
-        const tenantEmail = await getTenantEmailConfig((b as any).tenant_id);
+        const tenantEmail = await getTenantEmailConfig(b.tenant_id);
         if (!tenantEmail) {
           Sentry.captureMessage("Tenant email skipped — no custom domain configured", {
             level: "warning",
-            tags: { tenant_id: (b as any).tenant_id || "", area: "tenant-email" },
+            tags: { tenant_id: b.tenant_id || "", area: "tenant-email" },
           });
           continue;
         }
