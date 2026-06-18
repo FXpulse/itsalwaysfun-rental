@@ -62,6 +62,7 @@ const ALL_NAV: NavItem[] = [
   { href: "/admin/bookings", label: "Bookings", icon: BookOpen, minRole: "staff" },
   { href: "/admin/calendar", label: "Calendar", icon: Calendar, minRole: "staff" },
   { href: "/admin/dispatch", label: "Dispatch", icon: Truck, minRole: "staff" },
+  { href: "/admin/drivers/schedule", label: "Driver schedules", icon: Users, minRole: "admin" },
   { href: "/admin/quotes", label: "Quotes", icon: FileText, minRole: "admin" },
   { href: "/admin/customers", label: "Customers", icon: UserCircle, minRole: "staff" },
   { href: "/admin/inbox", label: "Contact inbox", icon: Inbox, minRole: "staff" },
