@@ -10,6 +10,7 @@
 // run these against production — the cleanup would delete real users.
 
 import { createClient } from "@supabase/supabase-js";
+import { DEFAULT_TENANT_ID } from "@/lib/tenant/resolve";
 
 function getAdmin() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.TEST_SUPABASE_URL || "";
@@ -25,15 +26,10 @@ function getAdmin() {
   return createClient(url, key, { auth: { persistSession: false } });
 }
 
-/** Hardcoded in middleware (lib/tenant/resolve.ts) as the fallback for
- *  unknown hosts (localhost, vercel preview URLs). Must match exactly. */
-const DEFAULT_TENANT_ID = "11111111-1111-1111-1111-111111111111";
-
-/** Resolve a tenant id we can use for the test row inserts. We need the
- *  middleware-default UUID so the role lookup at /admin succeeds — if we
- *  used a random uuid, middleware would resolve to DEFAULT_TENANT_ID but
- *  the user's role would be on a different tenant, and admin layout would
- *  bounce back to login forever (ERR_TOO_MANY_REDIRECTS). */
+/** Resolve the tenant id used to seed test rows. Imported directly from
+ *  production code (lib/tenant/resolve.ts) so we cannot drift — if someone
+ *  ever changes the fallback there, e2e seeding follows automatically and
+ *  no ghost ERR_TOO_MANY_REDIRECTS comes back to bite us. */
 let cachedTenantId: string | null = null;
 async function resolveTenantId(): Promise<string> {
   if (cachedTenantId) return cachedTenantId;

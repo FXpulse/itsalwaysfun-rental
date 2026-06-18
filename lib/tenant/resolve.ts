@@ -10,8 +10,15 @@
 
 import { createClient } from "@supabase/supabase-js";
 
-// Hardcoded UUID seeded by multi_tenant_foundation.sql
-export const DEFAULT_TENANT_ID = "11111111-1111-1111-1111-111111111111";
+// Single source of truth for the default tenant UUID. Middleware falls back
+// to this when host is unknown (localhost, Vercel preview URLs). E2E tests
+// import the SAME constant so seeded user_roles align with what middleware
+// will resolve — eliminates the silent magic-number coupling that caused
+// ERR_TOO_MANY_REDIRECTS during the initial e2e bring-up.
+// Override with env DEFAULT_TENANT_ID if a particular environment needs a
+// different fallback (production never has, but the door is open).
+export const DEFAULT_TENANT_ID =
+  process.env.DEFAULT_TENANT_ID || "11111111-1111-1111-1111-111111111111";
 export const DEFAULT_TENANT_SLUG = "itsalwaysfun";
 
 // SaaS apex domains (treated as "no tenant" — show marketing page)
