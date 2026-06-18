@@ -43,6 +43,7 @@ def render(api):
                 'inbox_enabled, timezone, branding fields (logo, accent_color, font, hero_image)',
                 'twilio_from_number, twilio_messaging_service_sid (per-tenant SMS — added 2026-06-18)',
                 'ghl_location_id + 4 ghl_*_webhook_url columns (per-tenant GoHighLevel — added 2026-06-18)',
+                'approval_threshold_cents (high-ticket approval workflow — added 2026-06-18, NULL = off)',
             ]),
             ('Constraints', 'subscription_status IN (...). Slug regex enforced. '
                            'twilio_from_number CHECK E.164 format.'),
@@ -113,10 +114,13 @@ def render(api):
                 'cancelled_due_to_weather, customer_confirmed_at',
                 'delivery_checked_at, delivery_checked_by',
                 'customer_phone_sms_consent_at (SMS compliance audit)',
+                'approval_status (pending|approved|rejected|NULL), approval_requested_at, '
+                'approval_decided_at, approval_decided_by, approval_notes (high-ticket workflow — added 2026-06-18)',
             ]),
             ('Constraints', [
                 'booking_status IN (pending_payment, confirmed, delivered, completed, cancelled)',
                 'stripe_payment_status IN (pending, paid, refunded, failed)',
+                'approval_status IS NULL OR IN (pending, approved, rejected)',
                 'total_amount >= 0',
             ]),
             ('Indexes', 'tenant_id, customer_email, product_id, event_date, booking_status, created_at DESC'),

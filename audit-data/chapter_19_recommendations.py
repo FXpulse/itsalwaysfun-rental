@@ -19,8 +19,9 @@ def render(api):
 
     api['add_callout'](doc, 'fact',
         'Recommendations are scoped to what is NOT yet shipped. The June 2026 sprint, the '
-        '2026-06-17 hardening wave, AND the 2026-06-18 marathon (8 features) together closed '
-        '22 items previously on the roadmap. They are called out separately so the '
+        '2026-06-17 hardening wave, AND the 2026-06-18 marathon (10 features total including '
+        'the approval workflow + 4-competitor comparison landing pages) together closed '
+        '24 items previously on the roadmap. They are called out separately so the '
         'recommendation list does not duplicate them.')
 
     api['add_h2'](doc, '19.1  Recently shipped (June 2026)')
@@ -145,6 +146,18 @@ def render(api):
              '/beta landing, 90-day trial, 4 lifecycle emails (welcome/30/60/80), in-app feedback '
              'bubble, /superadmin/beta-program cohort + inbox views.',
              'LIVE (shipped 2026-06-17)'),
+            ('Approval workflow for high-ticket bookings',
+             'tenants.approval_threshold_cents + 5 columns on bookings. Stripe webhook gates '
+             'sendBookingConfirmation behind the check. /admin/bookings/[id] shows 3-state banner '
+             '(pending/approved/rejected) with inline approve + reject (reason required). '
+             'Admin-only setting toggle in /admin/settings.',
+             'LIVE (shipped 2026-06-18)'),
+            ('Comparison landing — RentalFlow vs 4 competitors',
+             '/marketing/vs index + /marketing/vs/[slug] dynamic per InflatableOffice, '
+             'Goodshuffle Pro, Booqable, TapGoods. Each page has feature matrix with winner per '
+             'row, where-they-win + where-we-win, honest TL;DR. Data lives in '
+             'lib/marketing/competitors.ts so adding new entries is one array push.',
+             'LIVE (shipped 2026-06-18)'),
         ],
         col_widths=[2.4, 3.0, 1.7])
 
@@ -180,20 +193,16 @@ def render(api):
     api['add_kv_table'](doc,
         ['#', 'Recommendation', 'Why', 'Effort', 'Impact'],
         [
-            ('1', 'Approval workflow for high-ticket bookings',
-             'Tenant config: if total > $X, require admin sign-off before confirmation. '
-             'Prevents staff mistakes on large orders.',
-             '1-2d', 'MEDIUM'),
-            ('2', 'MFA enforcement defaults for new tenant signups',
+            ('1', 'MFA enforcement defaults for new tenant signups',
              'Policy switch (require_admin_mfa) shipped 2026-06-17 with default OFF. Next step: '
              'flip the default to ON for new tenants after a chosen date so the security floor '
              'rises automatically over time.',
              '2h', 'MEDIUM'),
-            ('3', 'Comparison landing /vs-inflatableoffice',
-             'InflatableOffice has 2,000 customers + a feature checklist (IO Phone, Workers, '
-             'Vendors). Direct comparison page positions RentalFlow as "AI-native vs built '
-             'before AI." Closes deals where prospects compare side by side.',
-             '3h', 'MEDIUM'),
+            ('2', 'Multi-warehouse support',
+             'Today: single warehouse per tenant. Flagged as a wins-for-them column in the '
+             'TapGoods + Goodshuffle Pro /vs pages. Mid-size operators with 2+ locations need '
+             'transfer + per-warehouse inventory.',
+             '3-5d', 'MEDIUM'),
         ],
         col_widths=[0.4, 2.3, 2.6, 0.8, 0.8])
 

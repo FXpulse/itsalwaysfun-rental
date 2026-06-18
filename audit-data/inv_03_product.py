@@ -95,6 +95,16 @@ def render(api):
              'Manual data entry into QBO',
              'Sales Receipts + Customers CSV exports match QBO import format directly. '
              'Bookkeeper imports in 3 clicks. Added 2026-06-18.'),
+            ('High-ticket approval workflow',
+             'Hoping staff doesn\'t mistake a $5k order',
+             'Tenant config sets threshold; bookings over it pause for admin sign-off before '
+             'the confirmation email goes out. Built-in approve / reject (with reason) on the '
+             'booking detail page. Added 2026-06-18.'),
+            ('Honest competitor comparison',
+             'Hoping prospects don\'t find one',
+             '/marketing/vs/[competitor] for 4 competitors (InflatableOffice, Goodshuffle Pro, '
+             'Booqable, TapGoods) with side-by-side feature tables + where-they-win + '
+             'where-we-win + honest TL;DR. Added 2026-06-18.'),
         ],
         col_widths=[2.0, 2.0, 3.1])
 

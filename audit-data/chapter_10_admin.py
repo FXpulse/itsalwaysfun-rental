@@ -40,10 +40,11 @@ def render(api):
 
     api['add_callout'](doc, 'good',
         'Added 2026-06-18 (not yet in admin-pages.json snapshot): '
-        '/admin/drivers/schedule (skill + availability editor for AI route optimizer) and '
+        '/admin/drivers/schedule (skill + availability editor for AI route optimizer); '
         'a new "✨ Optimize routes" button on /admin/dispatch/[date] that calls GPT-4o and '
-        'shows a proposed plan modal before any DB writes. Both reach the AI route optimizer '
-        'documented in §17.')
+        'shows a proposed plan modal before any DB writes; an ApprovalBanner on /admin/bookings/[id] '
+        'with inline approve + reject (reason required) when approval_status=pending; '
+        'and an ApprovalThresholdSection on /admin/settings to toggle the high-ticket workflow.')
 
     # Summary stats
     groups = data.get('groups', [])
