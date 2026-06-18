@@ -109,11 +109,39 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Check E2E secrets are configured
+        # We need the anon key + service role + URL on the Supabase side AND
+        # the Stripe secrets to spin up the dev server in webServer block.
+        # When any are missing (early days, fork PRs) emit a warning and let
+        # subsequent steps skip cleanly instead of failing the whole CI run.
+        id: check_secrets
+        env:
+          ANON_KEY: ${{ secrets.TEST_SUPABASE_ANON_KEY }}
+          SR_KEY: ${{ secrets.TEST_SUPABASE_SERVICE_ROLE_KEY }}
+          URL: ${{ secrets.TEST_SUPABASE_URL }}
+          STRIPE_KEY: ${{ secrets.TEST_STRIPE_SECRET_KEY }}
+          STRIPE_WH: ${{ secrets.TEST_STRIPE_WEBHOOK_SECRET }}
+        run: |
+          missing=""
+          [ -z "$ANON_KEY" ] && missing="$missing TEST_SUPABASE_ANON_KEY"
+          [ -z "$SR_KEY" ] && missing="$missing TEST_SUPABASE_SERVICE_ROLE_KEY"
+          [ -z "$URL" ] && missing="$missing TEST_SUPABASE_URL"
+          [ -z "$STRIPE_KEY" ] && missing="$missing TEST_STRIPE_SECRET_KEY"
+          [ -z "$STRIPE_WH" ] && missing="$missing TEST_STRIPE_WEBHOOK_SECRET"
+          if [ -n "$missing" ]; then
+            echo "::warning::E2E secrets missing —$missing — skipping E2E job. Add them in repo Settings → Secrets to enable."
+            echo "skip=true" >> $GITHUB_OUTPUT
+          else
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
+
       - name: Install Playwright browsers
+        if: steps.check_secrets.outputs.skip != 'true'
         # Only Chromium — see playwright.config.ts projects[]. ~30s with cache.
         run: npx playwright install chromium --with-deps
 
       - name: Run E2E tests
+        if: steps.check_secrets.outputs.skip != 'true'
         env:
           CI: "1"
           # Playwright config's webServer.env will pick these up to point the
@@ -126,7 +154,7 @@ jobs:
         run: npm run e2e
 
       - name: Upload Playwright report on failure
-        if: failure()
+        if: failure() && steps.check_secrets.outputs.skip != 'true'
         uses: actions/upload-artifact@v4
         with:
           name: playwright-report
