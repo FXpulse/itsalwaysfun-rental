@@ -193,6 +193,13 @@ def render(api):
              'single-point-of-failure where losing her authenticator would lock her out of '
              '/superadmin with no recovery path.',
              'LIVE (operator action 2026-06-18)'),
+            ('DEFAULT_TENANT_ID middleware↔test coupling refactor',
+             'lib/tenant/resolve.ts now reads DEFAULT_TENANT_ID from env with the historical '
+             'UUID as fallback. tests/e2e/helpers/test-data.ts imports the same constant directly '
+             'from @/lib/tenant/resolve instead of hardcoding the UUID independently. Drift '
+             'between production fallback and seeded test rows is now impossible — eliminates '
+             'the ghost ERR_TOO_MANY_REDIRECTS class of bug that bit the initial e2e bring-up.',
+             'LIVE (shipped 2026-06-18, commit 1cbb34a)'),
         ],
         col_widths=[2.4, 3.0, 1.7])
 
