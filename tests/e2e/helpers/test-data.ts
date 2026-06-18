@@ -151,6 +151,70 @@ export async function getAnyActiveProduct(): Promise<
   return data as any;
 }
 
+/** Create a throwaway staff user (read-only access to bookings + customers
+ *  but blocked from admin-only routes like /admin/users, /admin/api-keys,
+ *  /admin/settings/billing). Used by the RBAC gating test. */
+export async function createTestStaff(): Promise<TestUser> {
+  const admin = getAdmin();
+  const stamp = Date.now();
+  const email = `e2e-staff-${stamp}@example.test`;
+  const password = `Test_${stamp}!`;
+
+  const { data, error } = await admin.auth.admin.createUser({
+    email,
+    password,
+    email_confirm: true,
+    user_metadata: { first_name: "E2E", last_name: "Staff" },
+  });
+  if (error || !data.user) {
+    throw new Error(`createTestStaff failed: ${error?.message}`);
+  }
+
+  const { error: roleErr } = await admin.from("user_roles").insert({
+    user_id: data.user.id,
+    tenant_id: await resolveTenantId(),
+    role: "staff",
+    is_active: true,
+  });
+  if (roleErr) {
+    await admin.auth.admin.deleteUser(data.user.id).catch(() => {});
+    throw new Error(`createTestStaff role insert failed: ${roleErr.message}`);
+  }
+  return { email, password, userId: data.user.id };
+}
+
+/** Create a throwaway superadmin (is_superadmin=true on user_roles).
+ *  Used by the /superadmin smoke test. */
+export async function createTestSuperadmin(): Promise<TestUser> {
+  const admin = getAdmin();
+  const stamp = Date.now();
+  const email = `e2e-super-${stamp}@example.test`;
+  const password = `Test_${stamp}!`;
+
+  const { data, error } = await admin.auth.admin.createUser({
+    email,
+    password,
+    email_confirm: true,
+    user_metadata: { first_name: "E2E", last_name: "Super" },
+  });
+  if (error || !data.user) {
+    throw new Error(`createTestSuperadmin failed: ${error?.message}`);
+  }
+
+  const { error: roleErr } = await admin.from("user_roles").insert({
+    user_id: data.user.id,
+    tenant_id: await resolveTenantId(),
+    role: "admin",
+    is_active: true,
+    is_superadmin: true,
+  });
+  if (roleErr) {
+    await admin.auth.admin.deleteUser(data.user.id).catch(() => {});
+    throw new Error(`createTestSuperadmin role insert failed: ${roleErr.message}`);
+  }
+  return { email, password, userId: data.user.id };
+}
+
 /** Create a throwaway driver user. Mirrors createTestAdmin but with role='driver'. */
 export async function createTestDriver(): Promise<TestUser> {
   const admin = getAdmin();
