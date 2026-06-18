@@ -34,10 +34,13 @@ def render(api):
         'merging.')
 
     api['add_callout'](doc, 'good',
-        'CI on PR is live. .github/workflows/ci.yml gates merges with typecheck + lint + unit '
-        'tests + scope-check (MULTI_TENANT_TABLES drift) + integration tests (against a '
-        'dedicated test Supabase project). The integration-tests + scope-check jobs are '
-        'auto-skipped on fork PRs where secrets aren\'t available.')
+        'CI on PR is live. .github/workflows/ci.yml gates merges with FOUR jobs: typecheck + '
+        'lint + unit tests; scope-check (MULTI_TENANT_TABLES drift); integration tests against '
+        'a dedicated test Supabase project; and Playwright e2e against the same project + a '
+        'test Stripe key (added 2026-06-18, currently 3 smoke tests across public site + admin '
+        'auth + booking wizard). The integration + scope-check + e2e jobs are auto-skipped on '
+        'fork PRs (no secrets) AND skip gracefully with a warning if any expected secret is '
+        'missing — no false-failure when an operator hasn\'t finished wiring the test project.')
 
     api['add_h2'](doc, '17.2  Monitoring')
 
