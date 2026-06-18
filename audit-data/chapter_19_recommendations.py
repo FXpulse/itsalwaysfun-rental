@@ -181,11 +181,18 @@ def render(api):
              'salt, single-use, shown once). NO tenant-facing self-service — operator controls '
              'all reset paths.',
              'LIVE (shipped 2026-06-18)'),
-            ('Beta lifecycle cron health endpoint',
+            ('Beta lifecycle cron health endpoint + UptimeRobot wire',
              'GET /api/cron/beta-lifecycle-status returns 200/503 based on whether the daily '
              'beta lifecycle cron has fired emails within the last 25h when there are active '
-             'beta tenants. Public endpoint; wire to UptimeRobot.',
+             'beta tenants. UptimeRobot monitor wired 2026-06-18 with a 1-hour interval — '
+             'Ludmila gets paged on 503.',
              'LIVE (shipped 2026-06-18)'),
+            ('Operator recovery codes generated + saved',
+             'Ludmila generated her 10 single-use recovery codes via /superadmin/recovery-codes '
+             'and saved them outside the app (1Password Family or equivalent). Eliminates the '
+             'single-point-of-failure where losing her authenticator would lock her out of '
+             '/superadmin with no recovery path.',
+             'LIVE (operator action 2026-06-18)'),
         ],
         col_widths=[2.4, 3.0, 1.7])
 
