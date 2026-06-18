@@ -164,6 +164,17 @@ def render(api):
              'verified. New tenants see a required "mfa_policy_decided" checklist item that '
              'sends them to /admin/settings/security to consciously decide.',
              'LIVE (shipped 2026-06-18)'),
+            ('E2E Playwright suite expanded 3 → 10 spec files (11 test cases)',
+             '4 CI jobs now active on every PR: typecheck/scope/integration/e2e. 11 e2e cases '
+             'cover public smoke, admin auth, booking wizard, dispatch, driver, paid bookings, '
+             'portal OTP, quote pages, staff RBAC (security), superadmin scope. ~103s e2e job '
+             'duration. 8 iterations of multi-tenant / middleware redirect fixes to land green.',
+             'LIVE (shipped 2026-06-18)'),
+            ('Help section + KB updated for all 2026-06-18 features',
+             'HelpClient.tsx +3 sections (approval-workflow, ai-route-optimizer, '
+             'quickbooks-export) + ci-pipeline updated 3→4 jobs. KB regenerated to 73 sections, '
+             'applied to prod. AI admin assistant can answer feature questions directly.',
+             'LIVE (shipped 2026-06-18)'),
         ],
         col_widths=[2.4, 3.0, 1.7])
 
@@ -248,7 +259,7 @@ def render(api):
         ['Area', 'Current state (post 2026-06-17)', 'After 30-day finish', 'After 90-day finish'],
         [
             ('Multi-tenant safety',     'Strong + CI guard live',  'Strong + CI guard',  'Strong + CI guard'),
-            ('Test coverage',           'Medium-strong (5 integration files, ~25 cases + 3 e2e Playwright + unit + PII)',  'Strong (10+ integration + 6 e2e)',  'Strong'),
+            ('Test coverage',           'Strong (10 unit files / 131 cases + 5 integration files / 29 cases + 10 e2e files / 11 cases + PII)',  'Strong',  'Strong'),
             ('Security posture',        'Strong (CSP, dep scan, rate limits, MFA switch, PII hardened)',  'Strong',  'Strong (MFA default-on for new tenants)'),
             ('Operational maturity',    'Strong (R2 retention, archival cron, runbooks, UptimeRobot live)',  'Strong',  'Strong'),
             ('Code quality',            'Better (lib/email any pass 2026-06-18)',  'Better',  'Best (codegen types from schema)'),
