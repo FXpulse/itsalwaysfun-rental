@@ -27,8 +27,9 @@ test.describe("admin auth", () => {
 
     // Login form has email + password inputs. Pinning by label/role keeps
     // the test stable as the design evolves.
-    await page.getByLabel(/email/i).fill(user.email);
-    await page.getByLabel(/password/i).fill(user.password);
+    // Prefer input[type] over label match — more robust against label/copy tweaks.
+    await page.locator('input[type="email"]').fill(user.email);
+    await page.locator('input[type="password"]').fill(user.password);
 
     // The CTA copy varies ("Sign in" / "Log in"). Match by role+name regex.
     const submit = page.getByRole("button", { name: /sign in|log in|continue/i });

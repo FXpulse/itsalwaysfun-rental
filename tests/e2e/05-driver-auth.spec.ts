@@ -30,8 +30,8 @@ test.describe("driver auth", () => {
     await page.waitForURL("**/admin/login**", { timeout: 10_000 });
 
     // Now login with the driver creds we just seeded
-    await page.getByLabel(/email/i).fill(user.email);
-    await page.getByLabel(/password/i).fill(user.password);
+    await page.locator('input[type="email"]').fill(user.email);
+    await page.locator('input[type="password"]').fill(user.password);
     await page.getByRole("button", { name: /sign in|log in|continue/i }).click();
 
     // After login, middleware sends driver-role users to /driver (not /admin).
