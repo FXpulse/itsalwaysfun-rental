@@ -217,18 +217,15 @@ def render(api):
              'Current: 5 files / ~25 cases (multi-tenant isolation, email idempotency, inventory '
              'availability, dispatch rollup, booking status machine). Want: refund flow, booking '
              'extension, GHL inbound webhook, abandoned cart, hold expiration.',
-             '1-2d', 'HIGH'),
-            ('2', 'Add 3 more Playwright e2e tests',
-             'Public-smoke + admin-auth + booking-wizard shipped 2026-06-18. Pattern proven. '
-             'Want: admin dispatch flow, driver mobile (deliver + proof upload), payment flow '
-             '(faking Stripe webhook from a test).',
-             '1-2d', 'HIGH'),
+             '1-2d', 'MEDIUM'),
         ],
         col_widths=[0.4, 2.3, 2.6, 0.8, 0.8])
 
     api['add_callout'](doc, 'good',
-        'Total 30-day effort: ~2-4 days. UptimeRobot shipped 2026-06-18 — the original 30-day '
-        'list is now empty.')
+        'Playwright e2e suite went 3 → 10 specs on 2026-06-18 — the original "add 3 more" task '
+        'is closed. Stripe checkout e2e dropped from the list: Stripe Checkout is battle-tested '
+        'in production with real charges, a synthetic e2e would be ceremony without signal. '
+        '30-day list is now a single optional integration-test expansion.')
 
     api['add_h2'](doc, '19.3  Next 90 days — what remains')
 
