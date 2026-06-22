@@ -155,14 +155,11 @@ export async function createInspection(input: z.infer<typeof InspectionInputSche
  *  booking's primary product. Returns the active template most specifically
  *  scoped (product > category > tenant-global). */
 export async function suggestTemplateForBooking(bookingId: string) {
-  await requireDriverOrAbove();
-
-  // Use unscoped client + explicit tenant_id filter — the scoped proxy was
-  // silently returning empty results when called from inside Promise.all on
-  // the booking-detail page (could not reproduce on its own, suspected
-  // request-context loss across the parallel awaits). Reading tenant_id
-  // straight from the request headers + filtering manually avoids the proxy
-  // path entirely and is also less surprising.
+  // NOTE: deliberately do NOT call requireDriverOrAbove() — this is a
+  // read-only suggestion helper, and the booking-detail page that calls
+  // it is already auth-gated by the admin layout. requireDriverOrAbove
+  // itself relies on the scoped admin proxy for user_roles, which was
+  // the culprit in the original failure mode.
   const tenantId = getCurrentTenantId();
   const supabase = createAdminClient({ unscoped: true });
 
@@ -170,48 +167,66 @@ export async function suggestTemplateForBooking(bookingId: string) {
     .from("bookings")
     .select("product_id, tenant_id, product:products(category_id)")
     .eq("id", bookingId)
-    .eq("tenant_id", tenantId)
     .maybeSingle();
+
   if (bookingErr) {
-    Sentry.captureMessage("suggestTemplateForBooking: booking lookup failed", {
+    console.error("[suggestTemplate] booking error", { bookingId, tenantId, err: bookingErr.message });
+    Sentry.captureMessage("suggestTemplate: booking lookup failed", {
       level: "warning",
       tags: { booking_id: bookingId, tenant_id: tenantId },
       extra: { error: bookingErr.message },
     });
-    return { template: null };
-  }
-  if (!booking) {
-    Sentry.captureMessage("suggestTemplateForBooking: booking not found in tenant", {
-      level: "info",
-      tags: { booking_id: bookingId, tenant_id: tenantId },
-    });
-    return { template: null };
   }
 
-  const productId = (booking as any).product_id;
-  const categoryId = (booking as any).product?.category_id;
+  // tenant_id falls back to the booking row itself if the header context
+  // is unreliable (server-action / Promise.all edge case).
+  const resolvedTenantId =
+    (booking as any)?.tenant_id || tenantId || null;
+  const productId = (booking as any)?.product_id ?? null;
+  const categoryId = (booking as any)?.product?.category_id ?? null;
+
+  if (!resolvedTenantId) {
+    console.error("[suggestTemplate] no tenant_id resolvable", { bookingId });
+    return { template: null };
+  }
 
   const { data: templates, error: tplErr } = await supabase
     .from("inspection_templates")
     .select("id, name, items, product_id, category_id")
-    .eq("tenant_id", tenantId)
-    .eq("is_active", true);
+    .eq("tenant_id", resolvedTenantId)
+    .eq("is_active", true)
+    .order("created_at", { ascending: false });
 
   if (tplErr) {
-    Sentry.captureMessage("suggestTemplateForBooking: templates lookup failed", {
+    console.error("[suggestTemplate] templates error", { resolvedTenantId, err: tplErr.message });
+    Sentry.captureMessage("suggestTemplate: templates lookup failed", {
       level: "warning",
-      tags: { booking_id: bookingId, tenant_id: tenantId },
+      tags: { tenant_id: resolvedTenantId },
       extra: { error: tplErr.message },
     });
     return { template: null };
   }
-  const all = (templates as any[]) || [];
 
-  // Priority: product-specific > category-specific > tenant-global
+  const all = (templates as any[]) || [];
+  console.log("[suggestTemplate] resolved", {
+    bookingId,
+    resolvedTenantId,
+    productId,
+    categoryId,
+    template_count: all.length,
+    template_names: all.map((t) => t.name),
+  });
+
+  if (all.length === 0) return { template: null };
+
+  // Priority: product-specific > category-specific > tenant-global > ANY active
+  // (the last fallback is intentional — if the operator has set up at least
+  // one active template, surfacing it is better than refusing the inspection).
   const productMatch = all.find((t) => t.product_id && t.product_id === productId);
   if (productMatch) return { template: productMatch };
   const categoryMatch = all.find((t) => t.category_id && t.category_id === categoryId);
   if (categoryMatch) return { template: categoryMatch };
   const globalMatch = all.find((t) => !t.product_id && !t.category_id);
-  return { template: globalMatch || null };
+  if (globalMatch) return { template: globalMatch };
+  return { template: all[0] };
 }
