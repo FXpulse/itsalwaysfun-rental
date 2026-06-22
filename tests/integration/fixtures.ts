@@ -133,6 +133,96 @@ export async function createTestBooking(
   return data.id as string;
 }
 
+export interface TestCouponOptions {
+  code?: string;
+  discount_type?: "percent" | "fixed";
+  discount_value?: number;
+  max_uses?: number | null;
+  current_uses?: number;
+  is_active?: boolean;
+  expires_at?: string | null;
+}
+
+export async function createTestCoupon(
+  tenantId: string,
+  opts: TestCouponOptions = {},
+): Promise<{ id: string; code: string }> {
+  const supabase = testClient();
+  const code = opts.code || `TEST-${Date.now()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
+  const { data, error } = await supabase
+    .from("coupons")
+    .insert({
+      tenant_id: tenantId,
+      code,
+      description: "Integration test coupon",
+      discount_type: opts.discount_type || "percent",
+      discount_value: opts.discount_value ?? 10,
+      max_uses: opts.max_uses === undefined ? null : opts.max_uses,
+      current_uses: opts.current_uses ?? 0,
+      is_active: opts.is_active ?? true,
+      expires_at: opts.expires_at ?? null,
+    })
+    .select("id, code")
+    .single();
+  if (error || !data) {
+    throw new Error(`createTestCoupon failed: ${error?.message}`);
+  }
+  return { id: data.id as string, code: data.code as string };
+}
+
+export async function getCouponUses(couponId: string): Promise<number> {
+  const supabase = testClient();
+  const { data } = await supabase
+    .from("coupons")
+    .select("current_uses")
+    .eq("id", couponId)
+    .single();
+  return (data?.current_uses as number) ?? 0;
+}
+
+export interface TestGiftCardOptions {
+  code?: string;
+  balance_cents?: number;
+  is_active?: boolean;
+  expires_at?: string | null;
+}
+
+export async function createTestGiftCard(
+  tenantId: string,
+  opts: TestGiftCardOptions = {},
+): Promise<{ id: string; code: string }> {
+  const supabase = testClient();
+  const code = opts.code || `GIFT-${Date.now()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
+  const { data, error } = await supabase
+    .from("gift_cards")
+    .insert({
+      tenant_id: tenantId,
+      code,
+      balance_cents: opts.balance_cents ?? 10000,
+      original_amount_cents: opts.balance_cents ?? 10000,
+      is_active: opts.is_active ?? true,
+      expires_at: opts.expires_at ?? null,
+      purchaser_email: `purchaser-${Date.now()}@test.local`,
+      recipient_email: `recipient-${Date.now()}@test.local`,
+    })
+    .select("id, code")
+    .single();
+  if (error || !data) {
+    throw new Error(`createTestGiftCard failed: ${error?.message}`);
+  }
+  return { id: data.id as string, code: data.code as string };
+}
+
+export async function getGiftCardBalance(cardId: string): Promise<number> {
+  const supabase = testClient();
+  const { data } = await supabase
+    .from("gift_cards")
+    .select("balance_cents")
+    .eq("id", cardId)
+    .single();
+  return (data?.balance_cents as number) ?? 0;
+}
+
 /** Helper: cuenta cuántos emails se enviaron de un tipo dado para un booking. */
 export async function getEmailsSent(bookingId: string, emailType?: string): Promise<number> {
   const supabase = testClient();

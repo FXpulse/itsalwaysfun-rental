@@ -3,13 +3,14 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { CheckCircle, Truck, Flag, XCircle, Save, DollarSign, RotateCcw, AlertTriangle, Undo2 } from "lucide-react";
+import { CheckCircle, Truck, Flag, XCircle, Save, DollarSign, RotateCcw, AlertTriangle, Undo2, Mail } from "lucide-react";
 import {
   updateBookingStatus,
   markAsPaidManually,
   updateBookingNotes,
   restoreBooking,
   refundBooking,
+  resendBookingConfirmation,
 } from "../actions";
 import type { Booking } from "@/types/database";
 
@@ -97,6 +98,23 @@ export function BookingActions({
       if (result?.error) toast.error(result.error);
       else {
         toast.success("Notes saved");
+      }
+    });
+  }
+
+  function handleResendConfirmation() {
+    if (
+      !confirm(
+        "Resend the booking confirmation email to the customer? This bypasses the once-per-booking guard, so clicking it twice will email them twice.",
+      )
+    )
+      return;
+    startTransition(async () => {
+      const result = await resendBookingConfirmation(booking.id);
+      if (result?.error) toast.error(result.error);
+      else {
+        toast.success("Confirmation email re-sent");
+        router.refresh();
       }
     });
   }
@@ -255,6 +273,29 @@ export function BookingActions({
             className="bg-emerald-600 text-white font-semibold px-4 py-2 rounded-md hover:bg-emerald-700 transition disabled:opacity-50"
           >
             ✓ Mark as paid
+          </button>
+        </div>
+      )}
+
+      {/* Resend confirmation (visible once the booking is paid + active) */}
+      {isPaid && !isCancelled && (
+        <div className="card border-l-4 border-l-blue-500">
+          <h2 className="text-lg font-semibold text-brand-navy mb-1 flex items-center gap-2">
+            <Mail className="h-5 w-5 text-blue-600" />
+            Resend confirmation email
+          </h2>
+          <p className="text-sm text-slate-500 mb-4">
+            Use this when the customer says they didn't get the original
+            confirmation. Goes to <strong>{booking.customer_email}</strong>.
+            Bypasses the once-per-booking guard, so don't click twice unless
+            you mean it.
+          </p>
+          <button
+            onClick={handleResendConfirmation}
+            disabled={pending}
+            className="bg-blue-600 text-white font-semibold px-4 py-2 rounded-md hover:bg-blue-700 transition inline-flex items-center gap-2 disabled:opacity-50"
+          >
+            <Mail className="h-4 w-4" /> Resend confirmation
           </button>
         </div>
       )}

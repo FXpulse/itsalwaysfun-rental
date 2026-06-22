@@ -33,6 +33,44 @@ def render(api):
     api['add_kv_table'](doc,
         ['Item', 'Where it landed', 'Status'],
         [
+            ('Full-codebase security audit — 7 HIGH + 11 MEDIUM closed',
+             'Driver-layout cross-tenant filter, Math.random() → crypto.randomInt for '
+             'coupon codes, atomic increment_coupon_uses_atomic + redeem_gift_card_atomic '
+             'RPCs (migration 20260619120000), validate-endpoint rate limits + generic '
+             'errors, portal OTP rate limits, Stripe webhook tenant_id from acct_ not '
+             'metadata, inbound-email Sentry-log for .net→.com fallback, scrypt+pepper '
+             'recovery codes with dual-verify, referral cookie via middleware, OTP_SECRET '
+             'required, products/[slug] tenant filter, setup_surfaces + blocked_dates '
+             'RLS scoped + tenant_id backfilled (migration 20260619140000), OpenAPI '
+             'error.detail scrubbed, /superadmin/forgot-password + reset-password flow.',
+             'LIVE (shipped 2026-06-19)'),
+            ('Integration tests for atomic counters',
+             'tests/integration/atomic-counters.test.ts — 14 cases including the H3 + H4 '
+             'concurrent-race contracts (10-way parallel RPC fire vs max_uses / balance).',
+             'LIVE (shipped 2026-06-19)'),
+            ('Manual-confirm path now triggers booking emails',
+             'updateBookingStatus promotes stripe_payment_status to paid when admin flips '
+             'a pending_payment booking to confirmed/delivered/completed, then calls '
+             'sendBookingConfirmation + awardForPaidBooking. Closes the bug where '
+             'quote-confirmed bookings never received the customer email and never '
+             'matched the 3d/1d reminder cron filter.',
+             'LIVE (shipped 2026-06-19)'),
+            ('Resend confirmation button on /admin/bookings/[id]',
+             'resendBookingConfirmation server action + Mail button on BookingActions. '
+             'Bypasses booking_emails_sent ledger via force=true so a previously missed '
+             'send can be retried by hand.',
+             'LIVE (shipped 2026-06-19)'),
+            ('SMS consent column migration (long-standing schema gap)',
+             'bookings.customer_phone_sms_consent_at was referenced from app code but the '
+             'standalone supabase/sms_consent_audit.sql had never been promoted into '
+             'supabase/migrations/. Quote-accept flow was silently failing on insert. '
+             'New migration 20260619130000 idempotently adds the column.',
+             'LIVE (shipped 2026-06-19)'),
+            ('Beta program window shortened from 90 → 60 days',
+             'lib/beta-program.ts BETA_TRIAL_DAYS = 60. Lifecycle email cadence reshuffled '
+             'to day 20/40/50 (was 30/60/80). Marketing copy + FAQ + competitor pages + '
+             'superadmin cohort view + audit doc all updated.',
+             'LIVE (shipped 2026-06-19)'),
             ('GitHub Actions CI on PR',
              '.github/workflows/ci.yml — typecheck + lint + tests + scope-check + '
              'integration-tests jobs',

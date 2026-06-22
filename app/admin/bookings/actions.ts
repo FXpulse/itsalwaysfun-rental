@@ -313,6 +313,38 @@ export async function markAsPaidManually(
   return { success: true };
 }
 
+/** Admin-triggered re-send of the booking confirmation email. Bypasses the
+ *  booking_emails_sent idempotency ledger via force=true so a previously
+ *  missed send can actually fire. Use sparingly — clicking this twice
+ *  emails the customer twice. */
+export async function resendBookingConfirmation(bookingId: string) {
+  const user = await requireAdmin();
+  if (!bookingId) return { error: "bookingId required" };
+
+  const supabase = createAdminClient();
+  const { data: booking } = await supabase
+    .from("bookings")
+    .select("id, stripe_payment_status, customer_email, notes")
+    .eq("id", bookingId)
+    .single();
+  if (!booking) return { error: "Booking not found" };
+  if (!booking.customer_email) return { error: "Booking has no customer email" };
+
+  try {
+    await sendBookingConfirmation(bookingId, { force: true });
+  } catch (e: any) {
+    return { error: e?.message || "Send failed" };
+  }
+
+  // Audit line
+  const note = `[${new Date().toISOString().split("T")[0]}] Confirmation re-sent by ${user.email}`;
+  const newNotes = booking.notes ? `${booking.notes}\n${note}` : note;
+  await supabase.from("bookings").update({ notes: newNotes }).eq("id", bookingId);
+
+  revalidatePath(`/admin/bookings/${bookingId}`);
+  return { success: true };
+}
+
 export async function updateBookingNotes(bookingId: string, notes: string) {
   await requireAdmin();
   const supabase = createAdminClient();

@@ -43,7 +43,10 @@ def render(api):
         'operator-controlled (not tenant self-service): /superadmin/users-mfa lets Ludmila '
         'reset MFA for any locked-out user by deleting their TOTP factor (commit 79a500c). '
         'Ludmila\'s own emergency codes live at /superadmin/recovery-codes — single-use, '
-        'SHA-256 + salt, shown once.')
+        'shown once. New codes (post-2026-06-19) are hashed with scrypt (N=2^14) + a '
+        'per-code random salt + a server-side pepper (MFA_RECOVERY_SALT env). Pre-existing '
+        'SHA-256+pepper codes still verify via a dual-format path so users don\'t need a '
+        'forced regeneration; they upgrade naturally on next rotation.')
 
     api['add_h2'](doc, '16.2  Authorization')
 
@@ -158,12 +161,23 @@ def render(api):
     api['add_h2'](doc, '16.6  Recently closed (June 2026)')
 
     api['add_callout'](doc, 'good',
-        'Eight security items moved from "open" to "shipped" between the June sprint and the '
-        '2026-06-17 hardening wave:')
+        'June sprint + 2026-06-17 hardening wave + 2026-06-19 full-codebase audit closed '
+        'a combined 7 HIGH findings, 19 MEDIUM, and the standing SEC backlog. The 2026-06-19 '
+        'pass was a parallel-agent code review of secrets / OTPs / coupon enumeration / '
+        'multi-tenant isolation — every flagged item ships in commits 097ff85 (HIGH) and '
+        '920131e (MEDIUM) plus their accompanying SQL migrations.')
 
     api['add_kv_table'](doc,
         ['#', 'Finding', 'How it closed'],
         [
+            ('SEC-2026-06-19', 'Full security audit — 7 HIGH + 11 MEDIUM',
+             'See dedicated section 16.6.1 below. Atomic counter migrations + RPC-based '
+             'increments, validate-endpoint rate limits + indistinguishable errors, portal '
+             'OTP rate limits, Stripe webhook tenant_id from acct_, scrypt+pepper for '
+             'recovery codes with dual-verify, referral cookie via middleware, OTP_SECRET '
+             'mandatory, blocked_dates tenant_id added, setup_surfaces RLS scoped, '
+             '/superadmin/forgot-password+reset-password flow. Atomic-counter integration '
+             'tests added (14 cases). All deployed 2026-06-19.'),
             ('SEC-1', 'CSP (Content-Security-Policy) headers',
              'next.config.js sets Content-Security-Policy with explicit Stripe + GHL + GA '
              'allowlist. XSS blast-radius reduced.'),
@@ -192,9 +206,10 @@ def render(api):
              'field-name list (customer_email, signed_name, etc.). 27 unit tests caught 5 real '
              'bugs during development. Shipped 2026-06-17.'),
             ('TEST-1', 'Integration test infrastructure',
-             'tests/integration/ + dedicated TEST_SUPABASE_URL project. 5 files live: multi-'
+             'tests/integration/ + dedicated TEST_SUPABASE_URL project. 6 files live: multi-'
              'tenant isolation, booking-email idempotency, inventory availability, dispatch '
-             'status rollup, booking status machine. ~25 cases.'),
+             'status rollup, booking status machine, atomic counters (race contracts). '
+             '~39 cases.'),
         ],
         col_widths=[0.7, 2.5, 3.9])
 

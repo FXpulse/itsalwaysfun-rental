@@ -132,7 +132,11 @@ async function fetchImportantTips(tenantId: string | null | undefined): Promise<
 }
 
 /** Send the immediate booking confirmation email + SMS. Idempotent. */
-export async function sendBookingConfirmation(bookingId: string): Promise<void> {
+export async function sendBookingConfirmation(
+  bookingId: string,
+  opts?: { force?: boolean },
+): Promise<void> {
+  const force = opts?.force === true;
   const supabase = createAdminClient({ unscoped: true });
   const { data: booking } = await supabase
     .from("bookings")
@@ -143,8 +147,9 @@ export async function sendBookingConfirmation(bookingId: string): Promise<void> 
 
   const b = booking as BookingRow;
 
-  // Email (idempotent via ledger)
-  if (isEmailConfigured() && !(await alreadySent(bookingId, "booking_confirmation"))) {
+  // Email (idempotent via ledger unless force=true — admin "Resend"
+  // bypasses the ledger so a missed initial send can be retried).
+  if (isEmailConfigured() && (force || !(await alreadySent(bookingId, "booking_confirmation")))) {
     const tips = await fetchImportantTips(b.tenant_id);
     const tenantEmail = await getTenantEmailConfig(b.tenant_id);
     if (!tenantEmail) {
