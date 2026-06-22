@@ -55,7 +55,7 @@ export const COMPETITORS: Competitor[] = [
       "Booking internal team chat with @mentions",
       "Built-in 1099-NEC generation for drivers",
       "Annual + Pause subscription options for seasonal operators",
-      "90-day free beta — try the whole thing without commitment",
+      "60-day free beta — try the whole thing without commitment",
     ],
     rows: [
       { feature: "Online booking + checkout",       ours: "✓",                     theirs: "✓",                                winner: "tie"  },
@@ -73,7 +73,7 @@ export const COMPETITORS: Competitor[] = [
       { feature: "Inspections + digital checklists", ours: "ERPNext-style templates", theirs: "Basic",                         winner: "us"   },
       { feature: "Subscription options",             ours: "Monthly + Annual + Pause (seasonal)", theirs: "Monthly tiers",     winner: "us"   },
       { feature: "Public catalog",                   ours: "Branded, included",    theirs: "Included",                         winner: "tie"  },
-      { feature: "Trial",                            ours: "90 days free",         theirs: "14-30 days",                       winner: "us"   },
+      { feature: "Trial",                            ours: "60 days free",         theirs: "14-30 days",                       winner: "us"   },
     ],
     cta:
       "InflatableOffice is the safe choice for an operator who values the " +
@@ -124,7 +124,7 @@ export const COMPETITORS: Competitor[] = [
       { feature: "1099-NEC for drivers",            ours: "Built-in",              theirs: "External",                       winner: "us"   },
       { feature: "Booking team chat",               ours: "@mentions",             theirs: "—",                              winner: "us"   },
       { feature: "Pricing (entry plan)",            ours: "$99/mo, all features",  theirs: "$99/mo Lite, advanced tier-gated", winner: "us"   },
-      { feature: "Trial",                           ours: "90 days free",          theirs: "14 days",                        winner: "us"   },
+      { feature: "Trial",                           ours: "60 days free",          theirs: "14 days",                        winner: "us"   },
     ],
     cta:
       "Goodshuffle Pro is great if you need a mature enterprise quote-to-" +
@@ -206,7 +206,7 @@ export const COMPETITORS: Competitor[] = [
       "Self-serve signup (TapGoods is sales-led)",
       "Driver mobile app + 1099-NEC tools",
       "Booking internal chat with @mentions",
-      "90-day free trial (TapGoods has demo + sales call)",
+      "60-day free trial (TapGoods has demo + sales call)",
       "Annual + Pause subscriptions for seasonal operators",
       "AI native vs traditional — they were built before LLMs were viable",
     ],
@@ -220,11 +220,11 @@ export const COMPETITORS: Competitor[] = [
       { feature: "Heavy-equipment / AV / staging", ours: "Inflatables-first",    theirs: "Broad equipment support",        winner: "them" },
       { feature: "Public marketplace",             ours: "—",                    theirs: "TapGoods marketplace",           winner: "them" },
       { feature: "Pricing transparency",           ours: "$99/mo public",        theirs: "Custom quote (no public price)", winner: "us"   },
-      { feature: "Signup flow",                    ours: "Self-serve, 90d free", theirs: "Sales-led demo",                 winner: "us"   },
+      { feature: "Signup flow",                    ours: "Self-serve, 60d free", theirs: "Sales-led demo",                 winner: "us"   },
       { feature: "Driver mobile app",              ours: "PWA installable",     theirs: "Crew app",                       winner: "tie"  },
       { feature: "1099-NEC for drivers",           ours: "Built-in",             theirs: "Payroll integration external",  winner: "us"   },
       { feature: "Booking team chat",              ours: "@mentions",            theirs: "—",                              winner: "us"   },
-      { feature: "Trial",                          ours: "90 days free",         theirs: "Demo + sales call",              winner: "us"   },
+      { feature: "Trial",                          ours: "60 days free",         theirs: "Demo + sales call",              winner: "us"   },
     ],
     cta:
       "TapGoods is the right call if you run a $1M+ event production " +

@@ -8,9 +8,9 @@
 //
 // 4 emails:
 //   welcome        — at signup, immediate
-//   day_30_checkin — cron, 30 days after beta_program_joined_at
-//   day_60_usage   — cron, 60 days
-//   day_80_convert — cron, 80 days (10 days before trial end)
+//   day_20_checkin — cron, 20 days after beta_program_joined_at
+//   day_40_usage   — cron, 40 days
+//   day_50_convert — cron, 50 days (10 days before trial end)
 //
 // Idempotency: each email key is appended to tenants.beta_emails_sent
 // jsonb array after a successful send. The cron rechecks the array
@@ -23,9 +23,9 @@ import * as Sentry from "@sentry/nextjs";
 
 export type BetaEmailKey =
   | "welcome"
-  | "day_30_checkin"
-  | "day_60_usage"
-  | "day_80_convert";
+  | "day_20_checkin"
+  | "day_40_usage"
+  | "day_50_convert";
 
 const BASE_URL =
   process.env.NEXT_PUBLIC_APP_URL || "https://getrentalflow.com";
@@ -45,7 +45,7 @@ function buildEmail(
         subject: `You're in the RentalFlow beta — here's what to do first`,
         html: `<div style="font-family:system-ui,sans-serif;max-width:560px;color:#0f172a;line-height:1.55">
 <p>Hey ${name},</p>
-<p>Welcome to the RentalFlow beta. You have <strong>90 days</strong> to take this thing for a real spin — no credit card on file, no card asked at the end of the trial without your action.</p>
+<p>Welcome to the RentalFlow beta. You have <strong>60 days</strong> to take this thing for a real spin — no credit card on file, no card asked at the end of the trial without your action.</p>
 <p>Three things that will save you time over the next week:</p>
 <ol style="padding-left:18px">
   <li><strong>Stripe Connect first.</strong> The booking flow needs it. <a href="${adminUrl.replace("/dashboard", "/settings/payments")}">Set up Stripe →</a></li>
@@ -61,7 +61,7 @@ function buildEmail(
 </div>`,
         text: `Hey ${name},
 
-Welcome to the RentalFlow beta. You have 90 days, no card on file.
+Welcome to the RentalFlow beta. You have 60 days, no card on file.
 
 Three things to save you time:
 1. Set up Stripe Connect first: ${adminUrl.replace("/dashboard", "/settings/payments")}
@@ -75,18 +75,18 @@ Open your dashboard: ${adminUrl}
 — Ludmila & Henry, RentalFlow`,
       };
 
-    case "day_30_checkin":
+    case "day_20_checkin":
       return {
-        subject: `Day 30 — how's it going?`,
+        subject: `Day 20 — how's it going?`,
         html: `<div style="font-family:system-ui,sans-serif;max-width:560px;color:#0f172a;line-height:1.55">
 <p>Hey ${name},</p>
-<p>You're 30 days into the beta. Quick check-in:</p>
+<p>You're 20 days into the beta. Quick check-in:</p>
 <ul style="padding-left:18px;list-style:none">
   <li>✓ &nbsp; Is the booking flow doing what you need?</li>
   <li>✓ &nbsp; Drivers using the mobile app, or sticking to paper sheets?</li>
   <li>✓ &nbsp; Anything you wanted to find that you couldn't?</li>
 </ul>
-<p>You have 60 days left on the free trial. If something is half-broken or you couldn't figure out how to do a thing — that's exactly what we need to hear before you decide to convert.</p>
+<p>You have 40 days left on the free trial. If something is half-broken or you couldn't figure out how to do a thing — that's exactly what we need to hear before you decide to convert.</p>
 <p>${replyHint}</p>
 <p style="margin-top:18px">
   <a href="${adminUrl}" style="background:#1a1a6e;color:white;padding:11px 22px;border-radius:6px;text-decoration:none;display:inline-block;font-weight:bold">Open your dashboard</a>
@@ -95,22 +95,22 @@ Open your dashboard: ${adminUrl}
 </div>`,
         text: `Hey ${name},
 
-30 days in. Quick check-in:
+20 days in. Quick check-in:
 - Is the booking flow doing what you need?
 - Drivers using the mobile app or sticking to paper?
 - Anything you wanted to find but couldn't?
 
-60 days left on the trial. If something is half-broken, tell us before you decide to convert.
+40 days left on the trial. If something is half-broken, tell us before you decide to convert.
 
 — Ludmila`,
       };
 
-    case "day_60_usage":
+    case "day_40_usage":
       return {
-        subject: `Day 60 — what would make you stay?`,
+        subject: `Day 40 — what would make you stay?`,
         html: `<div style="font-family:system-ui,sans-serif;max-width:560px;color:#0f172a;line-height:1.55">
 <p>Hey ${name},</p>
-<p>Day 60 of your 90-day beta. Most folks know by now whether the platform is going to work for them.</p>
+<p>Day 40 of your 60-day beta. Most folks know by now whether the platform is going to work for them.</p>
 <p>One question I genuinely want a real answer to: <strong>what's the ONE thing missing that's preventing you from using us as your full system?</strong></p>
 <p>It might be a feature we haven't built. It might be a process step that doesn't match how your business actually works. It might be a UX thing that drives you crazy.</p>
 <p>Tell me. We're at the stage where we ship feature requests in 1-2 weeks. The earlier I hear it, the better your version of RentalFlow gets.</p>
@@ -119,7 +119,7 @@ Open your dashboard: ${adminUrl}
 </div>`,
         text: `Hey ${name},
 
-Day 60 of your 90-day beta. Most folks know by now if it's going to work.
+Day 40 of your 60-day beta. Most folks know by now if it's going to work.
 
 One question: what's the ONE thing missing that's preventing you from using us as your full system?
 
@@ -128,25 +128,25 @@ We ship feature requests in 1-2 weeks at this stage. The earlier I hear it, the 
 — Ludmila`,
       };
 
-    case "day_80_convert":
+    case "day_50_convert":
       return {
         subject: `10 days left in your trial — here's what to expect`,
         html: `<div style="font-family:system-ui,sans-serif;max-width:560px;color:#0f172a;line-height:1.55">
 <p>Hey ${name},</p>
-<p>You have 10 days left on your 90-day beta trial. After that you'll either:</p>
+<p>You have 10 days left on your 60-day beta trial. After that you'll either:</p>
 <ol style="padding-left:18px">
   <li><strong>Convert at $99/month flat.</strong> Same plan as everyone else — unlimited bookings, no commission, everything you're already using.</li>
   <li><strong>Cancel.</strong> We export everything to CSV (customers, bookings, products, expenses) before deleting the account. Your Stripe Connect account is yours either way.</li>
 </ol>
 <p style="background:#ecfdf5;border-left:4px solid #10b981;padding:10px 14px;border-radius:4px;margin-top:18px">If you're converting, the easiest way is to add a card at <a href="${adminUrl.replace("/dashboard", "/settings/billing")}">/admin/settings/billing</a>. Takes 60 seconds.</p>
 <p>If you're cancelling, hit reply and tell me why. That's the most valuable feedback we get out of this whole program.</p>
-<p>Either way — thank you for putting RentalFlow through real-world use for 80+ days. That's what made the platform better for everyone after you.</p>
+<p>Either way — thank you for putting RentalFlow through real-world use for 50+ days. That's what made the platform better for everyone after you.</p>
 <p>${replyHint}</p>
 <p>— Ludmila & Henry</p>
 </div>`,
         text: `Hey ${name},
 
-10 days left on your 90-day beta. After that:
+10 days left on your 60-day beta. After that:
 1. Convert at $99/month flat. Same plan as everyone else.
 2. Cancel. CSV export of all your data before deletion.
 

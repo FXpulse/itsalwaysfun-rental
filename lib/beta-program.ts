@@ -1,8 +1,8 @@
 // Beta program window helpers.
 //
-// "First 90 calendar days" structure (decision 2026-06-17): anyone who signs
-// up while BETA_PROGRAM_END_AT is in the future gets:
-//   - 90-day trial (vs default 30)
+// "First 60 calendar days" structure: anyone who signs up while
+// BETA_PROGRAM_END_AT is in the future gets:
+//   - 60-day trial (vs default 30)
 //   - tenants.beta_program = true
 //   - tenants.beta_program_joined_at = signup timestamp
 //
@@ -11,7 +11,7 @@
 // To extend or end the program: change BETA_PROGRAM_END_AT in Vercel env
 // (production scope) and redeploy. To kill it immediately: clear the env var.
 
-const BETA_TRIAL_DAYS = 90;
+const BETA_TRIAL_DAYS = 60;
 const DEFAULT_TRIAL_DAYS = 30;
 
 /** Returns true if a NEW signup right now qualifies for the beta program. */
@@ -23,7 +23,7 @@ export function isBetaProgramActive(): boolean {
   return endAt.getTime() > Date.now();
 }
 
-/** Returns the trial day count this signup should get. 90 if beta active, 30 otherwise. */
+/** Returns the trial day count this signup should get. 60 if beta active, 30 otherwise. */
 export function trialDaysForNewSignup(): number {
   return isBetaProgramActive() ? BETA_TRIAL_DAYS : DEFAULT_TRIAL_DAYS;
 }

@@ -281,7 +281,7 @@ export default async function AdminLayout({
             {isBetaTenant && (
               <span
                 className="inline-block bg-brand-yellow/20 text-brand-yellow text-[10px] font-bold tracking-widest px-2 py-0.5 rounded border border-brand-yellow/40"
-                title="Your account is part of the 90-day RentalFlow beta program"
+                title="Your account is part of the 60-day RentalFlow beta program"
               >
                 BETA
               </span>

@@ -99,7 +99,7 @@ export default function VsIndexPage() {
             href="/signup"
             className="inline-block bg-violet-600 hover:bg-violet-700 text-white font-semibold px-5 py-2.5 rounded-lg text-sm"
           >
-            Try 90 days free
+            Try 60 days free
           </Link>
         </div>
       </div>

@@ -131,7 +131,7 @@ export default async function BetaProgramPage() {
         <h1 className="text-2xl font-bold text-slate-800">Beta program cohort</h1>
       </div>
       <p className="text-sm text-slate-500 mb-6">
-        Tenants signed up while the beta program was open — they have a 90-day
+        Tenants signed up while the beta program was open — they have a 60-day
         trial instead of 30. They flip to standard $99/mo at trial end (no
         special post-beta pricing).
       </p>
@@ -251,11 +251,11 @@ export default async function BetaProgramPage() {
                   </td>
                   <td className="py-3 px-4">
                     <div className="flex flex-wrap gap-1">
-                      {(["welcome", "day_30_checkin", "day_60_usage", "day_80_convert"] as const).map((k) => {
+                      {(["welcome", "day_20_checkin", "day_40_usage", "day_50_convert"] as const).map((k) => {
                         const ledger: string[] = Array.isArray(t.beta_emails_sent) ? t.beta_emails_sent : [];
                         const sent = ledger.includes(k);
                         const short =
-                          k === "welcome" ? "W" : k === "day_30_checkin" ? "30" : k === "day_60_usage" ? "60" : "80";
+                          k === "welcome" ? "W" : k === "day_20_checkin" ? "20" : k === "day_40_usage" ? "40" : "50";
                         return (
                           <span
                             key={k}

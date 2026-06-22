@@ -170,7 +170,7 @@ export default function VsCompetitorPage({
             href="/signup"
             className="bg-violet-600 hover:bg-violet-700 text-white font-semibold px-5 py-4 rounded-lg text-center"
           >
-            Try RentalFlow 90 days free
+            Try RentalFlow 60 days free
           </Link>
           <a
             href={c.url}

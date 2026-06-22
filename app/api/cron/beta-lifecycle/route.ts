@@ -3,9 +3,9 @@
 // Daily check on all beta-program tenants. Sends the lifecycle email that
 // matches days_since_beta_program_joined_at:
 //
-//   ≥ 30 days → day_30_checkin
-//   ≥ 60 days → day_60_usage
-//   ≥ 80 days → day_80_convert
+//   ≥ 20 days → day_20_checkin
+//   ≥ 40 days → day_40_usage
+//   ≥ 50 days → day_50_convert
 //
 // Idempotency via tenants.beta_emails_sent jsonb array. Each tenant gets
 // each key at most once. Each row is rechecked against the array before
@@ -32,9 +32,9 @@ interface TierConfig {
 }
 
 const TIERS: TierConfig[] = [
-  { minDays: 80, key: "day_80_convert" },
-  { minDays: 60, key: "day_60_usage" },
-  { minDays: 30, key: "day_30_checkin" },
+  { minDays: 50, key: "day_50_convert" },
+  { minDays: 40, key: "day_40_usage" },
+  { minDays: 20, key: "day_20_checkin" },
 ];
 
 export async function GET() {
@@ -75,8 +75,8 @@ export async function GET() {
           : [];
 
         // Pick the highest tier the tenant qualifies for that hasn't been sent.
-        // TIERS is ordered most-recent-trigger first (80 → 60 → 30) so we don't
-        // re-send a day_30 to someone who already passed day_60 without it.
+        // TIERS is ordered most-recent-trigger first (50 → 40 → 20) so we don't
+        // re-send a day_20 to someone who already passed day_40 without it.
         const matchedTier = TIERS.find(
           (tier) => days >= tier.minDays && !ledger.includes(tier.key),
         );

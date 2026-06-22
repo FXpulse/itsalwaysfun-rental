@@ -2,7 +2,7 @@
 // getrentalflow.com/beta (middleware rewrites /beta → /marketing/beta when
 // host is the marketing apex).
 //
-// Pitch: 100 first signups during the program window get 90 days free.
+// Pitch: signups during the program window get 60 days free.
 // No code, no cap by count, just by time (BETA_PROGRAM_END_AT env).
 
 import Link from "next/link";
@@ -26,9 +26,9 @@ import { isBetaProgramActive, betaProgramEndAt } from "@/lib/beta-program";
 
 export const dynamic = "force-dynamic";
 export const metadata = {
-  title: "RentalFlow Beta — 90 days free for early operators",
+  title: "RentalFlow Beta — 60 days free for early operators",
   description:
-    "Run your whole rental business on one platform. Beta program: 90 days free, no card required. Help us polish, get a $99 flat plan after.",
+    "Run your whole rental business on one platform. Beta program: 60 days free, no card required. Help us polish, get a $99 flat plan after.",
 };
 
 const FEATURES: Array<{ icon: any; title: string; body: string }> = [
@@ -125,12 +125,12 @@ export default function BetaLandingPage() {
             <h1 className="text-4xl md:text-6xl font-bold mb-4 leading-tight">
               Help us polish RentalFlow.
               <br />
-              <span className="text-brand-yellow">Get 90 days free.</span>
+              <span className="text-brand-yellow">Get 60 days free.</span>
             </h1>
             <p className="text-lg md:text-xl text-white/80 max-w-2xl mx-auto mb-8">
               Built by It's Always Fun, a real Jacksonville rental business. Now
               we're opening it up to other rental operators. Run your whole
-              business on it, tell us what's missing, pay nothing for 90 days.
+              business on it, tell us what's missing, pay nothing for 60 days.
               {endAtHuman && (
                 <> Beta window closes <strong>{endAtHuman}</strong>.</>
               )}
@@ -142,7 +142,7 @@ export default function BetaLandingPage() {
                   href="/signup"
                   className="bg-brand-yellow text-brand-navy font-bold py-4 px-8 rounded-lg hover:bg-yellow-300 transition inline-flex items-center justify-center gap-2"
                 >
-                  Start my 90-day trial
+                  Start my 60-day trial
                   <ArrowRight className="h-5 w-5" />
                 </Link>
                 <a
@@ -183,7 +183,7 @@ export default function BetaLandingPage() {
             The deal in one paragraph
           </h2>
           <p className="text-slate-600 text-center text-lg mb-10 max-w-2xl mx-auto">
-            You get the whole platform free for 90 days. You don't owe us
+            You get the whole platform free for 60 days. You don't owe us
             anything in return — but if something's broken or missing, tell us.
             That's the trade.
           </p>
@@ -207,7 +207,7 @@ export default function BetaLandingPage() {
             </div>
             <div className="bg-emerald-50 border-2 border-emerald-200 rounded-lg p-5">
               <CheckCircle2 className="h-6 w-6 text-emerald-600 mb-2" />
-              <h3 className="font-bold text-slate-800 mb-1">After 90 days</h3>
+              <h3 className="font-bold text-slate-800 mb-1">After 60 days</h3>
               <p className="text-sm text-slate-600">
                 $99/month flat. Same plan as everyone else. No surprise upgrade
                 tiers. No per-booking commission.
@@ -271,7 +271,7 @@ export default function BetaLandingPage() {
               we're opening it to other rental operators.
             </p>
             <p className="text-white/80">
-              The deal: try it on us for 90 days. If something is missing or
+              The deal: try it on us for 60 days. If something is missing or
               broken, tell us. That's how we make this better for everyone
               who comes after you.
             </p>
@@ -292,19 +292,19 @@ export default function BetaLandingPage() {
           <div className="space-y-4">
             {[
               {
-                q: "Can I keep my current website during the 90 days?",
+                q: "Can I keep my current website during the 60 days?",
                 a: "Yes. Build your RentalFlow site at yourcompany.getrentalflow.com first. Switch your DNS only when you're comfortable. You can also map your own custom domain anytime.",
               },
               {
-                q: "Will I lose my data if I cancel after 90 days?",
+                q: "Will I lose my data if I cancel after 60 days?",
                 a: "No. We export everything to CSV before deleting your account. Customers, bookings, products, expenses — all yours, formatted for QuickBooks/Excel.",
               },
               {
                 q: "Do you ask for a credit card upfront?",
-                a: "No. Sign up with email only. You won't see a card form until day 90 (or earlier if you want to remove the trial banner).",
+                a: "No. Sign up with email only. You won't see a card form until day 60 (or earlier if you want to remove the trial banner).",
               },
               {
-                q: "What happens at day 90?",
+                q: "What happens at day 60?",
                 a: "$99/month flat — same plan as every other RentalFlow customer. No surprise pricing tier. Cancel anytime with a CSV export of your data.",
               },
               {
@@ -352,7 +352,7 @@ export default function BetaLandingPage() {
             <>
               <p className="text-slate-600 mb-8">
                 Sign up takes 5 minutes. The first 14 days you can decide if
-                it's for you. The other 76 are gravy.
+                it's for you. The other 46 are gravy.
                 {endAtHuman && (
                   <> Beta closes <strong>{endAtHuman}</strong>.</>
                 )}
@@ -361,7 +361,7 @@ export default function BetaLandingPage() {
                 href="/signup"
                 className="bg-brand-yellow text-brand-navy font-bold py-4 px-10 rounded-lg hover:bg-yellow-300 transition inline-flex items-center justify-center gap-2 text-lg"
               >
-                Start my 90-day trial
+                Start my 60-day trial
                 <ArrowRight className="h-5 w-5" />
               </Link>
             </>

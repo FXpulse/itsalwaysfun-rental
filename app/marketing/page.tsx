@@ -111,7 +111,7 @@ export default function MarketingPage() {
           href="/beta"
           className="block bg-brand-yellow text-brand-navy text-center text-sm font-bold py-2 px-4 hover:bg-yellow-300 transition"
         >
-          🎉 BETA PROGRAM OPEN — Get 90 days free (not 30). Tap to read more →
+          🎉 BETA PROGRAM OPEN — Get 60 days free (not 30). Tap to read more →
         </a>
       )}
       {/* Header */}

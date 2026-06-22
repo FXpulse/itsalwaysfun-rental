@@ -115,7 +115,7 @@ export async function signupTenant(formData: FormData): Promise<SignupResult> {
 
   // 2. Create tenant
   // Beta program: anyone signing up while BETA_PROGRAM_END_AT (env) is in
-  // the future gets 90-day trial + beta_program flag. Otherwise default 30d.
+  // the future gets 60-day trial + beta_program flag. Otherwise default 30d.
   const { trialDaysForNewSignup, betaProgramTenantFields } = await import(
     "@/lib/beta-program"
   );

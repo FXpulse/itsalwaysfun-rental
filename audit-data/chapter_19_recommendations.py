@@ -143,7 +143,7 @@ def render(api):
              'optional apiKey override. Operator emails do not pollute tenant Resend sending reputation.',
              'LIVE (shipped 2026-06-18)'),
             ('Beta program — signup variant + lifecycle + feedback widget',
-             '/beta landing, 90-day trial, 4 lifecycle emails (welcome/30/60/80), in-app feedback '
+             '/beta landing, 60-day trial, 4 lifecycle emails (welcome/20/40/50), in-app feedback '
              'bubble, /superadmin/beta-program cohort + inbox views.',
              'LIVE (shipped 2026-06-17)'),
             ('Approval workflow for high-ticket bookings',
