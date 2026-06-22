@@ -7,6 +7,7 @@ import { NextResponse } from "next/server";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import yaml from "yaml";
+import * as Sentry from "@sentry/nextjs";
 
 export const runtime = "nodejs";
 export const dynamic = "force-static";
@@ -23,8 +24,12 @@ export async function GET() {
       },
     });
   } catch (e: any) {
+    // The endpoint is intentionally public (CORS *), so any error.detail
+    // would leak file paths or internal exception text to an attacker.
+    // Capture the real error to Sentry instead and return a generic body.
+    Sentry.captureException(e, { tags: { area: "openapi-spec" } });
     return NextResponse.json(
-      { error: "Could not load OpenAPI spec", detail: e?.message || String(e) },
+      { error: "Spec not available" },
       { status: 500 },
     );
   }

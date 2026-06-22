@@ -28,9 +28,17 @@ function generateCode(): string {
 }
 
 function hashCode(code: string, email: string): string {
-  // HMAC the code with email as part of the salt so codes can't be replayed across emails
+  // HMAC the code with email as part of the salt so codes can't be replayed
+  // across emails. OTP_SECRET is required — falling back to
+  // SUPABASE_SERVICE_ROLE_KEY would couple OTP integrity to a single
+  // high-privilege secret, and using "fallback-dev" in production would be
+  // catastrophic. Hard-fail at request/verify time if it's missing.
+  const secret = process.env.OTP_SECRET;
+  if (!secret) {
+    throw new Error("OTP_SECRET is not configured");
+  }
   return crypto
-    .createHmac("sha256", process.env.OTP_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY || "fallback-dev")
+    .createHmac("sha256", secret)
     .update(`${email.toLowerCase()}::${code}`)
     .digest("hex");
 }

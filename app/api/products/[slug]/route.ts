@@ -8,6 +8,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { rateLimit, clientIp } from "@/lib/rate-limit";
+import { getCurrentTenantId } from "@/lib/tenant/server";
 import { z } from "zod";
 
 export const dynamic = "force-dynamic";
@@ -35,12 +36,19 @@ export async function GET(
     return NextResponse.json({ error: "Invalid slug" }, { status: 400 });
   }
 
+  const tenantId = getCurrentTenantId();
+  if (!tenantId) {
+    return NextResponse.json({ error: "Product not found" }, { status: 404 });
+  }
   const supabase = createAdminClient();
 
-  // 1. Fetch product
+  // 1. Fetch product — explicit tenant filter as defense-in-depth so two
+  // tenants with the same slug never collide (the unique constraint is
+  // (tenant_id, slug), not just slug).
   const { data: product, error: prodErr } = await supabase
     .from("products")
     .select("*")
+    .eq("tenant_id", tenantId)
     .eq("slug", params.slug)
     .eq("is_active", true)
     .single();

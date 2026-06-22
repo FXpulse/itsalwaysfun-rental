@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentTenantId } from "@/lib/tenant/server";
 import { BlockDateInputSchema } from "@/lib/validation";
 
 async function requireAdmin() {
@@ -27,8 +28,28 @@ export async function blockDate(input: {
     return { error: "Invalid input" };
   }
 
+  const tenantId = getCurrentTenantId();
+  if (!tenantId) {
+    return { error: "Tenant context missing" };
+  }
+
   const supabase = createAdminClient();
+  // Verify the product belongs to the caller's tenant before blocking.
+  // The blocked_dates table now requires tenant_id (NOT NULL) — supplying
+  // it from the caller's tenant context also prevents an admin on one
+  // tenant from blocking dates on a foreign tenant's product.
+  const { data: prod } = await supabase
+    .from("products")
+    .select("id")
+    .eq("id", parsed.data.product_id)
+    .eq("tenant_id", tenantId)
+    .maybeSingle();
+  if (!prod) {
+    return { error: "Product not found" };
+  }
+
   const { error } = await supabase.from("blocked_dates").insert({
+    tenant_id: tenantId,
     product_id: parsed.data.product_id,
     blocked_date: parsed.data.blocked_date,
     reason: parsed.data.reason,

@@ -102,6 +102,15 @@ export function SuperadminLoginForm() {
             <button type="submit" className="btn-primary w-full" disabled={loading}>
               {loading ? "Signing in..." : "Sign in"}
             </button>
+
+            <p className="text-center text-xs text-slate-500">
+              <Link
+                href="/superadmin/forgot-password"
+                className="text-brand-navy underline"
+              >
+                Forgot password?
+              </Link>
+            </p>
           </form>
 
           <p className="text-center text-xs text-slate-400 mt-6">

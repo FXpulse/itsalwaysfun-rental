@@ -26,6 +26,31 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(target, 308);
   }
 
+  // ─── REFERRAL CODE: stash to httpOnly cookie + clean URL ───────────
+  // ?ref=CODE is the share format. The URL itself gets logged by Vercel /
+  // Cloudflare on first hit, ends up in browser history, and can be
+  // bookmarked or re-shared accidentally. Move the value into an httpOnly
+  // cookie and redirect to the same URL minus the ref param — so the
+  // browser tab + history settle on a clean URL within a single round
+  // trip. The cookie is read post-signup by /portal/auth/callback +
+  // /portal/login to link the referrer.
+  {
+    const ref = request.nextUrl.searchParams.get("ref");
+    if (ref && /^[A-Za-z0-9]{4,16}$/.test(ref)) {
+      const cleanUrl = new URL(request.nextUrl);
+      cleanUrl.searchParams.delete("ref");
+      const res = NextResponse.redirect(cleanUrl, 307);
+      res.cookies.set("iaf_ref", ref.toUpperCase(), {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        maxAge: 60 * 60 * 24 * 30, // 30 days
+        path: "/",
+      });
+      return res;
+    }
+  }
+
   const tenant = await resolveTenantByHostname(hostname);
 
   // /free-tools/* only lives on the marketing apex. If a tenant subdomain or

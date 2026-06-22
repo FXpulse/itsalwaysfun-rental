@@ -19,6 +19,7 @@
 
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import * as Sentry from "@sentry/nextjs";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendEmail, isEmailConfigured } from "@/lib/email/send";
 
@@ -185,20 +186,47 @@ export async function POST(request: Request) {
     if (domain) {
       const { data: tenant } = await supabase
         .from("tenants")
-        .select("id")
+        .select("id, slug")
         .or(`custom_domain.eq.${domain},custom_domain.eq.www.${domain}`)
         .maybeSingle();
       tenantId = (tenant as any)?.id || null;
-      // Also accept .net when tenant has .com (handles the migration period
-      // where .net mail is still being forwarded after the canonical switch)
-      if (!tenantId && domain.endsWith(".net")) {
+      if (tenantId) {
+        // Domain fallback resolved — the CF worker should be updated to
+        // send tenant_id / tenant_slug explicitly. Track via Sentry so we
+        // can phase the fallback out once every tenant's worker is updated.
+        Sentry.captureMessage("inbound-email: resolved via domain fallback", {
+          level: "info",
+          tags: {
+            area: "inbound-email",
+            tenant_id: tenantId,
+            tenant_slug: (tenant as any)?.slug || "",
+            domain,
+          },
+        });
+      } else if (domain.endsWith(".net")) {
+        // .net → .com migration backstop. Higher-risk path: someone who
+        // controls foo.net could route mail into foo.com's inbox if foo.com
+        // is a tenant. Sentry-log at WARNING so we surface this — once IAF
+        // .net forwarding is decommissioned we should DELETE this branch.
         const comDomain = domain.replace(/\.net$/, ".com");
         const { data: tenant2 } = await supabase
           .from("tenants")
-          .select("id")
+          .select("id, slug")
           .eq("custom_domain", comDomain)
           .maybeSingle();
         tenantId = (tenant2 as any)?.id || null;
+        if (tenantId) {
+          Sentry.captureMessage("inbound-email: resolved via .net→.com fallback", {
+            level: "warning",
+            tags: {
+              area: "inbound-email",
+              tenant_id: tenantId,
+              tenant_slug: (tenant2 as any)?.slug || "",
+              net_domain: domain,
+              com_domain: comDomain,
+            },
+          });
+        }
       }
     }
   }

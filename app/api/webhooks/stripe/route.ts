@@ -79,11 +79,69 @@ export async function POST(request: Request) {
       return NextResponse.json({ received: true, note: "no booking_id in metadata" });
     }
 
+    // Resolve authoritative tenant_id WITHOUT trusting pi.metadata.
+    // - For Stripe Connect tenants: pi.transfer_data.destination and
+    //   pi.on_behalf_of carry the tenant's connected account (server-set
+    //   at PaymentIntent creation by getPaymentIntentTenantParams).
+    // - For legacy direct-charge tenants (IAF): no transfer_data exists,
+    //   so we fall back to the booking row's own tenant_id (set when the
+    //   booking was inserted server-side, also not client-controllable).
+    //
+    // The bookings.id is a random UUID — guessing one is not practical.
+    // Combined with stripe_payment_status="pending" guard below, this
+    // closes the "PI metadata says X but booking belongs to Y" attack.
+    const connectAcctId =
+      (pi.transfer_data as any)?.destination || (pi as any).on_behalf_of || null;
+    let authoritativeTenantId: string | null = null;
+    if (connectAcctId) {
+      const { data: t } = await supabase
+        .from("tenants")
+        .select("id")
+        .eq("stripe_account_id", connectAcctId)
+        .maybeSingle();
+      authoritativeTenantId = (t as any)?.id || null;
+      if (!authoritativeTenantId) {
+        Sentry.captureMessage("Stripe webhook: unknown connected account", {
+          level: "warning",
+          tags: { area: "stripe-webhook", acct: connectAcctId },
+          extra: { booking_id: bookingId, event_id: event.id },
+        });
+        return NextResponse.json({ received: true, note: "unknown connected account" });
+      }
+    } else {
+      // Legacy / direct-charge path: read tenant_id from the booking row.
+      const { data: bRow } = await supabase
+        .from("bookings")
+        .select("tenant_id")
+        .eq("id", bookingId)
+        .maybeSingle();
+      authoritativeTenantId = (bRow as any)?.tenant_id || null;
+    }
+
+    if (!authoritativeTenantId) {
+      return NextResponse.json({ received: true, note: "could not resolve tenant" });
+    }
+
+    // If metadata claims a different tenant_id than what the server-controlled
+    // sources say, refuse to apply the update. This is the actual spoofing
+    // signal worth alerting on.
+    if (pi.metadata?.tenant_id && pi.metadata.tenant_id !== authoritativeTenantId) {
+      Sentry.captureMessage("Stripe webhook: tenant_id mismatch (metadata vs Connect)", {
+        level: "error",
+        tags: { area: "stripe-webhook", booking_id: bookingId },
+        extra: {
+          metadata_tenant_id: pi.metadata.tenant_id,
+          authoritative_tenant_id: authoritativeTenantId,
+          event_id: event.id,
+        },
+      });
+      return NextResponse.json({ received: true, note: "tenant mismatch — refused" });
+    }
+
     // Idempotency guard: only transition a booking from pending → confirmed.
     // Stripe retries delivery up to 3 days; without this guard a late retry
     // could overwrite a manually cancelled booking back to confirmed.
-    // Defense in depth: also verify tenant_id matches metadata if provided.
-    const updateQuery = supabase
+    const { data: booking, error } = await supabase
       .from("bookings")
       .update({
         booking_status: "confirmed",
@@ -91,13 +149,10 @@ export async function POST(request: Request) {
         hold_expires_at: null,
       })
       .eq("id", bookingId)
-      .eq("stripe_payment_status", "pending");
-
-    if (pi.metadata?.tenant_id) {
-      updateQuery.eq("tenant_id", pi.metadata.tenant_id);
-    }
-
-    const { data: booking, error } = await updateQuery.select("*").maybeSingle();
+      .eq("tenant_id", authoritativeTenantId)
+      .eq("stripe_payment_status", "pending")
+      .select("*")
+      .maybeSingle();
 
     // No row updated could mean: already processed (idempotent, OK),
     // tenant mismatch (attack/bug — return 200 so Stripe doesn't retry

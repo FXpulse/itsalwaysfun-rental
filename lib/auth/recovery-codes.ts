@@ -4,11 +4,14 @@
 //
 //  1. Codes are 10 uppercase chars, dash-grouped (XXXXX-XXXXX) for readability.
 //     Crypto-random from a 32-char alphabet that excludes ambiguous chars
-//     (no O/0, no I/1) → ~50 bits of entropy per code, enough for an offline
-//     guessing attacker who can try maybe 100k/sec to still need centuries.
+//     (no O/0, no I/1) → ~50 bits of entropy per code.
 //
-//  2. Stored as bcrypt hash. We never persist plaintext anywhere — the user
-//     sees them once on generation and we tell them to write them down.
+//  2. Stored as `scrypt:<salt_hex>:<hash_hex>` with a per-code random salt
+//     + a server-secret pepper (MFA_RECOVERY_SALT env). The scrypt cost
+//     parameters slow an offline attacker who has both the DB and the
+//     pepper. Pre-existing rows hashed with SHA-256+pepper still verify
+//     transparently via the dual-format check below; they get re-hashed
+//     into the scrypt format the next time the user regenerates a set.
 //
 //  3. A used code is dead — `used_at` is set and that row never matches again.
 //
@@ -20,23 +23,58 @@
 //     This means a recovery code can't be hoarded by an attacker as a
 //     permanent MFA bypass — its blast radius is "you have to re-enroll TOTP."
 
-import { randomBytes, createHash, timingSafeEqual } from "node:crypto";
+import { randomBytes, createHash, scryptSync, timingSafeEqual } from "node:crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
 
-/** Codes are high-entropy random strings (~50 bits). SHA-256 with a salt
- *  is sufficient — we don't need the slow-hash properties of bcrypt for
- *  uniform random secrets. Avoids adding a runtime dependency. */
-function hashCode(code: string): string {
-  // Salt is platform-static (EMAIL_ENCRYPTION_KEY or fixed) so the hash is
-  // deterministic for verification. The code's own entropy is what makes
-  // brute force infeasible.
-  const salt = process.env.MFA_RECOVERY_SALT || "rentalflow-recovery-2026";
-  return createHash("sha256").update(salt).update(code).digest("hex");
+// scrypt cost — N=2^14 keeps verification under ~50ms on a modern CPU,
+// which is fine for one-per-login-attempt verification with rate limits.
+const SCRYPT_N = 1 << 14;
+const SCRYPT_R = 8;
+const SCRYPT_P = 1;
+const SCRYPT_KEY_LEN = 32;
+
+function getPepper(): string {
+  return process.env.MFA_RECOVERY_SALT || "rentalflow-recovery-2026";
 }
 
-function verifyCode(code: string, expectedHash: string): boolean {
-  const got = Buffer.from(hashCode(code), "hex");
-  const exp = Buffer.from(expectedHash, "hex");
+/** Hash a fresh code with scrypt + per-code salt + pepper. */
+function hashCode(code: string): string {
+  const salt = randomBytes(16);
+  const pepper = getPepper();
+  const hash = scryptSync(code, Buffer.concat([salt, Buffer.from(pepper)]), SCRYPT_KEY_LEN, {
+    N: SCRYPT_N,
+    r: SCRYPT_R,
+    p: SCRYPT_P,
+  });
+  return `scrypt:${salt.toString("hex")}:${hash.toString("hex")}`;
+}
+
+/** Legacy SHA-256+pepper format used by codes generated before 2026-06-19.
+ *  Hash is a plain 64-char hex string (no colons). Kept only for verify. */
+function legacySha256Hash(code: string): string {
+  const pepper = getPepper();
+  return createHash("sha256").update(pepper).update(code).digest("hex");
+}
+
+function verifyCode(code: string, storedHash: string): boolean {
+  // New format: scrypt:<salt_hex>:<hash_hex>
+  if (storedHash.startsWith("scrypt:")) {
+    const parts = storedHash.split(":");
+    if (parts.length !== 3) return false;
+    const salt = Buffer.from(parts[1], "hex");
+    const expected = Buffer.from(parts[2], "hex");
+    const pepper = getPepper();
+    const got = scryptSync(code, Buffer.concat([salt, Buffer.from(pepper)]), SCRYPT_KEY_LEN, {
+      N: SCRYPT_N,
+      r: SCRYPT_R,
+      p: SCRYPT_P,
+    });
+    if (got.length !== expected.length) return false;
+    return timingSafeEqual(got, expected);
+  }
+  // Legacy format: plain SHA-256 hex.
+  const got = Buffer.from(legacySha256Hash(code), "hex");
+  const exp = Buffer.from(storedHash, "hex");
   if (got.length !== exp.length) return false;
   return timingSafeEqual(got, exp);
 }
@@ -168,7 +206,8 @@ export async function consumeRecoveryCode(
   }
 
   // Check each unused code's hash. Linear scan — N is small (typically 10).
-  // Uses timing-safe compare to avoid leaking hash matches to a remote attacker.
+  // verifyCode handles both legacy (SHA-256 hex) and new (scrypt:salt:hash)
+  // formats so existing codes keep working without a backfill migration.
   let matchedId: string | null = null;
   for (const row of candidates) {
     if (verifyCode(cleaned, row.code_hash)) {

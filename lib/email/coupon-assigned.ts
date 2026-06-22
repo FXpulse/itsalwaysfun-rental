@@ -1,5 +1,18 @@
 // Email sent to a customer when admin assigns them a coupon.
 // Fire-and-forget — failures logged but don't block the save.
+//
+// NOTE on email-body confidentiality: the coupon code IS in the body by
+// design — the recipient is the referrer who needs to share it with
+// friends. The 2026-06-19 security audit flagged this as MEDIUM but the
+// underlying risk model is wrong for THIS flow:
+//   - Code distribution is the goal, not a leak
+//   - Attribution / commission is tied to referrer_user_id at coupon
+//     creation, NOT to who happens to know the code
+//   - Personal coupons are single-use per customer
+// The only real hardening worth doing is keeping the code out of the
+// subject line so it doesn't show up in inbox previews / push
+// notifications on a locked phone, plus making the anti-misuse rules
+// explicit in the body.
 
 import * as Sentry from "@sentry/nextjs";
 import { sendEmail, isEmailConfigured } from "@/lib/email/send";
@@ -36,7 +49,9 @@ export async function sendCouponAssignedEmail(input: CouponAssignedEmailInput): 
   try { businessName = await getTenantBusinessName(); } catch {}
 
   const discount = discountLabel(input.discount_type, input.discount_value);
-  const subject = `🎟 You've got a personal coupon — ${input.coupon_code}`;
+  // Subject deliberately doesn't include the code itself — inbox lists,
+  // push notifications, and lock-screen previews would otherwise leak it.
+  const subject = `🎟 Your personal ${businessName} referral coupon (${discount})`;
 
   // baseUrl from tenant — we don't always have it but Resend allows mailto links
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://getrentalflow.com";
@@ -73,6 +88,12 @@ export async function sendCouponAssignedEmail(input: CouponAssignedEmailInput): 
     <a href="${portalUrl}" style="display:inline-block;background:#6d28d9;color:white;font-weight:700;text-decoration:none;padding:12px 26px;border-radius:8px">
       Open your portal →
     </a>
+  </div>
+
+  <div style="background:#fef3c7;border:1px solid #fbbf24;border-radius:8px;padding:12px 14px;margin:18px 0;font-size:12px;color:#78350f">
+    <strong>Heads up:</strong> this code is tied to your account. Share it with
+    individuals you know — don't post it on public coupon-sharing sites or
+    social media. Codes posted publicly may get cancelled.
   </div>
 
   <div style="border-top:1px solid #e2e8f0;padding-top:16px;margin-top:24px;font-size:12px;color:#64748b">
