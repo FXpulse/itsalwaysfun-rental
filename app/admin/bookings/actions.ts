@@ -35,25 +35,40 @@ export async function updateBookingStatus(bookingId: string, newStatus: string) 
 
   const supabase = createAdminClient();
 
-  // If cancelling, also mark payment as failed (won't be collected)
-  // unless it was already paid (then admin must refund manually via Stripe).
+  // Read existing state — we need it for cancel handling AND for deciding
+  // whether a transition INTO confirmed/delivered/completed should also
+  // promote stripe_payment_status (otherwise the booking-emails cron, which
+  // filters on stripe_payment_status="paid", never picks the row up and the
+  // 3d reminder + 1d review request silently never fire).
+  const { data: existing } = await supabase
+    .from("bookings")
+    .select("stripe_payment_status, booking_status, notes")
+    .eq("id", bookingId)
+    .single();
+
   const updates: { booking_status: string; stripe_payment_status?: string; notes?: string } = {
     booking_status: parsed.data,
   };
 
   if (parsed.data === "cancelled") {
-    const { data: existing } = await supabase
-      .from("bookings")
-      .select("stripe_payment_status, notes")
-      .eq("id", bookingId)
-      .single();
-
     if (existing?.stripe_payment_status === "pending") {
       updates.stripe_payment_status = "failed";
     }
-    // Audit line
     const cancelNote = `[${new Date().toISOString().split("T")[0]}] Cancelled by ${user.email}`;
     updates.notes = existing?.notes ? `${existing.notes}\n${cancelNote}` : cancelNote;
+  }
+
+  // Manual confirm path: if admin flips a pending_payment booking to a
+  // post-payment status, treat it as paid for downstream automation. The
+  // payment_method stays whatever it was — admins who collected cash should
+  // still use markAsPaidManually to record the method explicitly.
+  const transitioningToPostPayment =
+    (parsed.data === "confirmed" || parsed.data === "delivered" || parsed.data === "completed") &&
+    existing?.stripe_payment_status === "pending";
+  if (transitioningToPostPayment) {
+    updates.stripe_payment_status = "paid";
+    const note = `[${new Date().toISOString().split("T")[0]}] Marked ${parsed.data} by ${user.email} (manual)`;
+    updates.notes = existing?.notes ? `${existing.notes}\n${note}` : note;
   }
 
   const { error } = await supabase
@@ -72,6 +87,24 @@ export async function updateBookingStatus(bookingId: string, newStatus: string) 
     }
     // If the booking was paid with a coupon, free that use back up
     await reverseCouponIfPaid(bookingId);
+  }
+
+  // Confirmation email + loyalty award on the manual-confirm transition.
+  // sendBookingConfirmation is idempotent via booking_emails_sent, and
+  // awardForPaidBooking is idempotent via loyalty_events — so it's safe
+  // to call even if the booking was already paid before (we just don't
+  // duplicate the original Stripe-paid path's work).
+  if (transitioningToPostPayment) {
+    try {
+      await sendBookingConfirmation(bookingId);
+    } catch (e) {
+      console.error("[manual-confirm: confirmation email failed, non-fatal]", e);
+    }
+    try {
+      await awardForPaidBooking(bookingId);
+    } catch (e) {
+      console.error("[manual-confirm: loyalty award failed, non-fatal]", e);
+    }
   }
 
   revalidatePath("/admin/bookings");
