@@ -7,6 +7,7 @@ import { getCurrentUserRole } from "@/lib/auth/roles";
 import { LogOut, Truck } from "lucide-react";
 import { InstallPWAPrompt } from "@/components/InstallPWAPrompt";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getCurrentTenantId } from "@/lib/tenant/server";
 import { BottomNav } from "./BottomNav";
 
 export default async function DriverLayout({
@@ -23,24 +24,31 @@ export default async function DriverLayout({
 
   // Unread count para el badge del bottom nav Inbox: mensajes mention-eando
   // al driver en booking_internal_messages de los últimos 7 días en bookings
-  // que tiene asignados via dispatch_stops.
+  // que tiene asignados via dispatch_stops. Both queries MUST filter by
+  // tenant_id — unscoped admin client bypasses RLS, so a missing filter
+  // would leak cross-tenant stops + messages into the count.
   let unreadCount = 0;
   try {
-    const admin = createAdminClient({ unscoped: true });
-    const sevenDaysAgo = new Date(Date.now() - 7 * 86400_000).toISOString();
-    const { data: assignedStops } = await admin
-      .from("dispatch_stops")
-      .select("booking_id");
-    const myBookingIds = ((assignedStops as any[]) || []).map((s) => s.booking_id);
-    if (myBookingIds.length > 0) {
-      const { count } = await admin
-        .from("booking_internal_messages")
-        .select("id", { count: "exact", head: true })
-        .in("booking_id", myBookingIds)
-        .contains("mention_user_ids", [user.id])
-        .gte("created_at", sevenDaysAgo)
-        .is("deleted_at", null);
-      unreadCount = count || 0;
+    const currentTenantId = getCurrentTenantId();
+    if (currentTenantId) {
+      const admin = createAdminClient({ unscoped: true });
+      const sevenDaysAgo = new Date(Date.now() - 7 * 86400_000).toISOString();
+      const { data: assignedStops } = await admin
+        .from("dispatch_stops")
+        .select("booking_id")
+        .eq("tenant_id", currentTenantId);
+      const myBookingIds = ((assignedStops as any[]) || []).map((s) => s.booking_id);
+      if (myBookingIds.length > 0) {
+        const { count } = await admin
+          .from("booking_internal_messages")
+          .select("id", { count: "exact", head: true })
+          .eq("tenant_id", currentTenantId)
+          .in("booking_id", myBookingIds)
+          .contains("mention_user_ids", [user.id])
+          .gte("created_at", sevenDaysAgo)
+          .is("deleted_at", null);
+        unreadCount = count || 0;
+      }
     }
   } catch (e) {
     // Best-effort — never block the UI

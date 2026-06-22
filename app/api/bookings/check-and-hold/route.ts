@@ -663,24 +663,38 @@ export async function POST(request: Request) {
     }
   }
 
-  // Decrement gift card balance + log redemption (best-effort)
+  // Decrement gift card balance + log redemption (atomic).
+  // Uses redeem_gift_card_atomic RPC — guards against concurrent checkouts
+  // racing to drain the same balance. Returns NULL when the card was
+  // inactive, expired, or didn't have sufficient balance.
   if (giftCardCodeApplied && giftCardCents > 0 && booking?.id) {
     try {
       const { data: card } = await supabase
         .from("gift_cards")
-        .select("id, balance_cents")
+        .select("id")
         .eq("code", giftCardCodeApplied)
         .single();
       if (card) {
-        const newBalance = Math.max(0, card.balance_cents - giftCardCents);
-        const updates: any = { balance_cents: newBalance };
-        if (newBalance === 0) updates.fully_redeemed_at = new Date().toISOString();
-        await supabase.from("gift_cards").update(updates).eq("id", card.id);
-        await supabase.from("gift_card_redemptions").insert({
-          gift_card_id: card.id,
-          booking_id: booking.id,
-          amount_cents: giftCardCents,
-        });
+        const { data: newBalance, error: rpcErr } = await supabase.rpc(
+          "redeem_gift_card_atomic",
+          {
+            p_card_id: card.id,
+            p_amount_cents: giftCardCents,
+          },
+        );
+        if (rpcErr) {
+          console.error("[gift card RPC failed]", rpcErr);
+        } else if (newBalance === null) {
+          // Card balance was insufficient or card became inactive between
+          // validate and redeem. Don't log a phantom redemption.
+          console.warn("[gift card redeem skipped — insufficient or inactive]", giftCardCodeApplied);
+        } else {
+          await supabase.from("gift_card_redemptions").insert({
+            gift_card_id: card.id,
+            booking_id: booking.id,
+            amount_cents: giftCardCents,
+          });
+        }
       }
     } catch (e) {
       console.error("[gift card redemption failed]", e);

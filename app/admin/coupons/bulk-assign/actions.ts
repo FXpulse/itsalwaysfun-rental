@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import crypto from "crypto";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendCouponAssignedEmail } from "@/lib/email/coupon-assigned";
@@ -22,11 +23,13 @@ interface BulkInput {
   description: string | null;
 }
 
-// 6-char random suffix using a clean alphabet (no 0/O/1/I confusion)
+// 6-char random suffix using a clean alphabet (no 0/O/1/I confusion).
+// crypto.randomInt is cryptographically strong — Math.random() would make
+// codes predictable after observing a handful.
 function randomSuffix(len = 6): string {
   const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   let s = "";
-  for (let i = 0; i < len; i++) s += alphabet[Math.floor(Math.random() * alphabet.length)];
+  for (let i = 0; i < len; i++) s += alphabet[crypto.randomInt(alphabet.length)];
   return s;
 }
 

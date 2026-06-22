@@ -9,10 +9,17 @@ import { sendEmail } from "@/lib/email/send";
 import { getTenantEmailConfig } from "@/lib/email/tenant-email";
 import { resolveTenantByHostname } from "@/lib/tenant/resolve";
 import { ensureCustomerProfile, linkReferrer } from "@/lib/loyalty";
+import { rateLimit } from "@/lib/rate-limit";
 
 const CODE_LENGTH = 6;
 const EXPIRY_MINUTES = 15;
 const MAX_ATTEMPTS = 5;
+
+function getRequestIp(): string {
+  const xff = headers().get("x-forwarded-for");
+  if (xff) return xff.split(",")[0].trim();
+  return headers().get("x-real-ip") || "unknown";
+}
 
 function generateCode(): string {
   // 6-digit numeric code, zero-padded
@@ -39,12 +46,23 @@ async function getTenantContext(): Promise<{ tenantId: string | null; businessNa
   return { tenantId: null, businessName: "RentalFlow", fromHost: host };
 }
 
-/** Request a 6-digit code. Generates, stores hashed, emails via Resend. */
+/** Request a 6-digit code. Generates, stores hashed, emails via Resend.
+ *  Rate-limited per-IP (5/10min) and per-email (3/10min) to prevent OTP
+ *  spam and to cap the brute-force search space against verifyPortalCode. */
 export async function requestPortalCode(email: string): Promise<{ ok: boolean; error?: string }> {
   try {
     const normalizedEmail = email.trim().toLowerCase();
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(normalizedEmail)) {
       return { ok: false, error: "Invalid email format" };
+    }
+
+    const ip = getRequestIp();
+    const [rlIp, rlEmail] = await Promise.all([
+      rateLimit(`portal-otp-req-ip:${ip}`, { max: 5, windowSeconds: 600 }),
+      rateLimit(`portal-otp-req-email:${normalizedEmail}`, { max: 3, windowSeconds: 600 }),
+    ]);
+    if (!rlIp.allowed || !rlEmail.allowed) {
+      return { ok: false, error: "Too many sign-in attempts. Please wait a few minutes and try again." };
     }
 
     const { tenantId, businessName } = await getTenantContext();
@@ -134,7 +152,10 @@ export async function requestPortalCode(email: string): Promise<{ ok: boolean; e
   }
 }
 
-/** Verify the code. On success, creates/signs the user in via Supabase admin. */
+/** Verify the code. On success, creates/signs the user in via Supabase admin.
+ *  Rate-limited per-IP (20/15min) and per-email (15/15min) on top of the
+ *  per-code attempt counter — caps the global brute-force budget so an
+ *  attacker can't generate fresh codes and burn 5 guesses on each. */
 export async function verifyPortalCode(email: string, code: string): Promise<{ ok: boolean; error?: string; next?: string }> {
   try {
     const normalizedEmail = email.trim().toLowerCase();
@@ -142,6 +163,15 @@ export async function verifyPortalCode(email: string, code: string): Promise<{ o
 
     if (!/^\d{6}$/.test(cleanCode)) {
       return { ok: false, error: "Code must be 6 digits" };
+    }
+
+    const ip = getRequestIp();
+    const [rlIp, rlEmail] = await Promise.all([
+      rateLimit(`portal-otp-verify-ip:${ip}`, { max: 20, windowSeconds: 900 }),
+      rateLimit(`portal-otp-verify-email:${normalizedEmail}`, { max: 15, windowSeconds: 900 }),
+    ]);
+    if (!rlIp.allowed || !rlEmail.allowed) {
+      return { ok: false, error: "Too many sign-in attempts. Please wait a few minutes and try again." };
     }
 
     const supabase = createAdminClient({ unscoped: true });

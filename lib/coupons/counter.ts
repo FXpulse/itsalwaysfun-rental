@@ -5,50 +5,57 @@
 // decrements happen when a paid booking is cancelled/refunded so the
 // count stays accurate and a previously-exhausted coupon can become
 // available again.
+//
+// Both calls delegate to SECURITY DEFINER Postgres functions that perform
+// the update inside a single statement with row-level locking. The earlier
+// "SELECT current_uses → UPDATE" pattern allowed concurrent webhooks to
+// double-spend a single-use coupon (race condition). See migration
+// supabase/migrations/20260619120000_security_atomic_counters.sql.
 
 import { createAdminClient } from "@/lib/supabase/admin";
+import * as Sentry from "@sentry/nextjs";
 
-/** Increment current_uses for a coupon by 1 (no-op if coupon not found). */
+/** Atomically increment current_uses by 1, but only if still under max_uses.
+ *  Returns true on success, false if the limit was already reached or the
+ *  coupon doesn't exist. */
 export async function incrementCouponUses(params: {
   code: string;
   tenantId: string;
-}): Promise<void> {
+}): Promise<boolean> {
   const supabase = createAdminClient({ unscoped: true });
-  const { data: c } = await supabase
-    .from("coupons")
-    .select("current_uses")
-    .eq("code", params.code)
-    .eq("tenant_id", params.tenantId)
-    .maybeSingle();
-  if (!c) return;
-  await supabase
-    .from("coupons")
-    .update({ current_uses: ((c as any).current_uses || 0) + 1 })
-    .eq("code", params.code)
-    .eq("tenant_id", params.tenantId);
+  const { data, error } = await supabase.rpc("increment_coupon_uses_atomic", {
+    p_code: params.code,
+    p_tenant_id: params.tenantId,
+  });
+  if (error) {
+    Sentry.captureMessage("incrementCouponUses RPC failed", {
+      level: "warning",
+      tags: { area: "coupons", code: params.code, tenant_id: params.tenantId },
+      extra: { error: error.message },
+    });
+    return false;
+  }
+  return data === true;
 }
 
-/** Decrement current_uses for a coupon by 1, floored at 0.
+/** Atomically decrement current_uses by 1, floored at 0.
  *  Use when a paid booking is cancelled/refunded. */
 export async function decrementCouponUses(params: {
   code: string;
   tenantId: string;
 }): Promise<void> {
   const supabase = createAdminClient({ unscoped: true });
-  const { data: c } = await supabase
-    .from("coupons")
-    .select("current_uses")
-    .eq("code", params.code)
-    .eq("tenant_id", params.tenantId)
-    .maybeSingle();
-  if (!c) return;
-  const current = (c as any).current_uses || 0;
-  if (current <= 0) return; // already at floor
-  await supabase
-    .from("coupons")
-    .update({ current_uses: current - 1 })
-    .eq("code", params.code)
-    .eq("tenant_id", params.tenantId);
+  const { error } = await supabase.rpc("decrement_coupon_uses_atomic", {
+    p_code: params.code,
+    p_tenant_id: params.tenantId,
+  });
+  if (error) {
+    Sentry.captureMessage("decrementCouponUses RPC failed", {
+      level: "warning",
+      tags: { area: "coupons", code: params.code, tenant_id: params.tenantId },
+      extra: { error: error.message },
+    });
+  }
 }
 
 /** Read a booking and, if it was paid with a coupon, decrement that coupon.
