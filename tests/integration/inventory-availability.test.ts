@@ -146,6 +146,7 @@ describe("inventory availability — blocked_dates respected", () => {
     await supabase
       .from("blocked_dates")
       .insert({
+        tenant_id: tenantId,
         product_id: productId,
         blocked_date: TARGET_DATE,
         reason: "maintenance",

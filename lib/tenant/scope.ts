@@ -70,6 +70,8 @@ export const MULTI_TENANT_TABLES = new Set([
   // ERPNext-inspired inspection workflow (2026-06-16)
   "inspection_templates",
   "booking_inspections",
+  // tenant_id added 2026-06-19 (security audit M9) — now NOT NULL, auto-inject on insert.
+  "blocked_dates",
   // ERPNext-inspired asset movement state machine (2026-06-16)
   "inventory_unit_movements",
   // Team chat thread per booking (2026-06-16)
