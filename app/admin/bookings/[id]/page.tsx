@@ -121,7 +121,13 @@ export default async function BookingDetailPage({
       .select("id, type, overall_status, performed_at, inspector_name, items_result, notes")
       .eq("booking_id", params.id)
       .order("performed_at", { ascending: false }),
-    suggestTemplateForBooking(params.id).catch(() => ({ template: null })),
+    suggestTemplateForBooking(params.id).catch((e) => {
+      // suggestTemplateForBooking already Sentry-logs internal failures;
+      // this catch covers anything that bubbles up (e.g. requireDriverOrAbove
+      // throwing if the user lost their session). Keep the page rendering.
+      console.error("[booking detail: suggestTemplateForBooking threw]", e);
+      return { template: null };
+    }),
     getCurrentUserRole().catch(() => null),
     listMentionableUsers().catch(() => ({ users: [] })),
     supabase

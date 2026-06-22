@@ -2,7 +2,9 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import * as Sentry from "@sentry/nextjs";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getCurrentTenantId } from "@/lib/tenant/server";
 import { requireStaffOrAdmin, requireDriverOrAbove } from "@/lib/auth/roles";
 
 // ─── Templates ──────────────────────────────────────────────────────
@@ -154,30 +156,62 @@ export async function createInspection(input: z.infer<typeof InspectionInputSche
  *  scoped (product > category > tenant-global). */
 export async function suggestTemplateForBooking(bookingId: string) {
   await requireDriverOrAbove();
-  const supabase = createAdminClient();
 
-  const { data: booking } = await supabase
+  // Use unscoped client + explicit tenant_id filter — the scoped proxy was
+  // silently returning empty results when called from inside Promise.all on
+  // the booking-detail page (could not reproduce on its own, suspected
+  // request-context loss across the parallel awaits). Reading tenant_id
+  // straight from the request headers + filtering manually avoids the proxy
+  // path entirely and is also less surprising.
+  const tenantId = getCurrentTenantId();
+  const supabase = createAdminClient({ unscoped: true });
+
+  const { data: booking, error: bookingErr } = await supabase
     .from("bookings")
-    .select("product_id, product:products(category_id)")
+    .select("product_id, tenant_id, product:products(category_id)")
     .eq("id", bookingId)
+    .eq("tenant_id", tenantId)
     .maybeSingle();
-  if (!booking) return { template: null };
+  if (bookingErr) {
+    Sentry.captureMessage("suggestTemplateForBooking: booking lookup failed", {
+      level: "warning",
+      tags: { booking_id: bookingId, tenant_id: tenantId },
+      extra: { error: bookingErr.message },
+    });
+    return { template: null };
+  }
+  if (!booking) {
+    Sentry.captureMessage("suggestTemplateForBooking: booking not found in tenant", {
+      level: "info",
+      tags: { booking_id: bookingId, tenant_id: tenantId },
+    });
+    return { template: null };
+  }
 
   const productId = (booking as any).product_id;
   const categoryId = (booking as any).product?.category_id;
 
-  // Priority: product-specific > category-specific > tenant-global
-  const { data: templates } = await supabase
+  const { data: templates, error: tplErr } = await supabase
     .from("inspection_templates")
     .select("id, name, items, product_id, category_id")
+    .eq("tenant_id", tenantId)
     .eq("is_active", true);
 
-  if (!templates) return { template: null };
+  if (tplErr) {
+    Sentry.captureMessage("suggestTemplateForBooking: templates lookup failed", {
+      level: "warning",
+      tags: { booking_id: bookingId, tenant_id: tenantId },
+      extra: { error: tplErr.message },
+    });
+    return { template: null };
+  }
+  const all = (templates as any[]) || [];
 
-  const productMatch = (templates as any[]).find((t) => t.product_id === productId);
+  // Priority: product-specific > category-specific > tenant-global
+  const productMatch = all.find((t) => t.product_id && t.product_id === productId);
   if (productMatch) return { template: productMatch };
-  const categoryMatch = (templates as any[]).find((t) => t.category_id === categoryId);
+  const categoryMatch = all.find((t) => t.category_id && t.category_id === categoryId);
   if (categoryMatch) return { template: categoryMatch };
-  const globalMatch = (templates as any[]).find((t) => !t.product_id && !t.category_id);
+  const globalMatch = all.find((t) => !t.product_id && !t.category_id);
   return { template: globalMatch || null };
 }
