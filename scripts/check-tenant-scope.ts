@@ -34,7 +34,29 @@ const supabase = createClient(URL, KEY, {
   auth: { autoRefreshToken: false, persistSession: false },
 });
 
-type Drift = { type: "missing" | "orphan" | "no_rls"; table: string };
+type Drift = { type: "missing" | "orphan" | "no_rls" | "no_rls_public"; table: string };
+
+/** Tables in `public` that are intentionally allowed to ship without RLS.
+ *  Empty by default — every new entry needs justification in the comment.
+ *  We don't have any today (mfa_recovery_codes had RLS added on 2026-06-23). */
+const RLS_OPTIONAL_PUBLIC_TABLES = new Set<string>([
+  // example:
+  // "marketing_features_flags", // public read-only, no PII, intentional
+]);
+
+async function getAllPublicTablesRls(): Promise<Array<{ table_name: string; rls_enabled: boolean; policy_count: number }>> {
+  // Mirror of getLiveTenantTables but covers EVERY public table — used to
+  // enforce "ship-with-RLS-on" hygiene catched once with Supabase advisor.
+  const { data, error } = await supabase.rpc("list_public_tables_rls_status");
+  if (error) {
+    console.warn(
+      "[scope-check] RPC list_public_tables_rls_status not present — skipping the public-RLS check.",
+    );
+    console.warn("    Apply migration: supabase/migrations/20260623130000_list_public_tables_rls_rpc.sql");
+    return [];
+  }
+  return (data as Array<{ table_name: string; rls_enabled: boolean; policy_count: number }>) || [];
+}
 
 async function getLiveTenantTables(): Promise<Array<{ table_name: string; rls_enabled: boolean }>> {
   // Trick: information_schema no se expone via PostgREST por default.
@@ -94,6 +116,18 @@ async function main() {
     }
   });
 
+  // Check #4: cualquier tabla public con RLS off (no solo multi-tenant).
+  // Catched once by Supabase's own advisor on 2026-06-23 for
+  // mfa_recovery_codes — adding it here makes the bar future-proof.
+  const allPublic = await getAllPublicTablesRls();
+  for (const row of allPublic) {
+    if (row.rls_enabled) continue;
+    if (RLS_OPTIONAL_PUBLIC_TABLES.has(row.table_name)) continue;
+    // Don't double-report — multi-tenant ones already flagged under no_rls.
+    if (MULTI_TENANT_TABLES.has(row.table_name)) continue;
+    drift.push({ type: "no_rls_public", table: row.table_name });
+  }
+
   // Reporte
   if (drift.length === 0) {
     console.log(
@@ -106,6 +140,7 @@ async function main() {
   const missing = drift.filter((d) => d.type === "missing");
   const orphan = drift.filter((d) => d.type === "orphan");
   const noRls = drift.filter((d) => d.type === "no_rls");
+  const noRlsPublic = drift.filter((d) => d.type === "no_rls_public");
 
   if (missing.length) {
     console.error(`\n  Tables in DB with tenant_id but NOT in MULTI_TENANT_TABLES (${missing.length}):`);
@@ -129,6 +164,23 @@ async function main() {
     );
     console.error(
       "    Without RLS, scope.ts is the ONLY guard against cross-tenant leaks — that's not defense in depth.",
+    );
+  }
+
+  if (noRlsPublic.length) {
+    console.error(`\n  Public tables (non-multi-tenant) with RLS disabled (${noRlsPublic.length}):`);
+    for (const d of noRlsPublic) console.error(`    - ${d.table}`);
+    console.error(
+      "    Fix: ALTER TABLE public.<name> ENABLE ROW LEVEL SECURITY in a migration.",
+    );
+    console.error(
+      "    If a table is intentionally world-readable (rare), allowlist it in",
+    );
+    console.error(
+      "      RLS_OPTIONAL_PUBLIC_TABLES inside scripts/check-tenant-scope.ts with a justifying comment.",
+    );
+    console.error(
+      "    Supabase's own advisor flags these too; this script catches them BEFORE deploy.",
     );
   }
 
