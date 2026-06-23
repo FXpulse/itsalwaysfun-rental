@@ -44,7 +44,13 @@ function toCsv(headers: string[], rows: unknown[][]): string {
 }
 
 function csvResponse(body: string, filename: string) {
-  return new NextResponse(body, {
+  // Excel on Windows ignores the charset= header hint and defaults to
+  // Latin-1 unless the file begins with a UTF-8 BOM (EF BB BF). Without
+  // it, category labels with emojis ("🧰 Supplies") render as mojibake
+  // ("ðŸ§° Supplies") when an accountant opens the CSV in Excel.
+  // The BOM is invisible in every modern spreadsheet app + text editor.
+  const BOM = "﻿";
+  return new NextResponse(BOM + body, {
     status: 200,
     headers: {
       "Content-Type": "text/csv; charset=utf-8",
