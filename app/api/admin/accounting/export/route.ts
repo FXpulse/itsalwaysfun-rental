@@ -1,5 +1,6 @@
 // Accounting CSV export — admin-only.
-// Date-scoped: ?type=expenses|overhead|pnl|tax|sales-receipts|customers
+// Date-scoped: ?type=expenses|business-expenses|vendors|overhead|pnl|tax
+//                    |sales-receipts|customers
 //              with &from=YYYY-MM-DD&to=YYYY-MM-DD
 // Year-scoped: ?type=1099-nec with &year=YYYY
 //
@@ -71,7 +72,9 @@ export async function GET(req: NextRequest) {
     const year = parseInt(yearStr, 10);
     const summary = await compute1099Year(year);
     const headers = [
-      "Driver Email",
+      "Payee Source",
+      "Payee Key",
+      "Display Name",
       "Full Name",
       "Business Name / DBA",
       "TIN Last 4",
@@ -88,7 +91,9 @@ export async function GET(req: NextRequest) {
       "Filed for Year",
     ];
     const rows = summary.drivers.map((r) => [
+      r.payee_source,
       r.driver_email,
+      r.display_name || "",
       r.full_name || "",
       r.business_name || "",
       r.tin_last4 || "",
@@ -236,19 +241,149 @@ export async function GET(req: NextRequest) {
     return csvResponse(toCsv(headers, rows), `overhead_costs_${from}_to_${to}.csv`);
   }
 
+  if (type === "business-expenses") {
+    // Transactional business expenses (marketing, supplies, contractor pay,
+    // services, etc.). Columns are picked to drop into QuickBooks Online's
+    // "Expenses" manual-entry workflow OR a generic spreadsheet.
+    const { data: rowsRaw } = await supabase
+      .from("business_expenses")
+      .select(
+        "expense_date, account, category, vendor_name, description, amount_cents, contractor_name, notes, recorded_by",
+      )
+      .gte("expense_date", from)
+      .lte("expense_date", to)
+      .order("expense_date", { ascending: true });
+
+    const { data: catRows } = await supabase
+      .from("business_expense_categories")
+      .select("key, label");
+    const catLabel = new Map<string, string>(
+      ((catRows as { key: string; label: string }[]) || []).map((c) => [c.key, c.label]),
+    );
+    const ACCOUNT_LABEL: Record<string, string> = {
+      credit_card: "Credit Card",
+      bank: "Bank",
+      bank_zelle: "Bank (Zelle)",
+      cash: "Cash",
+      check: "Check",
+      other: "Other",
+    };
+
+    const headers = [
+      "TxnDate",
+      "Payee",
+      "PaymentAccount",
+      "Category",
+      "Amount (USD)",
+      "Memo",
+      "1099 Contractor",
+      "Notes",
+      "Recorded by",
+    ];
+    const rows = ((rowsRaw as any[]) || []).map((e) => [
+      e.expense_date || "",
+      e.vendor_name || "",
+      ACCOUNT_LABEL[e.account] || e.account || "",
+      catLabel.get(e.category) || e.category,
+      ((e.amount_cents || 0) / 100).toFixed(2),
+      e.description || "",
+      e.contractor_name || "",
+      e.notes || "",
+      e.recorded_by || "",
+    ]);
+    return csvResponse(
+      toCsv(headers, rows),
+      `business_expenses_${from}_to_${to}.csv`,
+    );
+  }
+
+  if (type === "vendors") {
+    // QBO Vendors list — deduplicated by lowercased vendor_name with YTD
+    // totals + 1099 eligibility flag (true when ANY of their txns is a
+    // payroll entry with a contractor_name on file).
+    const { data: rowsRaw } = await supabase
+      .from("business_expenses")
+      .select("vendor_name, amount_cents, expense_date, category, contractor_name")
+      .gte("expense_date", from)
+      .lte("expense_date", to);
+
+    interface Agg {
+      vendor: string;
+      total_cents: number;
+      txn_count: number;
+      first_seen: string;
+      last_seen: string;
+      contractor_name: string | null;
+      ever_payroll: boolean;
+    }
+    const byVendor = new Map<string, Agg>();
+    for (const r of ((rowsRaw as any[]) || [])) {
+      const v = String(r.vendor_name || "").trim();
+      if (!v) continue;
+      const key = v.toLowerCase();
+      const prev = byVendor.get(key);
+      const d = (r.expense_date || "").slice(0, 10);
+      if (!prev) {
+        byVendor.set(key, {
+          vendor: v,
+          total_cents: r.amount_cents || 0,
+          txn_count: 1,
+          first_seen: d,
+          last_seen: d,
+          contractor_name: r.contractor_name || null,
+          ever_payroll: r.category === "payroll",
+        });
+      } else {
+        prev.total_cents += r.amount_cents || 0;
+        prev.txn_count += 1;
+        if (d && (!prev.first_seen || d < prev.first_seen)) prev.first_seen = d;
+        if (d && (!prev.last_seen || d > prev.last_seen)) prev.last_seen = d;
+        if (r.contractor_name && !prev.contractor_name) prev.contractor_name = r.contractor_name;
+        if (r.category === "payroll") prev.ever_payroll = true;
+      }
+    }
+
+    const headers = [
+      "VendorName",
+      "ContractorName",
+      "1099Eligible",
+      "TotalSpent (USD)",
+      "TransactionCount",
+      "FirstSeen",
+      "LastSeen",
+    ];
+    const rows = [...byVendor.values()]
+      .sort((a, b) => b.total_cents - a.total_cents)
+      .map((a) => [
+        a.vendor,
+        a.contractor_name || "",
+        a.ever_payroll && !!a.contractor_name ? "YES" : "no",
+        (a.total_cents / 100).toFixed(2),
+        a.txn_count,
+        a.first_seen,
+        a.last_seen,
+      ]);
+    return csvResponse(
+      toCsv(headers, rows),
+      `qbo_vendors_${from}_to_${to}.csv`,
+    );
+  }
+
   if (type === "pnl") {
     const pnl = await computePnL(from, to);
-    const { data: overheadCats } = await supabase
-      .from("overhead_categories")
-      .select("key, label");
-    const { data: expenseCats } = await supabase
-      .from("booking_expense_categories")
-      .select("key, label");
+    const [{ data: overheadCats }, { data: expenseCats }, { data: operatingCats }] = await Promise.all([
+      supabase.from("overhead_categories").select("key, label"),
+      supabase.from("booking_expense_categories").select("key, label"),
+      supabase.from("business_expense_categories").select("key, label"),
+    ]);
     const ovLabel = new Map<string, string>(
       ((overheadCats as { key: string; label: string }[]) || []).map((c) => [c.key, c.label]),
     );
     const exLabel = new Map<string, string>(
       ((expenseCats as { key: string; label: string }[]) || []).map((c) => [c.key, c.label]),
+    );
+    const opLabel = new Map<string, string>(
+      ((operatingCats as { key: string; label: string }[]) || []).map((c) => [c.key, c.label]),
     );
 
     const headers = ["Line", "Category", "Amount (USD)"];
@@ -263,6 +398,9 @@ export async function GET(req: NextRequest) {
       `${pnl.revenue_cents > 0 ? ((pnl.gross_profit_cents / pnl.revenue_cents) * 100).toFixed(1) : 0}% margin`,
       (pnl.gross_profit_cents / 100).toFixed(2),
     ]);
+    for (const [cat, amt] of Object.entries(pnl.operating_by_category)) {
+      rows.push(["Operating expense", opLabel.get(cat) || cat, (-amt / 100).toFixed(2)]);
+    }
     for (const [cat, amt] of Object.entries(pnl.overhead_by_category)) {
       rows.push(["Overhead allocated", ovLabel.get(cat) || cat, (-amt / 100).toFixed(2)]);
     }
@@ -510,7 +648,7 @@ export async function GET(req: NextRequest) {
   return NextResponse.json(
     {
       error:
-        "type must be one of: expenses, overhead, pnl, tax, sales-receipts, customers, 1099-nec",
+        "type must be one of: expenses, business-expenses, vendors, overhead, pnl, tax, sales-receipts, customers, 1099-nec",
     },
     { status: 400 },
   );

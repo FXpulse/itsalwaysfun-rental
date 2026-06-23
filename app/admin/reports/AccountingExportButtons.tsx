@@ -48,8 +48,23 @@ export function AccountingExportButtons({
             <a
               href={`${base}&type=expenses`}
               className="inline-flex items-center gap-1 bg-white border border-emerald-300 text-emerald-900 text-xs px-3 py-1.5 rounded hover:bg-emerald-100 font-medium"
+              title="Per-booking direct costs (gas, payroll, tolls)"
             >
               <Download className="h-3 w-3" /> Booking expenses
+            </a>
+            <a
+              href={`${base}&type=business-expenses`}
+              className="inline-flex items-center gap-1 bg-white border border-emerald-300 text-emerald-900 text-xs px-3 py-1.5 rounded hover:bg-emerald-100 font-medium"
+              title="General transactional expenses (marketing, contractors, supplies)"
+            >
+              <Download className="h-3 w-3" /> Business expenses
+            </a>
+            <a
+              href={`${base}&type=vendors`}
+              className="inline-flex items-center gap-1 bg-white border border-emerald-300 text-emerald-900 text-xs px-3 py-1.5 rounded hover:bg-emerald-100 font-medium"
+              title="QBO Vendors list deduplicated from business expenses"
+            >
+              <Users className="h-3 w-3" /> Vendors (QBO)
             </a>
             <a
               href={`${base}&type=overhead`}
