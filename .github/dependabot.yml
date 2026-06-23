@@ -49,6 +49,11 @@ updates:
         update-types: ["version-update:semver-major"]
       - dependency-name: "eslint-config-next"
         update-types: ["version-update:semver-major"]
+      # Zod 3 → 4 is a major rewrite (z.email() instead of z.string().email(),
+      # tightened generics, removed methods). Project has hundreds of schemas
+      # that would all need migration. Plan it manually when needed.
+      - dependency-name: "zod"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: "github-actions"
     directory: "/"
