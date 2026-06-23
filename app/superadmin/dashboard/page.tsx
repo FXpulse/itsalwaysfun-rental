@@ -7,7 +7,7 @@ import Link from "next/link";
 import {
   TrendingUp, Users, Sparkles, AlertTriangle, Activity,
   ArrowUpRight, DollarSign, Mail, CheckCircle2, Clock,
-  Zap, Crown, BarChart3, Inbox, Wrench, Database, Ticket, BookOpen, Heart, Rocket, CreditCard, Server, ShieldCheck, KeyRound,
+  Zap, Crown, BarChart3, Inbox, Wrench, Database, Ticket, BookOpen, Heart, Rocket, CreditCard, Server, ShieldCheck, KeyRound, Beaker,
 } from "lucide-react";
 import { getSuperadminUser } from "@/lib/auth/superadmin";
 import { fetchDashboardData } from "@/lib/superadmin/dashboard-data";
@@ -429,6 +429,7 @@ export default async function DashboardPage() {
           <QuickAction href="/superadmin/email" icon={<Mail className="h-4 w-4" />} label="Email" color="emerald" />
           <QuickAction href="/superadmin/email/compose" icon={<Sparkles className="h-4 w-4" />} label="Compose" color="amber" />
           <QuickAction href="/superadmin/goals" icon={<Sparkles className="h-4 w-4" />} label="Goals" color="amber" />
+          <QuickAction href="/superadmin/beta-program" icon={<Beaker className="h-4 w-4" />} label="Beta program" color="violet" />
           <QuickAction href="/superadmin/users-mfa" icon={<ShieldCheck className="h-4 w-4" />} label="MFA reset" color="rose" />
           <QuickAction href="/superadmin/recovery-codes" icon={<KeyRound className="h-4 w-4" />} label="My recovery codes" color="amber" />
         </div>
