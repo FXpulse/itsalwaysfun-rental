@@ -4,6 +4,7 @@ import { getCurrentUserRole } from "@/lib/auth/roles";
 import { formatCurrency } from "@/lib/utils";
 import { DateRangeForm } from "./DateRangeForm";
 import { PnLCard } from "./PnLCard";
+import { OwnerCapitalCard } from "./OwnerCapitalCard";
 import { AccountingExportButtons } from "./AccountingExportButtons";
 import { CashFlowProjection } from "./CashFlowProjection";
 import { MonthlyPnLTable } from "./MonthlyPnLTable";
@@ -286,6 +287,12 @@ export default async function AdminReportsPage({
 
       {/* P&L summary — Revenue minus direct costs minus allocated overhead */}
       <PnLCard from={from} to={to} />
+
+      {/* Owner capital position — fleet investment + owner cash injections
+          vs what the business has actually paid back. Lives BELOW the P&L
+          because capex/owner loans don't belong on the Income Statement
+          but the operator still needs the "did I get my money back?" view. */}
+      <OwnerCapitalCard />
 
       {/* Tax to declare — collected tax in the date range, breakdown by month
           so you can copy straight to your sales tax return. Independent of P&L

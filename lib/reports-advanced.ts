@@ -106,18 +106,48 @@ function monthLabel(yyyy_mm: string): string {
   });
 }
 
+/** Default to last 12 months. */
 export async function computeMonthlyPnL(): Promise<MonthlyPnLRow[]> {
+  const now = new Date();
+  const fromDate = new Date(now.getFullYear(), now.getMonth() - 11, 1);
+  const toDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+  return computeMonthlyPnLRange(
+    fromDate.toISOString().slice(0, 10),
+    toDate.toISOString().slice(0, 10),
+  );
+}
+
+/** Same monthly breakdown but for any explicit date range. The range is
+ *  rounded outward to whole months so a from of 2025-04-15 becomes
+ *  2025-04-01 and a to of 2025-09-10 becomes 2025-09-30 — that way each
+ *  month line is a full month even when the operator picked partial dates. */
+export async function computeMonthlyPnLRange(
+  from: string,
+  to: string,
+): Promise<MonthlyPnLRow[]> {
   const supabase = createAdminClient();
 
-  // Build last 12 months (oldest first)
+  const fromDate = new Date(from + "T00:00:00");
+  const toDate = new Date(to + "T00:00:00");
+  if (isNaN(fromDate.getTime()) || isNaN(toDate.getTime()) || toDate < fromDate) {
+    return [];
+  }
+
+  // Round outward to whole months.
+  const startMonth = new Date(fromDate.getFullYear(), fromDate.getMonth(), 1);
+  const endMonth = new Date(toDate.getFullYear(), toDate.getMonth() + 1, 0);
+
   const months: { key: string; label: string; start: Date; end: Date }[] = [];
-  const now = new Date();
-  for (let i = 11; i >= 0; i--) {
-    const start = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    const end = new Date(now.getFullYear(), now.getMonth() - i + 1, 0); // last day of that month
+  const cursor = new Date(startMonth);
+  while (cursor <= endMonth) {
+    const start = new Date(cursor.getFullYear(), cursor.getMonth(), 1);
+    const end = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 0);
     const key = monthKey(start);
     months.push({ key, label: monthLabel(key), start, end });
+    cursor.setMonth(cursor.getMonth() + 1);
   }
+
+  if (months.length === 0) return [];
 
   const fromStr = months[0].start.toISOString().split("T")[0];
   const toStr = months[months.length - 1].end.toISOString().split("T")[0];

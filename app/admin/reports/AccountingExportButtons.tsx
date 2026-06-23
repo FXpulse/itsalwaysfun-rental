@@ -75,8 +75,16 @@ export function AccountingExportButtons({
             <a
               href={`${base}&type=pnl`}
               className="inline-flex items-center gap-1 bg-white border border-emerald-300 text-emerald-900 text-xs px-3 py-1.5 rounded hover:bg-emerald-100 font-medium"
+              title="One-row totals for the selected range"
             >
               <Download className="h-3 w-3" /> P&amp;L summary
+            </a>
+            <a
+              href={`${base}&type=monthly-pnl`}
+              className="inline-flex items-center gap-1 bg-white border border-emerald-300 text-emerald-900 text-xs px-3 py-1.5 rounded hover:bg-emerald-100 font-medium"
+              title="Same shape as the Monthly P&L table — one row per month in the range"
+            >
+              <Download className="h-3 w-3" /> Monthly P&amp;L
             </a>
             <a
               href={`${base}&type=tax`}

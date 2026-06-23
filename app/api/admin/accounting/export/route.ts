@@ -1,6 +1,6 @@
 // Accounting CSV export — admin-only.
-// Date-scoped: ?type=expenses|business-expenses|vendors|overhead|pnl|tax
-//                    |sales-receipts|customers
+// Date-scoped: ?type=expenses|business-expenses|vendors|overhead|pnl
+//                    |monthly-pnl|tax|sales-receipts|customers
 //              with &from=YYYY-MM-DD&to=YYYY-MM-DD
 // Year-scoped: ?type=1099-nec with &year=YYYY
 //
@@ -23,6 +23,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUserRole } from "@/lib/auth/roles";
 import { computePnL } from "@/lib/accounting";
 import { compute1099Year } from "@/lib/reports-1099";
+import { computeMonthlyPnLRange } from "@/lib/reports-advanced";
 
 export const dynamic = "force-dynamic";
 
@@ -419,6 +420,85 @@ export async function GET(req: NextRequest) {
     return csvResponse(toCsv(headers, rows), `pnl_summary_${from}_to_${to}.csv`);
   }
 
+  if (type === "monthly-pnl") {
+    // One row per month in the range. Same line shape as the on-screen
+    // table: bookings, revenue, direct costs, gross, operating, overhead,
+    // net. Range is rounded outward to whole months so partial-month
+    // selections still produce coherent monthly rows.
+    const rows = await computeMonthlyPnLRange(from, to);
+    const headers = [
+      "Month",
+      "Label",
+      "Bookings",
+      "Revenue (USD)",
+      "Direct costs (USD)",
+      "Gross profit (USD)",
+      "Operating expenses (USD)",
+      "Overhead allocated (USD)",
+      "Net profit (USD)",
+      "Gross margin (%)",
+      "Net margin (%)",
+    ];
+    const csvRows = rows.map((r) => {
+      const grossPct =
+        r.revenue_cents > 0
+          ? ((r.gross_profit_cents / r.revenue_cents) * 100).toFixed(1)
+          : "0.0";
+      const netPct =
+        r.revenue_cents > 0
+          ? ((r.net_profit_cents / r.revenue_cents) * 100).toFixed(1)
+          : "0.0";
+      return [
+        r.month,
+        r.label,
+        r.bookings,
+        (r.revenue_cents / 100).toFixed(2),
+        (r.direct_costs_cents / 100).toFixed(2),
+        (r.gross_profit_cents / 100).toFixed(2),
+        (r.operating_expenses_cents / 100).toFixed(2),
+        (r.overhead_cents / 100).toFixed(2),
+        (r.net_profit_cents / 100).toFixed(2),
+        grossPct,
+        netPct,
+      ];
+    });
+
+    // Totals row
+    const totals = rows.reduce(
+      (acc, r) => {
+        acc.bookings += r.bookings;
+        acc.revenue += r.revenue_cents;
+        acc.direct += r.direct_costs_cents;
+        acc.gross += r.gross_profit_cents;
+        acc.operating += r.operating_expenses_cents;
+        acc.overhead += r.overhead_cents;
+        acc.net += r.net_profit_cents;
+        return acc;
+      },
+      { bookings: 0, revenue: 0, direct: 0, gross: 0, operating: 0, overhead: 0, net: 0 },
+    );
+    const tGross = totals.revenue > 0 ? ((totals.gross / totals.revenue) * 100).toFixed(1) : "0.0";
+    const tNet = totals.revenue > 0 ? ((totals.net / totals.revenue) * 100).toFixed(1) : "0.0";
+    csvRows.push([
+      "TOTAL",
+      "",
+      totals.bookings,
+      (totals.revenue / 100).toFixed(2),
+      (totals.direct / 100).toFixed(2),
+      (totals.gross / 100).toFixed(2),
+      (totals.operating / 100).toFixed(2),
+      (totals.overhead / 100).toFixed(2),
+      (totals.net / 100).toFixed(2),
+      tGross,
+      tNet,
+    ]);
+
+    return csvResponse(
+      toCsv(headers, csvRows),
+      `monthly_pnl_${from}_to_${to}.csv`,
+    );
+  }
+
   if (type === "tax") {
     // Sales tax / IVA / VAT collected per paid booking — for filing.
     const { data: taxLabelRow } = await supabase
@@ -654,7 +734,7 @@ export async function GET(req: NextRequest) {
   return NextResponse.json(
     {
       error:
-        "type must be one of: expenses, business-expenses, vendors, overhead, pnl, tax, sales-receipts, customers, 1099-nec",
+        "type must be one of: expenses, business-expenses, vendors, overhead, pnl, monthly-pnl, tax, sales-receipts, customers, 1099-nec",
     },
     { status: 400 },
   );
