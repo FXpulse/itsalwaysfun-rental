@@ -78,18 +78,33 @@ export async function inviteSuperadmin(formData: FormData) {
     }
   }
 
-  // Upsert user_roles row marking them superadmin
+  // user_roles primary key is just `user_id` — one role row per user — so
+  // the conflict target HAS to be just `user_id`. A previous version of this
+  // code shipped `onConflict: "user_id,tenant_id"` which triggered Postgres
+  // 42P10 because no matching unique constraint exists.
+  //
+  // If the invitee already has a role for a DIFFERENT tenant, preserve their
+  // existing tenant_id so we don't silently demote them from their
+  // home-tenant assignment. We only promote them to superadmin in place.
+  // If they have no row yet, the insert uses the platform tenant as the home.
+  const { data: existing } = await admin
+    .from("user_roles")
+    .select("tenant_id")
+    .eq("user_id", userId)
+    .maybeSingle();
+  const homeTenantId = (existing as any)?.tenant_id || PLATFORM_TENANT_ID;
+
   const { error: roleErr } = await admin
     .from("user_roles")
     .upsert(
       {
         user_id: userId,
-        tenant_id: PLATFORM_TENANT_ID,
+        tenant_id: homeTenantId,
         role: "admin",
         is_active: true,
         is_superadmin: true,
       },
-      { onConflict: "user_id,tenant_id" },
+      { onConflict: "user_id" },
     );
   if (roleErr) return { error: `Role assignment failed: ${roleErr.message}` };
 
