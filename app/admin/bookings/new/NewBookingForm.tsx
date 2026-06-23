@@ -4,16 +4,56 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { formatCurrency } from "@/lib/utils";
-import { createManualBooking } from "../actions";
+import { createManualBooking, type CustomerMatch } from "../actions";
+import { CustomerAutocomplete } from "./CustomerAutocomplete";
 import type { Product } from "@/types/database";
+
+interface CustomerFields {
+  first_name: string;
+  last_name: string;
+  email: string;
+  phone: string;
+  address: string;
+}
+
+const EMPTY_CUSTOMER: CustomerFields = {
+  first_name: "", last_name: "", email: "", phone: "", address: "",
+};
 
 export function NewBookingForm({ products }: { products: Product[] }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [selectedProductId, setSelectedProductId] = useState(products[0]?.id || "");
+  const [customer, setCustomer] = useState<CustomerFields>(EMPTY_CUSTOMER);
+  const [pickedEmail, setPickedEmail] = useState<string | null>(null);
 
   const selectedProduct = products.find((p) => p.id === selectedProductId);
   const defaultAmount = selectedProduct ? Math.round(selectedProduct.price_per_day / 100) : 0;
+
+  function pickCustomer(c: CustomerMatch) {
+    setCustomer({
+      first_name: c.first_name,
+      last_name: c.last_name,
+      email: c.email,
+      phone: c.phone || "",
+      address: c.address || "",
+    });
+    setPickedEmail(c.email);
+  }
+
+  function clearPicked() {
+    setPickedEmail(null);
+    setCustomer(EMPTY_CUSTOMER);
+  }
+
+  function updateField<K extends keyof CustomerFields>(k: K, v: string) {
+    setCustomer((prev) => ({ ...prev, [k]: v }));
+    // If the operator edits a field after picking, drop the "reusing" banner —
+    // they may be doing it intentionally.
+    if (pickedEmail && k === "email" && v.toLowerCase() !== pickedEmail.toLowerCase()) {
+      setPickedEmail(null);
+    }
+  }
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -56,32 +96,77 @@ export function NewBookingForm({ products }: { products: Product[] }) {
         </select>
       </div>
 
-      {/* Customer */}
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">First name *</label>
-          <input name="customer_first_name" required className="input" disabled={pending} />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">Last name *</label>
-          <input name="customer_last_name" required className="input" disabled={pending} />
-        </div>
-      </div>
+      {/* Customer — autocomplete first to avoid duplicates */}
+      <div className="rounded-lg border border-amber-200 bg-amber-50/30 p-3 space-y-3">
+        <CustomerAutocomplete
+          onPick={pickCustomer}
+          onClear={clearPicked}
+          pickedEmail={pickedEmail}
+        />
 
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">Email *</label>
-          <input name="customer_email" type="email" required className="input" disabled={pending} />
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">First name *</label>
+            <input
+              name="customer_first_name"
+              required
+              className="input"
+              disabled={pending}
+              value={customer.first_name}
+              onChange={(e) => updateField("first_name", e.target.value)}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Last name *</label>
+            <input
+              name="customer_last_name"
+              required
+              className="input"
+              disabled={pending}
+              value={customer.last_name}
+              onChange={(e) => updateField("last_name", e.target.value)}
+            />
+          </div>
         </div>
-        <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">Phone *</label>
-          <input name="customer_phone" required placeholder="(904) 555-1234" className="input" disabled={pending} />
-        </div>
-      </div>
 
-      <div>
-        <label className="block text-sm font-medium text-slate-700 mb-1">Delivery address</label>
-        <input name="customer_address" placeholder="123 Main St, City, ST 12345" className="input" disabled={pending} />
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Email *</label>
+            <input
+              name="customer_email"
+              type="email"
+              required
+              className="input"
+              disabled={pending}
+              value={customer.email}
+              onChange={(e) => updateField("email", e.target.value)}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Phone *</label>
+            <input
+              name="customer_phone"
+              required
+              placeholder="(904) 555-1234"
+              className="input"
+              disabled={pending}
+              value={customer.phone}
+              onChange={(e) => updateField("phone", e.target.value)}
+            />
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-slate-700 mb-1">Delivery address</label>
+          <input
+            name="customer_address"
+            placeholder="123 Main St, City, ST 12345"
+            className="input"
+            disabled={pending}
+            value={customer.address}
+            onChange={(e) => updateField("address", e.target.value)}
+          />
+        </div>
       </div>
 
       {/* Event */}

@@ -258,6 +258,74 @@ export async function restoreBooking(bookingId: string) {
   return { success: true, newStatus: newBookingStatus };
 }
 
+export interface CustomerMatch {
+  email: string;
+  first_name: string;
+  last_name: string;
+  phone: string | null;
+  address: string | null;
+  bookings_count: number;
+  last_event_date: string | null;
+}
+
+/** Autocomplete for the manual-booking form. Search the bookings table by
+ *  first name / last name / email / phone for the current tenant, group
+ *  by lowercase email (the canonical customer key), and return the most
+ *  recent details per match. Sorted by frequency so repeat customers
+ *  surface first. */
+export async function searchBookingCustomers(query: string): Promise<CustomerMatch[]> {
+  await requireAdmin();
+  const q = query.trim().toLowerCase();
+  if (q.length < 2) return [];
+
+  const supabase = createAdminClient();
+  const like = `%${q.replace(/[%_]/g, " ")}%`;
+  const { data, error } = await supabase
+    .from("bookings")
+    .select("customer_first_name, customer_last_name, customer_email, customer_phone, customer_address, event_date, created_at")
+    .or(
+      `customer_first_name.ilike.${like},customer_last_name.ilike.${like},customer_email.ilike.${like},customer_phone.ilike.${like}`,
+    )
+    .order("created_at", { ascending: false })
+    .limit(200);
+
+  if (error || !data) return [];
+
+  // Group by lowercase email — that's the customer identity. Keep the most
+  // recent name/phone/address per identity, plus a frequency count.
+  const byEmail = new Map<string, CustomerMatch>();
+  for (const row of data as any[]) {
+    const emailKey = (row.customer_email || "").toLowerCase().trim();
+    if (!emailKey) continue;
+    const existing = byEmail.get(emailKey);
+    if (existing) {
+      existing.bookings_count += 1;
+      // Keep last_event_date as the maximum across rows
+      if (!existing.last_event_date || (row.event_date && row.event_date > existing.last_event_date)) {
+        existing.last_event_date = row.event_date;
+      }
+    } else {
+      byEmail.set(emailKey, {
+        email: emailKey,
+        first_name: row.customer_first_name || "",
+        last_name: row.customer_last_name || "",
+        phone: row.customer_phone || null,
+        address: row.customer_address || null,
+        bookings_count: 1,
+        last_event_date: row.event_date || null,
+      });
+    }
+  }
+
+  return [...byEmail.values()]
+    .sort((a, b) => {
+      // Repeat customers first, then most recent
+      if (b.bookings_count !== a.bookings_count) return b.bookings_count - a.bookings_count;
+      return (b.last_event_date || "").localeCompare(a.last_event_date || "");
+    })
+    .slice(0, 12);
+}
+
 const PaymentMethodSchema = z.enum(["cash", "venmo", "zelle", "check", "other"]);
 
 /** Mark a booking as manually paid (cash/Venmo/Zelle/check/other). */
