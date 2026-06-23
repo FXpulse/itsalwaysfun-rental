@@ -89,6 +89,42 @@ jobs:
           TEST_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.TEST_SUPABASE_SERVICE_ROLE_KEY }}
         run: npm run test:integration
 
+  bundle-secret-scan:
+    name: Bundle leak scan (client bundle)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # Build needs Supabase + Stripe public keys to compile some pages, but
+    # the scan output itself is independent of those values — it only looks
+    # for high-entropy strings that LOOK like real secrets. Use TEST_*
+    # secrets for the build env. Fork PRs without those secrets are skipped.
+    if: ${{ github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Production build (target for scan)
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.TEST_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.TEST_SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.TEST_SUPABASE_SERVICE_ROLE_KEY }}
+          # Stripe publishable key is intentionally public — placeholder is fine.
+          NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: pk_test_PLACEHOLDER_for_build_only
+          STRIPE_SECRET_KEY: ${{ secrets.TEST_STRIPE_SECRET_KEY }}
+        run: npm run build
+
+      - name: Scan client bundle for leaked secrets
+        run: npx tsx scripts/scan-bundle-for-secrets.ts
+
   e2e-tests:
     name: E2E (Playwright)
     runs-on: ubuntu-latest
