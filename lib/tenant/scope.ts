@@ -72,6 +72,9 @@ export const MULTI_TENANT_TABLES = new Set([
   "booking_inspections",
   // tenant_id added 2026-06-19 (security audit M9) — now NOT NULL, auto-inject on insert.
   "blocked_dates",
+  // General business expenses (transactional) — 2026-06-23
+  "business_expenses",
+  "business_expense_categories",
   // ERPNext-inspired asset movement state machine (2026-06-16)
   "inventory_unit_movements",
   // Team chat thread per booking (2026-06-16)

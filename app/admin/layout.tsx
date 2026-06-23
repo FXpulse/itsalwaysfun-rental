@@ -80,6 +80,7 @@ const ALL_NAV: NavItem[] = [
   { href: "/admin/reports", label: "Reports", icon: BarChart3, minRole: "admin" },
   { href: "/admin/goals", label: "Goals", icon: Target, minRole: "admin" },
   { href: "/admin/overhead", label: "Overhead", icon: Calculator, minRole: "admin" },
+  { href: "/admin/expenses", label: "Expenses", icon: Receipt, minRole: "admin" },
   { href: "/admin/site", label: "Website content", icon: Globe, minRole: "admin" },
   { href: "/admin/waiver", label: "Liability waiver", icon: FileText, minRole: "admin" },
   { href: "/admin/coi", label: "COI requests", icon: ShieldCheck, minRole: "admin" },
