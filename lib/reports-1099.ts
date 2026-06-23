@@ -1,11 +1,29 @@
-// 1099-NEC compilation — sums labor payments per driver_email for a given
-// calendar year, joins with their driver_tax_profile + checks the IRS
-// threshold (configurable via site_settings).
+// 1099-NEC compilation — sums labor payments for a given calendar year,
+// joins with the driver_tax_profile, checks the IRS threshold.
+//
+// Two data sources are merged:
+//   1. booking_expenses where category supports_payroll_hours = true.
+//      Keyed by driver_email. Covers drivers paid per booking.
+//   2. business_expenses where category = 'payroll' AND contractor_name
+//      is set. Keyed by contractor_name (synthetic email key
+//      "name:<contractor>"). Covers non-driver contractors (e.g. Edgar
+//      Mendoza, William Andres) paid via bank/cash outside the booking
+//      flow.
+//
+// Same driver_tax_profiles lookup powers both — admin can create a
+// profile for a non-driver contractor and 1099 is then auto-issuable.
 
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export interface NinetyNineRow {
   driver_email: string;
+  /** "driver" = matched via booking_expenses.driver_email
+   *  "contractor" = matched via business_expenses.contractor_name */
+  payee_source: "driver" | "contractor";
+  /** Display name when no driver_tax_profile exists yet. For drivers
+   *  this is null (their email is shown instead); for contractors this
+   *  is the raw contractor_name. */
+  display_name: string | null;
   // From driver_tax_profiles (nullable if profile not yet set up)
   full_name: string | null;
   business_name: string | null;
@@ -74,7 +92,7 @@ export async function compute1099Year(year: number): Promise<NinetyNineSummary> 
     };
   }
 
-  // All labor expenses in that year with a driver_email tagged
+  // 1. Driver-side labor (booking_expenses, keyed by driver_email)
   const { data: expenses } = await supabase
     .from("booking_expenses")
     .select("driver_email, driver_hours, amount_cents, booking_id, recorded_at")
@@ -83,22 +101,26 @@ export async function compute1099Year(year: number): Promise<NinetyNineSummary> 
     .gte("recorded_at", fromStr)
     .lte("recorded_at", toStr);
 
-  // Aggregate per driver
-  const byDriver = new Map<
-    string,
-    {
-      driver_email: string;
-      total_paid_cents: number;
-      total_hours: number;
-      bookings: Set<string>;
-      expense_lines: number;
-    }
-  >();
+  // Aggregator works for both sources — key is either email or "name:<x>"
+  interface AggRow {
+    key: string;
+    payee_source: "driver" | "contractor";
+    display_name: string | null;
+    driver_email: string | null;   // null for contractor-only rows
+    total_paid_cents: number;
+    total_hours: number;
+    bookings: Set<string>;
+    expense_lines: number;
+  }
+  const byPayee = new Map<string, AggRow>();
   for (const e of (expenses as any[]) || []) {
     const email = (e.driver_email || "").trim().toLowerCase();
     if (!email) continue;
-    if (!byDriver.has(email)) {
-      byDriver.set(email, {
+    if (!byPayee.has(email)) {
+      byPayee.set(email, {
+        key: email,
+        payee_source: "driver",
+        display_name: null,
         driver_email: email,
         total_paid_cents: 0,
         total_hours: 0,
@@ -106,14 +128,44 @@ export async function compute1099Year(year: number): Promise<NinetyNineSummary> 
         expense_lines: 0,
       });
     }
-    const d = byDriver.get(email)!;
+    const d = byPayee.get(email)!;
     d.total_paid_cents += e.amount_cents || 0;
     d.total_hours += e.driver_hours || 0;
     d.expense_lines += 1;
     if (e.booking_id) d.bookings.add(e.booking_id);
   }
 
-  if (byDriver.size === 0) {
+  // 2. Non-driver contractor payments (business_expenses, keyed by name)
+  const { data: bizPayroll } = await supabase
+    .from("business_expenses")
+    .select("contractor_name, amount_cents, expense_date")
+    .eq("category", "payroll")
+    .not("contractor_name", "is", null)
+    .gte("expense_date", `${year}-01-01`)
+    .lte("expense_date", `${year}-12-31`);
+
+  for (const e of (bizPayroll as any[]) || []) {
+    const name = (e.contractor_name || "").trim();
+    if (!name) continue;
+    const key = `name:${name.toLowerCase()}`;
+    if (!byPayee.has(key)) {
+      byPayee.set(key, {
+        key,
+        payee_source: "contractor",
+        display_name: name,
+        driver_email: null,
+        total_paid_cents: 0,
+        total_hours: 0,
+        bookings: new Set(),
+        expense_lines: 0,
+      });
+    }
+    const d = byPayee.get(key)!;
+    d.total_paid_cents += e.amount_cents || 0;
+    d.expense_lines += 1;
+  }
+
+  if (byPayee.size === 0) {
     return {
       year,
       threshold_cents: threshold,
@@ -126,26 +178,54 @@ export async function compute1099Year(year: number): Promise<NinetyNineSummary> 
     };
   }
 
-  // Join with driver_tax_profiles
-  const emails = Array.from(byDriver.keys());
-  const { data: profiles } = await supabase
-    .from("driver_tax_profiles")
-    .select(
-      "driver_email, full_name, business_name, tin_last4, address_line1, address_line2, city, state, zip, notes, w9_received_at, w9_storage_path, filed_history",
-    )
-    .in("driver_email", emails);
+  // Look up tax profiles by email AND by full_name (so a profile created
+  // for a non-driver contractor can match the contractor_name rows).
+  const driverEmails = [...byPayee.values()]
+    .filter((p) => p.driver_email)
+    .map((p) => p.driver_email!) ;
+  const contractorNames = [...byPayee.values()]
+    .filter((p) => p.payee_source === "contractor" && p.display_name)
+    .map((p) => p.display_name!);
+
+  const [{ data: emailProfiles }, { data: nameProfiles }] = await Promise.all([
+    driverEmails.length > 0
+      ? supabase
+          .from("driver_tax_profiles")
+          .select(
+            "driver_email, full_name, business_name, tin_last4, address_line1, address_line2, city, state, zip, notes, w9_received_at, w9_storage_path, filed_history",
+          )
+          .in("driver_email", driverEmails)
+      : Promise.resolve({ data: [] as any[] }),
+    contractorNames.length > 0
+      ? supabase
+          .from("driver_tax_profiles")
+          .select(
+            "driver_email, full_name, business_name, tin_last4, address_line1, address_line2, city, state, zip, notes, w9_received_at, w9_storage_path, filed_history",
+          )
+          .in("full_name", contractorNames)
+      : Promise.resolve({ data: [] as any[] }),
+  ]);
+
   const profileByEmail = new Map<string, any>(
-    ((profiles as any[]) || []).map((p) => [p.driver_email, p]),
+    ((emailProfiles as any[]) || []).map((p) => [p.driver_email, p]),
+  );
+  const profileByName = new Map<string, any>(
+    ((nameProfiles as any[]) || []).map((p) => [(p.full_name || "").toLowerCase(), p]),
   );
 
-  const rows: NinetyNineRow[] = Array.from(byDriver.values()).map((d) => {
-    const p = profileByEmail.get(d.driver_email);
+  const rows: NinetyNineRow[] = Array.from(byPayee.values()).map((d) => {
+    const p =
+      d.payee_source === "driver"
+        ? profileByEmail.get(d.driver_email || "")
+        : profileByName.get((d.display_name || "").toLowerCase());
     const addressComplete = !!(
       p?.address_line1 && p?.city && p?.state && p?.zip
     );
     const filedAt = p?.filed_history?.[String(year)] || null;
     return {
-      driver_email: d.driver_email,
+      driver_email: d.driver_email || d.key,
+      payee_source: d.payee_source,
+      display_name: d.display_name,
       full_name: p?.full_name || null,
       business_name: p?.business_name || null,
       tin_last4: p?.tin_last4 || null,

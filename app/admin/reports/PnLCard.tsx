@@ -9,10 +9,11 @@ import { TrendingUp, TrendingDown, Receipt, Calculator } from "lucide-react";
 // render time so admin renames propagate everywhere.
 export async function PnLCard({ from, to }: { from: string; to: string }) {
   const supabase = createAdminClient();
-  const [pnl, { data: overheadCats }, { data: expenseCats }] = await Promise.all([
+  const [pnl, { data: overheadCats }, { data: expenseCats }, { data: operatingCats }] = await Promise.all([
     computePnL(from, to),
     supabase.from("overhead_categories").select("key, label"),
     supabase.from("booking_expense_categories").select("key, label"),
+    supabase.from("business_expense_categories").select("key, label"),
   ]);
   const overheadLabelByKey = new Map<string, string>(
     ((overheadCats as { key: string; label: string }[]) || []).map((c) => [c.key, c.label]),
@@ -20,8 +21,12 @@ export async function PnLCard({ from, to }: { from: string; to: string }) {
   const expenseLabelByKey = new Map<string, string>(
     ((expenseCats as { key: string; label: string }[]) || []).map((c) => [c.key, c.label]),
   );
-  const labelFor = (cat: string, scope: "expense" | "overhead") => {
+  const operatingLabelByKey = new Map<string, string>(
+    ((operatingCats as { key: string; label: string }[]) || []).map((c) => [c.key, c.label]),
+  );
+  const labelFor = (cat: string, scope: "expense" | "overhead" | "operating") => {
     if (scope === "expense") return expenseLabelByKey.get(cat) || cat;
+    if (scope === "operating") return operatingLabelByKey.get(cat) || cat;
     return overheadLabelByKey.get(cat) || cat;
   };
   const isProfit = pnl.net_profit_cents > 0;
@@ -36,7 +41,7 @@ export async function PnLCard({ from, to }: { from: string; to: string }) {
         PAID bookings with event_date in this period.
       </p>
 
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-2 mb-5">
+      <div className="grid grid-cols-2 md:grid-cols-6 gap-2 mb-5">
         <Stat
           label="Revenue"
           value={formatCurrency(pnl.revenue_cents)}
@@ -46,7 +51,7 @@ export async function PnLCard({ from, to }: { from: string; to: string }) {
         <Stat
           label="Direct costs"
           value={`-${formatCurrency(pnl.direct_costs_cents)}`}
-          sub="gas, payroll, etc."
+          sub="per-booking gas, payroll, etc."
           color="red"
         />
         <Stat
@@ -58,6 +63,12 @@ export async function PnLCard({ from, to }: { from: string; to: string }) {
               : 0
           }% margin`}
           color={pnl.gross_profit_cents > 0 ? "blue" : "amber"}
+        />
+        <Stat
+          label="Operating exp."
+          value={`-${formatCurrency(pnl.operating_expenses_cents)}`}
+          sub="marketing, contractors, supplies"
+          color="red"
         />
         <Stat
           label="Overhead alloc."
@@ -76,8 +87,9 @@ export async function PnLCard({ from, to }: { from: string; to: string }) {
       </div>
 
       {(Object.keys(pnl.expenses_by_category).length > 0 ||
-        Object.keys(pnl.overhead_by_category).length > 0) && (
-        <div className="grid md:grid-cols-2 gap-4 border-t pt-4">
+        Object.keys(pnl.overhead_by_category).length > 0 ||
+        Object.keys(pnl.operating_by_category).length > 0) && (
+        <div className="grid md:grid-cols-3 gap-4 border-t pt-4">
           {Object.keys(pnl.expenses_by_category).length > 0 && (
             <div>
               <h3 className="text-xs font-bold uppercase tracking-wide text-slate-500 mb-2 inline-flex items-center gap-1">
@@ -89,6 +101,25 @@ export async function PnLCard({ from, to }: { from: string; to: string }) {
                   .map(([cat, amount]) => (
                     <li key={cat} className="flex justify-between text-xs">
                       <span>{labelFor(cat, "expense")}</span>
+                      <span className="font-mono text-red-700">
+                        -{formatCurrency(amount)}
+                      </span>
+                    </li>
+                  ))}
+              </ul>
+            </div>
+          )}
+          {Object.keys(pnl.operating_by_category).length > 0 && (
+            <div>
+              <h3 className="text-xs font-bold uppercase tracking-wide text-slate-500 mb-2 inline-flex items-center gap-1">
+                <Receipt className="h-3 w-3" /> Operating expenses breakdown
+              </h3>
+              <ul className="space-y-1">
+                {Object.entries(pnl.operating_by_category)
+                  .sort((a, b) => b[1] - a[1])
+                  .map(([cat, amount]) => (
+                    <li key={cat} className="flex justify-between text-xs">
+                      <span>{labelFor(cat, "operating")}</span>
                       <span className="font-mono text-red-700">
                         -{formatCurrency(amount)}
                       </span>

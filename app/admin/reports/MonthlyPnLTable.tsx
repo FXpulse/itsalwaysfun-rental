@@ -14,12 +14,13 @@ export async function MonthlyPnLTable() {
       acc.revenue += m.revenue_cents;
       acc.directCosts += m.direct_costs_cents;
       acc.gross += m.gross_profit_cents;
+      acc.operating += m.operating_expenses_cents;
       acc.overhead += m.overhead_cents;
       acc.net += m.net_profit_cents;
       acc.bookings += m.bookings;
       return acc;
     },
-    { revenue: 0, directCosts: 0, gross: 0, overhead: 0, net: 0, bookings: 0 },
+    { revenue: 0, directCosts: 0, gross: 0, operating: 0, overhead: 0, net: 0, bookings: 0 },
   );
 
   return (
@@ -113,6 +114,22 @@ export async function MonthlyPnLTable() {
             </tr>
             <tr>
               <td className="px-3 py-2 text-left text-red-900 sticky left-0 bg-white z-10">
+                − Operating expenses
+              </td>
+              {months.map((m) => (
+                <td
+                  key={m.month}
+                  className={`px-2 py-2 text-right ${m.operating_expenses_cents > 0 ? "text-red-700" : "text-slate-300"}`}
+                >
+                  {m.operating_expenses_cents > 0 ? `-${formatCurrency(m.operating_expenses_cents)}` : "—"}
+                </td>
+              ))}
+              <td className="px-3 py-2 text-right bg-slate-50 font-bold text-red-700">
+                -{formatCurrency(totals.operating)}
+              </td>
+            </tr>
+            <tr>
+              <td className="px-3 py-2 text-left text-red-900 sticky left-0 bg-white z-10">
                 − Overhead
               </td>
               {months.map((m) => (
@@ -142,7 +159,7 @@ export async function MonthlyPnLTable() {
                         : "text-slate-300"
                   }`}
                 >
-                  {m.revenue_cents > 0 || m.overhead_cents > 0
+                  {m.revenue_cents > 0 || m.overhead_cents > 0 || m.operating_expenses_cents > 0
                     ? formatCurrency(m.net_profit_cents)
                     : "—"}
                 </td>

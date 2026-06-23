@@ -88,10 +88,9 @@ export function NinetyNineNECManager({ summary, tz = "America/New_York" }: { sum
   if (summary.drivers.length === 0) {
     return (
       <div className="card text-center py-12 text-slate-400 text-sm">
-        No labor expenses with a driver_email tagged in {summary.year}.
-        <br />
-        When recording payroll on a booking, make sure to fill in the driver
-        email so 1099 totals roll up here.
+        No labor payments in {summary.year}. Either:
+        <br />• record payroll on bookings with a driver_email, or
+        <br />• create a business expense with category=payroll + contractor_name (for non-driver contractors).
       </div>
     );
   }
@@ -123,8 +122,8 @@ export function NinetyNineNECManager({ summary, tz = "America/New_York" }: { sum
                   className={r.qualifies ? "" : "opacity-60"}
                 >
                   <td className="px-3 py-2">
-                    <div className="font-medium text-xs">
-                      {r.full_name || (
+                    <div className="font-medium text-xs flex items-center gap-1">
+                      {r.full_name || r.display_name || (
                         <span className="text-slate-400 italic">no name</span>
                       )}
                       {r.business_name && (
@@ -133,13 +132,24 @@ export function NinetyNineNECManager({ summary, tz = "America/New_York" }: { sum
                           / {r.business_name}
                         </span>
                       )}
+                      {r.payee_source === "contractor" && (
+                        <span className="text-[9px] uppercase tracking-wider bg-amber-100 text-amber-800 px-1 rounded">
+                          contractor
+                        </span>
+                      )}
                     </div>
-                    <a
-                      href={`mailto:${r.driver_email}`}
-                      className="text-[11px] text-slate-500 hover:text-brand-navy hover:underline"
-                    >
-                      {r.driver_email}
-                    </a>
+                    {r.payee_source === "driver" ? (
+                      <a
+                        href={`mailto:${r.driver_email}`}
+                        className="text-[11px] text-slate-500 hover:text-brand-navy hover:underline"
+                      >
+                        {r.driver_email}
+                      </a>
+                    ) : (
+                      <span className="text-[11px] text-slate-400">
+                        Paid via business_expenses · no email on file
+                      </span>
+                    )}
                   </td>
                   <td className="px-3 py-2 text-right font-mono font-bold text-brand-navy">
                     ${(r.total_paid_cents / 100).toFixed(2)}

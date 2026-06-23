@@ -11,10 +11,16 @@ export interface PnLSummary {
   direct_costs_cents: number;
   gross_profit_cents: number;
   overhead_allocated_cents: number;
+  /** Transactional non-booking expenses (marketing, contractor payroll,
+   *  supplies, services, etc.) — pulled from business_expenses by
+   *  expense_date in [from, to]. */
+  operating_expenses_cents: number;
   net_profit_cents: number;
   margin_pct: number;                       // net_profit / revenue (0 if revenue=0)
   expenses_by_category: Record<string, number>;
   overhead_by_category: Record<string, number>;
+  /** business_expenses summed per category key in the date window. */
+  operating_by_category: Record<string, number>;
 }
 
 /** Compute P&L for a date range.
@@ -86,8 +92,26 @@ export async function computePnL(from: string, to: string): Promise<PnLSummary> 
       (overhead_by_category[o.category] || 0) + cost;
   }
 
+  // 4. Operating expenses — transactional business_expenses by expense_date
+  //    in the window. Covers marketing, supplies, contractor payroll
+  //    (non-driver), insurance, services, travel, etc.
+  let operating_expenses_cents = 0;
+  const operating_by_category: Record<string, number> = {};
+  {
+    const { data: ops } = await supabase
+      .from("business_expenses")
+      .select("category, amount_cents")
+      .gte("expense_date", from)
+      .lte("expense_date", to);
+    for (const e of (ops as any[]) || []) {
+      operating_expenses_cents += e.amount_cents || 0;
+      operating_by_category[e.category] =
+        (operating_by_category[e.category] || 0) + (e.amount_cents || 0);
+    }
+  }
+
   const gross_profit_cents = revenue_cents - direct_costs_cents;
-  const net_profit_cents = gross_profit_cents - overhead_allocated_cents;
+  const net_profit_cents = gross_profit_cents - overhead_allocated_cents - operating_expenses_cents;
   const margin_pct = revenue_cents > 0 ? net_profit_cents / revenue_cents : 0;
 
   return {
@@ -98,6 +122,8 @@ export async function computePnL(from: string, to: string): Promise<PnLSummary> 
     direct_costs_cents,
     gross_profit_cents,
     overhead_allocated_cents,
+    operating_expenses_cents,
+    operating_by_category,
     net_profit_cents,
     margin_pct,
     expenses_by_category,

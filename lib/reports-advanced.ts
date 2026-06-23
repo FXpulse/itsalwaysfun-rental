@@ -86,6 +86,10 @@ export interface MonthlyPnLRow {
   direct_costs_cents: number;
   gross_profit_cents: number;
   overhead_cents: number;
+  /** business_expenses for this month (general operating, contractor pay,
+   *  marketing, supplies, services, etc.). Distinct from direct_costs
+   *  (per-booking) and overhead (recurring monthly). */
+  operating_expenses_cents: number;
   net_profit_cents: number;
   bookings: number;
 }
@@ -118,7 +122,7 @@ export async function computeMonthlyPnL(): Promise<MonthlyPnLRow[]> {
   const fromStr = months[0].start.toISOString().split("T")[0];
   const toStr = months[months.length - 1].end.toISOString().split("T")[0];
 
-  const [{ data: bookings }, { data: overheadAll }] = await Promise.all([
+  const [{ data: bookings }, { data: overheadAll }, { data: opAll }] = await Promise.all([
     supabase
       .from("bookings")
       .select("id, event_date, total_amount")
@@ -129,6 +133,11 @@ export async function computeMonthlyPnL(): Promise<MonthlyPnLRow[]> {
     supabase
       .from("overhead_costs")
       .select("monthly_cents, effective_from, effective_to"),
+    supabase
+      .from("business_expenses")
+      .select("expense_date, amount_cents")
+      .gte("expense_date", fromStr)
+      .lte("expense_date", toStr),
   ]);
 
   // Per-month: revenue + booking count + expense ids
@@ -141,9 +150,18 @@ export async function computeMonthlyPnL(): Promise<MonthlyPnLRow[]> {
       direct_costs_cents: 0,
       gross_profit_cents: 0,
       overhead_cents: 0,
+      operating_expenses_cents: 0,
       net_profit_cents: 0,
       bookings: 0,
     });
+  }
+
+  // Bucket business_expenses by expense_date's YYYY-MM
+  for (const e of (opAll as any[]) || []) {
+    const mKey = (e.expense_date || "").slice(0, 7);
+    const row = byMonth.get(mKey);
+    if (!row) continue;
+    row.operating_expenses_cents += e.amount_cents || 0;
   }
 
   const bookingIdsByMonth = new Map<string, string[]>();
@@ -200,7 +218,8 @@ export async function computeMonthlyPnL(): Promise<MonthlyPnLRow[]> {
     const row = byMonth.get(m.key)!;
     row.overhead_cents = monthOverhead;
     row.gross_profit_cents = row.revenue_cents - row.direct_costs_cents;
-    row.net_profit_cents = row.gross_profit_cents - row.overhead_cents;
+    row.net_profit_cents =
+      row.gross_profit_cents - row.overhead_cents - row.operating_expenses_cents;
   }
 
   return Array.from(byMonth.values());
