@@ -42,19 +42,33 @@ export default async function DriverRoutePage({
     .maybeSingle();
   if (!route) notFound();
 
-  const { data: stopsRaw } = await supabase
+  // Two-step fetch — PostgREST's nested embed `bookings (…)` on
+  // dispatch_stops silently returns [] because the FK isn't in the schema
+  // cache. Same fix as app/admin/dispatch/route/[id]/page.tsx.
+  const unscopedAdmin = createAdminClient({ unscoped: true });
+  const { data: rawStops } = await unscopedAdmin
     .from("dispatch_stops")
-    .select(`
-      id, stop_order, delivered_at, notes,
-      bookings (
-        id, customer_first_name, customer_last_name, customer_phone, customer_address,
-        product_name, event_date, start_time, end_time, surface_type, needs_power_supply, notes
-      )
-    `)
+    .select("id, booking_id, stop_order, delivered_at, notes")
     .eq("route_id", params.id)
     .order("stop_order");
 
-  const stops = ((stopsRaw as any[]) || []).filter((s) => s.bookings); // skip orphaned
+  const bookingIds = Array.from(new Set(((rawStops as any[]) || []).map((s) => s.booking_id)));
+  const bookingsById = new Map<string, any>();
+  if (bookingIds.length > 0) {
+    const { data: bookingRows } = await supabase
+      .from("bookings")
+      .select(
+        "id, customer_first_name, customer_last_name, customer_phone, customer_address, product_name, event_date, start_time, end_time, surface_type, needs_power_supply, notes",
+      )
+      .in("id", bookingIds);
+    for (const b of (bookingRows as any[]) || []) {
+      bookingsById.set(b.id, b);
+    }
+  }
+
+  const stops = ((rawStops as any[]) || [])
+    .map((s) => ({ ...s, bookings: bookingsById.get(s.booking_id) || null }))
+    .filter((s) => s.bookings); // skip orphaned (booking deleted)
 
   return (
     <div className="min-h-screen pb-16">
