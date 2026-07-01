@@ -89,6 +89,22 @@ export const MULTI_TENANT_TABLES = new Set([
   "beta_feedback",
   // Driver skill/availability profile used by AI route optimizer (2026-06-18)
   "driver_schedule_profiles",
+  // Photo + signature capture at delivery/pickup. `tenant_id` NOT NULL in
+  // DB since multi_tenant_foundation.sql; the default was later dropped by
+  // drop_default_tenant_id.sql, so inserts from proof-actions.ts must be
+  // scoped via the proxy or they hit a NOT NULL violation (2026-07-01).
+  "booking_proofs",
+  // Same story as booking_proofs — these all got tenant_id NOT NULL in
+  // multi_tenant_foundation.sql and lost their default in
+  // drop_default_tenant_id.sql. Any insert must be auto-scoped or it
+  // throws a NOT NULL violation. Moved out of INTENTIONALLY_NOT_SCOPED
+  // together on 2026-07-01 to prevent the same class of bug.
+  "booking_damages",
+  "booking_waivers",
+  "booking_extensions",
+  "coi_requests",
+  "booking_expense_categories",
+  "booking_expenses",
 ]);
 
 /** Tablas que SÍ tienen columna `tenant_id` (o conceptualmente son por-tenant)
@@ -100,14 +116,14 @@ export const MULTI_TENANT_TABLES = new Set([
  *  El check-tenant-scope.ts CI step usa esta allowlist para distinguir
  *  "drift real" de "exclusión intencional". */
 export const INTENTIONALLY_NOT_SCOPED = new Set([
-  // Hijas de bookings (tenancy via booking_id FK)
-  "booking_expenses",
-  "booking_damages",
-  "booking_proofs",
-  "booking_waivers",
-  "booking_extensions",
-  "coi_requests",
-  "booking_expense_categories",
+  // NOTE 2026-07-01: booking_proofs, booking_damages, booking_waivers,
+  // booking_extensions, coi_requests, booking_expense_categories, and
+  // booking_expenses all moved OUT of this set into MULTI_TENANT_TABLES.
+  // Reason: the schema shipped tenant_id NOT NULL DEFAULT '11111111...'
+  // via multi_tenant_foundation.sql; that default was later dropped by
+  // drop_default_tenant_id.sql (correct for multi-tenant safety), which
+  // then made every insert throw a NOT NULL violation until the proxy
+  // was configured to auto-inject.
   // Hijas de products (tenancy via product_id FK)
   "product_inventory_requirements",
   "product_images",
