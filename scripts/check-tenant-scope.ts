@@ -8,6 +8,15 @@
  *      en la DB (entrada huérfana).
  *   3. Hay una tabla multi-tenant con RLS DESHABILITADO (defensa en profundidad
  *      rota — sin RLS, un bug en scope.ts es catastrófico).
+ *   4. Hay una tabla `public` con RLS off que no está en la allowlist —
+ *      espeja el advisor de Supabase.
+ *   5. (2026-07-01) Hay una tabla listada en INTENTIONALLY_NOT_SCOPED cuya
+ *      columna tenant_id es NOT NULL SIN DEFAULT. Ese es exactamente el patrón
+ *      que rompió booking_proofs en prod: si el proxy no la scopea, cualquier
+ *      insert lanza `null value in column "tenant_id" violates not null`.
+ *      Un opt-out sano requiere que el caller inyecte tenant_id manualmente
+ *      Y (ideal) que la tabla no tenga NOT NULL sin default. Detecta la clase
+ *      exacta de bomba latente antes de que explote.
  *
  * Requirements:
  *   NEXT_PUBLIC_SUPABASE_URL  — el endpoint de la DB
@@ -34,7 +43,10 @@ const supabase = createClient(URL, KEY, {
   auth: { autoRefreshToken: false, persistSession: false },
 });
 
-type Drift = { type: "missing" | "orphan" | "no_rls" | "no_rls_public"; table: string };
+type Drift = {
+  type: "missing" | "orphan" | "no_rls" | "no_rls_public" | "excluded_but_not_null_no_default";
+  table: string;
+};
 
 /** Tables in `public` that are intentionally allowed to ship without RLS.
  *  Empty by default — every new entry needs justification in the comment.
@@ -58,40 +70,39 @@ async function getAllPublicTablesRls(): Promise<Array<{ table_name: string; rls_
   return (data as Array<{ table_name: string; rls_enabled: boolean; policy_count: number }>) || [];
 }
 
-async function getLiveTenantTables(): Promise<Array<{ table_name: string; rls_enabled: boolean }>> {
+type LiveTenantRow = {
+  table_name: string;
+  rls_enabled: boolean;
+  /** True when the tenant_id column is declared NOT NULL.
+   *  Missing in the pre-2026-07-01 RPC — treat undefined as unknown and
+   *  DO NOT run Check #5 for that row (soft-degrade instead of crashing). */
+  is_not_null?: boolean;
+  /** True when the tenant_id column has a DEFAULT expression. Same
+   *  compatibility note as above. */
+  has_default?: boolean;
+};
+
+async function getLiveTenantTables(): Promise<Array<LiveTenantRow>> {
   // Trick: information_schema no se expone via PostgREST por default.
   // Usamos una RPC custom. Si no existe la RPC, queda como warning.
   const { data, error } = await supabase.rpc("list_tenant_id_tables");
   if (error) {
-    // Fallback: probar pg_catalog directo via la función _pg_check (común en Supabase)
     console.warn(
-      "[scope-check] RPC list_tenant_id_tables no existe. Crear esta función en la DB:",
+      "[scope-check] RPC list_tenant_id_tables no existe. Crear con la migración:",
     );
-    console.warn(`
-      CREATE OR REPLACE FUNCTION public.list_tenant_id_tables()
-      RETURNS TABLE(table_name text, rls_enabled bool)
-      LANGUAGE sql SECURITY DEFINER AS $$
-        SELECT
-          c.table_name::text,
-          (SELECT pt.rowsecurity FROM pg_tables pt
-           WHERE pt.schemaname='public' AND pt.tablename = c.table_name) AS rls_enabled
-        FROM information_schema.columns c
-        WHERE c.table_schema = 'public'
-          AND c.column_name = 'tenant_id'
-        ORDER BY c.table_name;
-      $$;
-      REVOKE ALL ON FUNCTION public.list_tenant_id_tables() FROM PUBLIC;
-      -- Solo service_role la puede llamar.
-    `);
+    console.warn(
+      "    supabase/migrations/20260701120000_extend_list_tenant_id_tables.sql",
+    );
     throw new Error("Missing RPC list_tenant_id_tables");
   }
-  return (data as Array<{ table_name: string; rls_enabled: boolean }>) || [];
+  return (data as Array<LiveTenantRow>) || [];
 }
 
 async function main() {
   const liveRows = await getLiveTenantTables();
   const liveTables = new Set<string>(liveRows.map((r) => r.table_name));
   const rlsByTable = new Map<string, boolean>(liveRows.map((r) => [r.table_name, r.rls_enabled]));
+  const metaByTable = new Map<string, LiveTenantRow>(liveRows.map((r) => [r.table_name, r]));
 
   const drift: Drift[] = [];
 
@@ -128,10 +139,30 @@ async function main() {
     drift.push({ type: "no_rls_public", table: row.table_name });
   }
 
+  // Check #5: booking_proofs-class trap (added 2026-07-01).
+  // A table in INTENTIONALLY_NOT_SCOPED with tenant_id NOT NULL and NO
+  // default is a bomb: the proxy won't inject tenant_id, and no default
+  // means every insert fails with a NOT NULL violation. Either the table
+  // needs the proxy (move to MULTI_TENANT_TABLES) or the caller code must
+  // inject tenant_id manually before insert. Fail CI so the choice is
+  // explicit.
+  //
+  // Soft-degrade: if the RPC didn't return is_not_null / has_default
+  // (running against a pre-migration DB), skip this check for that row
+  // rather than reporting false positives.
+  INTENTIONALLY_NOT_SCOPED.forEach((t) => {
+    const meta = metaByTable.get(t);
+    if (!meta) return; // table doesn't exist — orphan handled elsewhere (or intentional)
+    if (meta.is_not_null === undefined || meta.has_default === undefined) return;
+    if (meta.is_not_null && !meta.has_default) {
+      drift.push({ type: "excluded_but_not_null_no_default", table: t });
+    }
+  });
+
   // Reporte
   if (drift.length === 0) {
     console.log(
-      `[scope-check] OK — ${MULTI_TENANT_TABLES.size} multi-tenant tables, ${INTENTIONALLY_NOT_SCOPED.size} intentional exclusions, all in sync.`,
+      `[scope-check] OK — ${MULTI_TENANT_TABLES.size} multi-tenant tables, ${INTENTIONALLY_NOT_SCOPED.size} intentional exclusions, 5 checks passed.`,
     );
     process.exit(0);
   }
@@ -141,6 +172,7 @@ async function main() {
   const orphan = drift.filter((d) => d.type === "orphan");
   const noRls = drift.filter((d) => d.type === "no_rls");
   const noRlsPublic = drift.filter((d) => d.type === "no_rls_public");
+  const trapped = drift.filter((d) => d.type === "excluded_but_not_null_no_default");
 
   if (missing.length) {
     console.error(`\n  Tables in DB with tenant_id but NOT in MULTI_TENANT_TABLES (${missing.length}):`);
@@ -181,6 +213,37 @@ async function main() {
     );
     console.error(
       "    Supabase's own advisor flags these too; this script catches them BEFORE deploy.",
+    );
+  }
+
+  if (trapped.length) {
+    console.error(
+      `\n  Tables opting OUT of the scope proxy but with tenant_id NOT NULL (no default) (${trapped.length}):`,
+    );
+    for (const d of trapped) console.error(`    - ${d.table}`);
+    console.error(
+      "    This is the exact class of latent bug that broke booking_proofs in prod on 2026-07-01.",
+    );
+    console.error(
+      "    Every insert on these tables will throw:",
+    );
+    console.error(
+      "      null value in column \"tenant_id\" violates not null constraint",
+    );
+    console.error(
+      "    Fix (pick one):",
+    );
+    console.error(
+      "      (a) Move from INTENTIONALLY_NOT_SCOPED → MULTI_TENANT_TABLES so the proxy auto-injects.",
+    );
+    console.error(
+      "      (b) Keep it opted out and audit every insert call site to inject tenant_id manually.",
+    );
+    console.error(
+      "          Then add a DEFAULT to the column so accidental inserts don't crash.",
+    );
+    console.error(
+      "    Almost always (a) is correct.",
     );
   }
 
