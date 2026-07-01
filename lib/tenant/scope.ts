@@ -103,8 +103,10 @@ export const MULTI_TENANT_TABLES = new Set([
   "booking_waivers",
   "booking_extensions",
   "coi_requests",
-  "booking_expense_categories",
   "booking_expenses",
+  // NOTE: booking_expense_categories exists as `supabase/booking_expense_categories.sql`
+  // but was never run against production. Listing it here would trigger CI
+  // "orphan" drift. Add back when the migration is applied.
 ]);
 
 /** Tablas que SÍ tienen columna `tenant_id` (o conceptualmente son por-tenant)
