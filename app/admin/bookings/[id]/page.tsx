@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, Pencil } from "lucide-react";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { BookingActions } from "./BookingActions";
@@ -160,7 +160,7 @@ export default async function BookingDetailPage({
         <ChevronLeft className="h-4 w-4" /> Back to bookings
       </Link>
 
-      <div className="flex items-start justify-between mb-6">
+      <div className="flex items-start justify-between mb-6 gap-4">
         <div>
           <h1 className="text-2xl font-bold text-brand-navy mb-1">
             Booking #{b.id.slice(0, 8)}
@@ -170,9 +170,17 @@ export default async function BookingDetailPage({
           </p>
         </div>
 
-        <div className="flex flex-col items-end gap-1">
-          <StatusBadge label="Booking" status={b.booking_status} />
-          <StatusBadge label="Payment" status={b.stripe_payment_status} />
+        <div className="flex flex-col items-end gap-2">
+          <Link
+            href={`/admin/bookings/${b.id}/edit`}
+            className="inline-flex items-center gap-1.5 text-sm px-3 py-1.5 rounded border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 hover:text-brand-navy transition"
+          >
+            <Pencil className="h-3.5 w-3.5" /> Edit
+          </Link>
+          <div className="flex flex-col items-end gap-1">
+            <StatusBadge label="Booking" status={b.booking_status} />
+            <StatusBadge label="Payment" status={b.stripe_payment_status} />
+          </div>
         </div>
       </div>
 

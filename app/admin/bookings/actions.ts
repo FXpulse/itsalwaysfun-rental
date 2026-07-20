@@ -441,6 +441,135 @@ const NewBookingSchema = z.object({
   notes: z.string().optional().nullable(),
 });
 
+export async function updateManualBooking(bookingId: string, formData: FormData) {
+  const user = await requireAdmin();
+
+  if (!bookingId) return { error: "Missing booking id" };
+
+  const raw = {
+    product_id: String(formData.get("product_id") || ""),
+    customer_first_name: String(formData.get("customer_first_name") || ""),
+    customer_last_name: String(formData.get("customer_last_name") || ""),
+    customer_email: String(formData.get("customer_email") || ""),
+    customer_phone: String(formData.get("customer_phone") || ""),
+    customer_address: String(formData.get("customer_address") || "") || null,
+    event_date: String(formData.get("event_date") || ""),
+    start_time: String(formData.get("start_time") || "") || null,
+    end_time: String(formData.get("end_time") || "") || null,
+    total_amount_dollars: parseInt(String(formData.get("total_amount_dollars") || "0"), 10),
+    payment_method: String(formData.get("payment_method") || "none") as any,
+    booking_status: String(formData.get("booking_status") || "confirmed") as any,
+    notes: String(formData.get("notes") || "") || null,
+  };
+
+  const parsed = NewBookingSchema.safeParse(raw);
+  if (!parsed.success) {
+    return { error: parsed.error.errors.map((e) => `${e.path.join(".")}: ${e.message}`).join("; ") };
+  }
+
+  const supabase = createAdminClient();
+
+  // Snapshot existing booking so we can compute which fields actually changed
+  // (audit log stays useful) and preserve fields we don't overwrite.
+  const { data: existing, error: fetchErr } = await supabase
+    .from("bookings")
+    .select("*")
+    .eq("id", bookingId)
+    .single();
+  if (fetchErr || !existing) return { error: "Booking not found" };
+
+  // Look up product name only if product changed
+  let productName = (existing as any).product_name as string;
+  if (parsed.data.product_id !== (existing as any).product_id) {
+    const { data: product } = await supabase
+      .from("products")
+      .select("name")
+      .eq("id", parsed.data.product_id)
+      .single();
+    if (!product) return { error: "Product not found" };
+    productName = product.name;
+  }
+
+  // Diff for audit note — only fields the operator can edit here
+  const changes: string[] = [];
+  const cmp = (label: string, before: any, after: any) => {
+    const b = before ?? "";
+    const a = after ?? "";
+    if (String(b) !== String(a)) changes.push(`${label}: "${b}" → "${a}"`);
+  };
+  cmp("product", (existing as any).product_name, productName);
+  cmp("first_name", (existing as any).customer_first_name, parsed.data.customer_first_name);
+  cmp("last_name", (existing as any).customer_last_name, parsed.data.customer_last_name);
+  cmp("email", (existing as any).customer_email, parsed.data.customer_email);
+  cmp("phone", (existing as any).customer_phone, parsed.data.customer_phone);
+  cmp("address", (existing as any).customer_address, parsed.data.customer_address);
+  cmp("event_date", (existing as any).event_date, parsed.data.event_date);
+  cmp("start_time", (existing as any).start_time, parsed.data.start_time);
+  cmp("end_time", (existing as any).end_time, parsed.data.end_time);
+  cmp("total_amount", (existing as any).total_amount, parsed.data.total_amount_dollars * 100);
+  cmp("payment_method", (existing as any).payment_method, parsed.data.payment_method);
+  cmp("booking_status", (existing as any).booking_status, parsed.data.booking_status);
+
+  const priorNotes = (existing as any).notes as string | null;
+  // If the operator edited the notes field, respect their new content as the
+  // "user-visible" notes. Otherwise keep the prior notes. We always append an
+  // audit line describing the diff.
+  const userEditedNotes = parsed.data.notes !== null && parsed.data.notes !== priorNotes;
+  const baseNotes = userEditedNotes ? parsed.data.notes : priorNotes;
+
+  let finalNotes = baseNotes;
+  if (changes.length > 0) {
+    const stamp = new Date().toISOString().split("T")[0];
+    const auditLine = `[${stamp}] Edited by ${user.email}: ${changes.join(", ")}`;
+    finalNotes = baseNotes ? `${baseNotes}\n${auditLine}` : auditLine;
+  }
+
+  // Adjust stripe_payment_status alongside payment_method changes, matching
+  // the create-flow rule: "none" → pending, anything else → paid. When the
+  // payment method didn't change, leave stripe_payment_status untouched.
+  const paymentMethodChanged =
+    parsed.data.payment_method !== (existing as any).payment_method;
+  const updatePayload: Record<string, any> = {
+    product_id: parsed.data.product_id,
+    product_name: productName,
+    customer_first_name: parsed.data.customer_first_name,
+    customer_last_name: parsed.data.customer_last_name,
+    customer_email: parsed.data.customer_email,
+    customer_phone: parsed.data.customer_phone,
+    customer_address: parsed.data.customer_address,
+    event_date: parsed.data.event_date,
+    start_time: parsed.data.start_time,
+    end_time: parsed.data.end_time,
+    total_amount: parsed.data.total_amount_dollars * 100,
+    payment_method: parsed.data.payment_method,
+    booking_status: parsed.data.booking_status,
+    notes: finalNotes,
+  };
+  if (paymentMethodChanged) {
+    updatePayload.stripe_payment_status =
+      parsed.data.payment_method === "none" ? "pending" : "paid";
+  }
+
+  const { error: updateErr } = await supabase
+    .from("bookings")
+    .update(updatePayload)
+    .eq("id", bookingId);
+  if (updateErr) return { error: updateErr.message };
+
+  // Fire audit event (best-effort — never blocks)
+  logAuditEvent({
+    userEmail: user.email || "unknown",
+    action: "booking.updated",
+    entityType: "booking",
+    entityId: bookingId,
+    details: { changes },
+  }).catch(() => {});
+
+  revalidatePath(`/admin/bookings/${bookingId}`);
+  revalidatePath("/admin/bookings");
+  return { success: true, booking_id: bookingId };
+}
+
 export async function createManualBooking(formData: FormData) {
   const user = await requireAdmin();
 

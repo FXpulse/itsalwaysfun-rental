@@ -4,7 +4,11 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { formatCurrency } from "@/lib/utils";
-import { createManualBooking, type CustomerMatch } from "../actions";
+import {
+  createManualBooking,
+  updateManualBooking,
+  type CustomerMatch,
+} from "../actions";
 import { CustomerAutocomplete } from "./CustomerAutocomplete";
 import type { Product } from "@/types/database";
 
@@ -20,15 +24,55 @@ const EMPTY_CUSTOMER: CustomerFields = {
   first_name: "", last_name: "", email: "", phone: "", address: "",
 };
 
-export function NewBookingForm({ products }: { products: Product[] }) {
+export type BookingFormInitial = {
+  id: string;
+  product_id: string;
+  customer_first_name: string;
+  customer_last_name: string;
+  customer_email: string;
+  customer_phone: string;
+  customer_address: string | null;
+  event_date: string;
+  start_time: string | null;
+  end_time: string | null;
+  total_amount: number; // cents
+  payment_method: string | null;
+  booking_status: string;
+  notes: string | null;
+};
+
+export function NewBookingForm({
+  products,
+  initial,
+}: {
+  products: Product[];
+  initial?: BookingFormInitial;
+}) {
   const router = useRouter();
+  const isEdit = !!initial;
   const [pending, startTransition] = useTransition();
-  const [selectedProductId, setSelectedProductId] = useState(products[0]?.id || "");
-  const [customer, setCustomer] = useState<CustomerFields>(EMPTY_CUSTOMER);
+  const [selectedProductId, setSelectedProductId] = useState(
+    initial?.product_id || products[0]?.id || "",
+  );
+  const [customer, setCustomer] = useState<CustomerFields>(
+    initial
+      ? {
+          first_name: initial.customer_first_name,
+          last_name: initial.customer_last_name,
+          email: initial.customer_email,
+          phone: initial.customer_phone,
+          address: initial.customer_address || "",
+        }
+      : EMPTY_CUSTOMER,
+  );
   const [pickedEmail, setPickedEmail] = useState<string | null>(null);
 
   const selectedProduct = products.find((p) => p.id === selectedProductId);
-  const defaultAmount = selectedProduct ? Math.round(selectedProduct.price_per_day / 100) : 0;
+  const defaultAmount = initial
+    ? Math.round(initial.total_amount / 100)
+    : selectedProduct
+      ? Math.round(selectedProduct.price_per_day / 100)
+      : 0;
 
   function pickCustomer(c: CustomerMatch) {
     setCustomer({
@@ -59,17 +103,20 @@ export function NewBookingForm({ products }: { products: Product[] }) {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
     startTransition(async () => {
-      const result = await createManualBooking(formData);
+      const result = isEdit
+        ? await updateManualBooking(initial!.id, formData)
+        : await createManualBooking(formData);
       if (result?.error) {
         toast.error(result.error);
         return;
       }
-      toast.success("Booking created");
+      toast.success(isEdit ? "Booking updated" : "Booking created");
       if (result?.booking_id) {
         router.push(`/admin/bookings/${result.booking_id}`);
       } else {
         router.push("/admin/bookings");
       }
+      router.refresh();
     });
   }
 
@@ -173,15 +220,34 @@ export function NewBookingForm({ products }: { products: Product[] }) {
       <div className="grid grid-cols-3 gap-3">
         <div>
           <label className="block text-sm font-medium text-slate-700 mb-1">Event date *</label>
-          <input name="event_date" type="date" required className="input" disabled={pending} />
+          <input
+            name="event_date"
+            type="date"
+            required
+            defaultValue={initial?.event_date}
+            className="input"
+            disabled={pending}
+          />
         </div>
         <div>
           <label className="block text-sm font-medium text-slate-700 mb-1">Start time</label>
-          <input name="start_time" type="time" defaultValue="09:00" className="input" disabled={pending} />
+          <input
+            name="start_time"
+            type="time"
+            defaultValue={initial?.start_time ?? "09:00"}
+            className="input"
+            disabled={pending}
+          />
         </div>
         <div>
           <label className="block text-sm font-medium text-slate-700 mb-1">End time</label>
-          <input name="end_time" type="time" defaultValue="17:00" className="input" disabled={pending} />
+          <input
+            name="end_time"
+            type="time"
+            defaultValue={initial?.end_time ?? "17:00"}
+            className="input"
+            disabled={pending}
+          />
         </div>
       </div>
 
@@ -205,7 +271,12 @@ export function NewBookingForm({ products }: { products: Product[] }) {
           <label className="block text-sm font-medium text-slate-700 mb-1">
             Payment method
           </label>
-          <select name="payment_method" defaultValue="cash" className="input" disabled={pending}>
+          <select
+            name="payment_method"
+            defaultValue={initial?.payment_method || "cash"}
+            className="input"
+            disabled={pending}
+          >
             <option value="cash">Cash</option>
             <option value="venmo">Venmo</option>
             <option value="zelle">Zelle</option>
@@ -218,7 +289,12 @@ export function NewBookingForm({ products }: { products: Product[] }) {
           <label className="block text-sm font-medium text-slate-700 mb-1">
             Booking status
           </label>
-          <select name="booking_status" defaultValue="confirmed" className="input" disabled={pending}>
+          <select
+            name="booking_status"
+            defaultValue={initial?.booking_status || "confirmed"}
+            className="input"
+            disabled={pending}
+          >
             <option value="pending_payment">Pending payment</option>
             <option value="confirmed">Confirmed</option>
             <option value="delivered">Delivered</option>
@@ -229,16 +305,32 @@ export function NewBookingForm({ products }: { products: Product[] }) {
 
       <div>
         <label className="block text-sm font-medium text-slate-700 mb-1">Notes</label>
-        <textarea name="notes" rows={3} className="input" disabled={pending} />
+        <textarea
+          name="notes"
+          rows={3}
+          defaultValue={initial?.notes ?? ""}
+          className="input"
+          disabled={pending}
+        />
       </div>
 
       <div className="flex gap-3 pt-3 border-t border-slate-200">
         <button type="submit" disabled={pending} className="btn-primary">
-          {pending ? "Creating..." : "Create booking"}
+          {pending
+            ? isEdit
+              ? "Saving..."
+              : "Creating..."
+            : isEdit
+              ? "Save changes"
+              : "Create booking"}
         </button>
         <button
           type="button"
-          onClick={() => router.push("/admin/bookings")}
+          onClick={() =>
+            router.push(
+              isEdit ? `/admin/bookings/${initial!.id}` : "/admin/bookings",
+            )
+          }
           className="px-4 py-2 text-slate-600 hover:text-slate-900"
           disabled={pending}
         >
