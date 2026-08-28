@@ -8,6 +8,35 @@ import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { resolveTenantByHostname } from "@/lib/tenant/resolve";
 
+// Hard cap on Supabase Auth round-trips from middleware. When Auth is
+// degraded or a call hangs, without this the middleware sits on the
+// await until the Vercel Routing Middleware 25s hard timeout fires and
+// returns MIDDLEWARE_INVOCATION_TIMEOUT — killing every admin page at
+// once. 3s is well above the p99 of a healthy getUser() call (~300ms)
+// but well below the platform timeout, so we fail-open before the
+// user sees an error page.
+const AUTH_TIMEOUT_MS = 3000;
+
+async function withAuthTimeout<T>(
+  p: Promise<T>,
+  label: string,
+): Promise<T | null> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<null>((resolve) => {
+    timer = setTimeout(() => {
+      console.warn(
+        `[middleware] ${label} exceeded ${AUTH_TIMEOUT_MS}ms — failing open`,
+      );
+      resolve(null);
+    }, AUTH_TIMEOUT_MS);
+  });
+  try {
+    return (await Promise.race([p, timeout])) as T | null;
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
 export async function middleware(request: NextRequest) {
   // ─── 1. RESOLVE TENANT ─────────────────────────────────────────────
   // Get hostname from headers (host) — fallback to URL hostname for dev
@@ -199,9 +228,15 @@ export async function middleware(request: NextRequest) {
     },
   );
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // If getUser() times out we treat it as "no user resolved" and let the
+  // admin gate below redirect to /admin/login. The alternative — sitting
+  // on the await for 25s — is what caused MIDDLEWARE_INVOCATION_TIMEOUT
+  // outages that killed every admin route at once.
+  const userResult = await withAuthTimeout(
+    supabase.auth.getUser(),
+    "auth.getUser",
+  );
+  const user = userResult?.data?.user ?? null;
 
   // ─── 3. GATE /admin/* ──────────────────────────────────────────────
   const path = request.nextUrl.pathname;
@@ -234,7 +269,15 @@ export async function middleware(request: NextRequest) {
     !isMfaVerifyPath
   ) {
     try {
-      const { data: aalData } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+      // Same fail-open contract as getUser() above: a hung MFA check
+      // would take the entire admin surface down at the 25s middleware
+      // cap. The admin server components still re-check the role, so
+      // skipping the MFA gate on timeout is safe.
+      const mfaResult = await withAuthTimeout(
+        supabase.auth.mfa.getAuthenticatorAssuranceLevel(),
+        "auth.mfa.getAAL",
+      );
+      const aalData = mfaResult?.data;
       // nextLevel = aal2 significa que hay un factor verificado disponible.
       // currentLevel = aal1 significa que la sesión todavía no lo verificó.
       if (
