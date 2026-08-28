@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { UserPlus, Upload } from "lucide-react";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getCurrentTenantId } from "@/lib/tenant/server";
 import { getCurrentUserRole } from "@/lib/auth/roles";
 import { formatCurrency } from "@/lib/utils";
 import { CustomerSearch } from "./CustomerSearch";
@@ -42,12 +43,14 @@ export default async function AdminCustomersPage({
   const me = await getCurrentUserRole();
   if (!me) redirect("/admin/login");
 
-  const supabase = createAdminClient();
-  const unscoped = createAdminClient({ unscoped: true });
+  // Explicit tenant scoping (see feedback_scoped_proxy_promise_all.md).
+  // The auth.admin.listUsers call downstream already needs an unscoped
+  // client, so we consolidate: one unscoped client + explicit .eq on
+  // every multi-tenant read.
+  const tenantId = getCurrentTenantId();
+  const supabase = createAdminClient({ unscoped: true });
 
   // Pull bookings + quotes + tenant's manual-add customer_profiles in parallel.
-  // customer_profiles is auto-scoped to current tenant by the admin client proxy,
-  // so we only see profiles created under THIS tenant.
   const [
     { data: rawBookings },
     { data: rawQuotes },
@@ -58,6 +61,7 @@ export default async function AdminCustomersPage({
       .select(
         "customer_email, customer_first_name, customer_last_name, customer_phone, event_date, total_amount, stripe_payment_status, booking_status, created_at",
       )
+      .eq("tenant_id", tenantId)
       .order("created_at", { ascending: false })
       .limit(5000),
     supabase
@@ -65,11 +69,13 @@ export default async function AdminCustomersPage({
       .select(
         "customer_email, customer_first_name, customer_last_name, customer_phone, event_date, created_at",
       )
+      .eq("tenant_id", tenantId)
       .order("created_at", { ascending: false })
       .limit(5000),
     supabase
       .from("customer_profiles")
       .select("user_id, created_at")
+      .eq("tenant_id", tenantId)
       .order("created_at", { ascending: false })
       .limit(5000),
   ]);
@@ -140,7 +146,7 @@ export default async function AdminCustomersPage({
   // isn't in bookings or quotes yet. Resolve email + metadata from auth.users.
   if (profiles.length > 0) {
     const profileUserIds = new Set(profiles.map((p) => p.user_id));
-    const { data: usersData } = await unscoped.auth.admin.listUsers({
+    const { data: usersData } = await supabase.auth.admin.listUsers({
       perPage: 1000,
     });
     const profileCreatedAt = new Map(profiles.map((p) => [p.user_id, p.created_at]));

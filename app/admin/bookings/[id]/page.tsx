@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChevronLeft, Pencil } from "lucide-react";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getCurrentTenantId } from "@/lib/tenant/server";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { BookingActions } from "./BookingActions";
 import { DeliveryChecklist } from "./DeliveryChecklist";
@@ -35,13 +36,19 @@ export default async function BookingDetailPage({
 }) {
   if (!IdSchema.safeParse(params.id).success) notFound();
 
-  const supabase = createAdminClient();
+  // Explicit tenant scoping (see feedback_scoped_proxy_promise_all.md).
+  // Every multi-tenant query below carries an unambiguous .eq("tenant_id", …)
+  // so the two Promise.all blocks + the helpers they call don't rely on the
+  // auto-injecting proxy, which is intermittent in server components.
+  const tenantId = getCurrentTenantId();
+  const supabase = createAdminClient({ unscoped: true });
   const tenant = await getTenantInfo();
   const tz = tenant.timezone;
   const { data: booking } = await supabase
     .from("bookings")
     .select("*")
     .eq("id", params.id)
+    .eq("tenant_id", tenantId)
     .single();
 
   if (!booking) notFound();
@@ -64,7 +71,11 @@ export default async function BookingDetailPage({
     { data: driverRateSetting },
     { data: expenseCategoriesRaw },
   ] = await Promise.all([
-    supabase.from("booking_proofs").select("*").eq("booking_id", params.id),
+    supabase
+      .from("booking_proofs")
+      .select("*")
+      .eq("tenant_id", tenantId)
+      .eq("booking_id", params.id),
     supabase
       .from("booking_damages")
       .select(`
@@ -73,29 +84,38 @@ export default async function BookingDetailPage({
         resolved, photo_url, recorded_at, recorded_by, notes,
         inventory_items (name)
       `)
+      .eq("tenant_id", tenantId)
       .eq("booking_id", params.id)
       .order("recorded_at", { ascending: false }),
     supabase
       .from("inventory_items")
       .select("id, name, category")
+      .eq("tenant_id", tenantId)
       .eq("is_active", true)
       .order("category")
       .order("name"),
     supabase
       .from("site_settings")
       .select("value")
+      .eq("tenant_id", tenantId)
       .eq("key", "damage_protection_coverage_cents")
       .maybeSingle(),
     supabase
       .from("booking_expenses")
       .select("*")
+      .eq("tenant_id", tenantId)
       .eq("booking_id", params.id)
       .order("recorded_at", { ascending: false }),
     supabase
       .from("site_settings")
       .select("value")
+      .eq("tenant_id", tenantId)
       .eq("key", "default_driver_hourly_rate_cents")
       .maybeSingle(),
+    // booking_expense_categories is NOT in MULTI_TENANT_TABLES — the
+    // schema migration was never applied to prod, so the tenant_id column
+    // doesn't exist yet. Leave the query unscoped; when the migration
+    // lands, add the .eq("tenant_id", tenantId) here too.
     supabase
       .from("booking_expense_categories")
       .select("key, label, sort_order, is_active, supports_payroll_hours")
@@ -119,6 +139,7 @@ export default async function BookingDetailPage({
     supabase
       .from("booking_inspections")
       .select("id, type, overall_status, performed_at, inspector_name, items_result, notes")
+      .eq("tenant_id", tenantId)
       .eq("booking_id", params.id)
       .order("performed_at", { ascending: false }),
     suggestTemplateForBooking(params.id).catch((e) => {
@@ -133,6 +154,7 @@ export default async function BookingDetailPage({
     supabase
       .from("booking_internal_messages")
       .select("id, body, author_user_id, author_name, author_role, mention_user_ids, created_at, deleted_at, edited_at")
+      .eq("tenant_id", tenantId)
       .eq("booking_id", params.id)
       .order("created_at", { ascending: true }),
   ]);

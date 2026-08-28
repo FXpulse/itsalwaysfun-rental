@@ -2,6 +2,7 @@
 // pre-shaped data for one card on /admin/reports.
 
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getCurrentTenantId } from "@/lib/tenant/server";
 
 // ─── Cash flow projection ────────────────────────────────────────────────
 export interface CashFlowBucket {
@@ -125,7 +126,12 @@ export async function computeMonthlyPnLRange(
   from: string,
   to: string,
 ): Promise<MonthlyPnLRow[]> {
-  const supabase = createAdminClient();
+  // Explicit scope: computeMonthlyPnLRange runs its main data pull in a
+  // Promise.all (bookings + overhead_costs + business_expenses). Per
+  // feedback_scoped_proxy_promise_all.md, we opt out of the auto-injecting
+  // proxy here and add .eq("tenant_id", …) to every read.
+  const tenantId = getCurrentTenantId();
+  const supabase = createAdminClient({ unscoped: true });
 
   const fromDate = new Date(from + "T00:00:00");
   const toDate = new Date(to + "T00:00:00");
@@ -156,16 +162,19 @@ export async function computeMonthlyPnLRange(
     supabase
       .from("bookings")
       .select("id, event_date, total_amount")
+      .eq("tenant_id", tenantId)
       .gte("event_date", fromStr)
       .lte("event_date", toStr)
       .eq("stripe_payment_status", "paid")
       .neq("booking_status", "cancelled"),
     supabase
       .from("overhead_costs")
-      .select("monthly_cents, effective_from, effective_to"),
+      .select("monthly_cents, effective_from, effective_to")
+      .eq("tenant_id", tenantId),
     supabase
       .from("business_expenses")
       .select("expense_date, amount_cents")
+      .eq("tenant_id", tenantId)
       .gte("expense_date", fromStr)
       .lte("expense_date", toStr),
   ]);
@@ -212,6 +221,7 @@ export async function computeMonthlyPnLRange(
     const { data: expenses } = await supabase
       .from("booking_expenses")
       .select("booking_id, amount_cents")
+      .eq("tenant_id", tenantId)
       .in("booking_id", allBookingIds);
     // Map booking_id → month
     const bidToMonth = new Map<string, string>();

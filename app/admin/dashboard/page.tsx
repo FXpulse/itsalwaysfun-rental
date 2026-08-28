@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getCurrentTenantId } from "@/lib/tenant/server";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { getTenantInfo } from "@/lib/tenant/business";
 import { formatDateTimeInTz, formatDateInTz } from "@/lib/tenant/timezone";
@@ -20,7 +21,13 @@ import {
 export const dynamic = "force-dynamic";
 
 export default async function AdminDashboardPage() {
-  const supabase = createAdminClient();
+  // Explicit tenant scoping (defense-in-depth vs the auto-injecting proxy —
+  // see feedback_scoped_proxy_promise_all.md: helper functions invoked
+  // inside Promise.all can silently lose scope. Being explicit here means
+  // every one of the 11 parallel queries below carries an unambiguous
+  // tenant_id filter even if the enclosing helper is refactored later.)
+  const tenantId = getCurrentTenantId();
+  const supabase = createAdminClient({ unscoped: true });
   const tenant = await getTenantInfo();
   const tz = tenant.timezone;
 
@@ -53,17 +60,20 @@ export default async function AdminDashboardPage() {
         "id, customer_first_name, customer_last_name, product_name, event_date, total_amount, created_at",
         { count: "exact" },
       )
+      .eq("tenant_id", tenantId)
       .eq("booking_status", "pending_payment")
       .order("created_at", { ascending: false })
       .limit(5),
     supabase
       .from("bookings")
       .select("id", { count: "exact", head: true })
+      .eq("tenant_id", tenantId)
       .eq("event_date", today)
       .in("booking_status", ["confirmed", "delivered"]),
     supabase
       .from("bookings")
       .select("total_amount", { count: "exact" })
+      .eq("tenant_id", tenantId)
       .gte("event_date", today)
       .lte("event_date", sevenDaysISO)
       .in("booking_status", ["confirmed", "delivered"]),
@@ -72,16 +82,19 @@ export default async function AdminDashboardPage() {
       .select(
         "id, customer_first_name, customer_last_name, product_name, event_date, booking_status, stripe_payment_status, total_amount, created_at",
       )
+      .eq("tenant_id", tenantId)
       .order("created_at", { ascending: false })
       .limit(5),
     supabase
       .from("dispatch_routes")
       .select("id, route_type, status, driver_name, vehicles (name), trailers (name)")
+      .eq("tenant_id", tenantId)
       .eq("route_date", today)
       .order("created_at"),
     supabase
       .from("dispatch_routes")
       .select("id, route_type, status, driver_name, vehicles (name), trailers (name)")
+      .eq("tenant_id", tenantId)
       .eq("route_date", tomorrowStr)
       .order("created_at"),
     supabase
@@ -90,24 +103,28 @@ export default async function AdminDashboardPage() {
         "id, booking_id, description, severity, cost_cents, customer_responsible, charged_to_customer, recorded_at",
         { count: "exact" },
       )
+      .eq("tenant_id", tenantId)
       .eq("resolved", false)
       .order("recorded_at", { ascending: false })
       .limit(5),
     supabase
       .from("customer_profiles")
       .select("user_id, commission_pending_cents")
+      .eq("tenant_id", tenantId)
       .gte("commission_pending_cents", 5000) // hardcoded threshold; reads dynamic in /admin/loyalty
       .order("commission_pending_cents", { ascending: false })
       .limit(5),
     supabase
       .from("quotes")
       .select("id, quote_number, customer_first_name, customer_last_name, total_cents, sent_at, expires_at")
+      .eq("tenant_id", tenantId)
       .in("status", ["sent", "viewed"])
       .order("sent_at", { ascending: false })
       .limit(5),
     supabase
       .from("site_settings")
       .select("value")
+      .eq("tenant_id", tenantId)
       .eq("key", "commission_payout_threshold_cents")
       .maybeSingle(),
     supabase
@@ -115,6 +132,7 @@ export default async function AdminDashboardPage() {
       .select("id, first_name, last_name, email, subject, source, created_at", {
         count: "exact",
       })
+      .eq("tenant_id", tenantId)
       .eq("is_resolved", false)
       .order("created_at", { ascending: false })
       .limit(5),
