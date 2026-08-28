@@ -109,6 +109,13 @@ export async function middleware(request: NextRequest) {
       url.pathname = "/marketing" + path;
       return NextResponse.rewrite(url, { request: { headers: requestHeaders } });
     }
+    // /pricing — dedicated SaaS pricing page. Also linked from sitemap +
+    // the SaaS chat prompt, so root-level URL must resolve.
+    if (path === "/pricing") {
+      const url = request.nextUrl.clone();
+      url.pathname = "/marketing/pricing";
+      return NextResponse.rewrite(url, { request: { headers: requestHeaders } });
+    }
     if (path.startsWith("/admin")) {
       const url = request.nextUrl.clone();
       url.pathname = "/superadmin/login";
@@ -149,6 +156,10 @@ export async function middleware(request: NextRequest) {
     }
     // Beta program landing
     if (path === "/beta" || path.startsWith("/beta/")) {
+      return NextResponse.redirect(apex + path + search);
+    }
+    // Pricing page — SaaS-only, redirect any tenant host hits to the apex.
+    if (path === "/pricing") {
       return NextResponse.redirect(apex + path + search);
     }
     // Marketing landing + any sub-pages
