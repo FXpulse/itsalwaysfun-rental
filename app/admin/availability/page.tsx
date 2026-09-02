@@ -1,6 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AvailabilityCalendar } from "./AvailabilityCalendar";
 import { AvailabilityOverview } from "./AvailabilityOverview";
+import { BulkBlockDateRange } from "./BulkBlockDateRange";
 import type { Product } from "@/types/database";
 
 export const dynamic = "force-dynamic";
@@ -64,11 +65,17 @@ export default async function AvailabilityPage({
     }));
 
     return (
-      <div>
-        <h1 className="text-2xl font-bold text-brand-navy mb-1">Availability — All products</h1>
-        <p className="text-sm text-slate-500 mb-6">
-          Overview of all active rentals. Click a day to see which products are booked or blocked.
-        </p>
+      <div className="space-y-4">
+        <div>
+          <h1 className="text-2xl font-bold text-brand-navy mb-1">Availability — All products</h1>
+          <p className="text-sm text-slate-500">
+            Overview of all active rentals. Click a day to see which products are booked or blocked.
+          </p>
+        </div>
+
+        <BulkBlockDateRange
+          products={productList.map((p) => ({ id: p.id, is_active: p.is_active }))}
+        />
 
         <AvailabilityOverview
           products={productList}
