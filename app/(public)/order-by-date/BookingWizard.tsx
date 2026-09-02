@@ -232,6 +232,25 @@ export function BookingWizard({
       .finally(() => setLoadingAvailability(false));
   }, [selectedProductSlug]);
 
+  // Refetch availability when the tab regains focus so a wizard left open
+  // in a background tab picks up any blocks the operator added elsewhere.
+  // Without this, the calendar keeps its initial snapshot until the user
+  // switches product, which lets a stale tab render a blocked day as clickable.
+  useEffect(() => {
+    if (!selectedProductSlug) return;
+    function handleVisibility() {
+      if (document.visibilityState !== "visible") return;
+      fetch(`/api/products/${selectedProductSlug}`)
+        .then((r) => r.json())
+        .then((data) => {
+          setUnavailableDates(new Set(data.unavailable_dates || []));
+        })
+        .catch(() => {});
+    }
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => document.removeEventListener("visibilitychange", handleVisibility);
+  }, [selectedProductSlug]);
+
   // Abandoned cart timer: 30 min after user enters customer info with email,
   // fire GHL webhook so they can recover the booking via email/SMS.
   // Resets on any form change. Cleared when leaving the customer step (submit
@@ -589,7 +608,54 @@ export function BookingWizard({
             product={selectedProduct}
             numDays={numDays}
             totalAmount={totalAmount}
-            onNext={() => goToStep(hasPreSelectedProduct ? "customer" : "category")}
+            onNext={async () => {
+              // Belt-and-suspenders: re-fetch availability + verify every day
+              // in the picked range before advancing. The calendar's disable
+              // state is only as fresh as the last product-change fetch, so a
+              // stale tab (or a fetch that failed silently) could otherwise let
+              // a booking that will get rejected at check-and-hold move forward
+              // and confuse the customer at checkout. If the current range
+              // now conflicts with a block, we clear it and show which days
+              // are the problem.
+              if (!selectedProductSlug || !eventDate) {
+                goToStep(hasPreSelectedProduct ? "customer" : "category");
+                return;
+              }
+              try {
+                const res = await fetch(`/api/products/${selectedProductSlug}`);
+                const data = await res.json();
+                const fresh = new Set<string>(data.unavailable_dates || []);
+                setUnavailableDates(fresh);
+                const conflicts: string[] = [];
+                const s = new Date(eventDate + "T00:00:00");
+                const e = new Date(
+                  (eventEndDate || eventDate) + "T00:00:00",
+                );
+                for (
+                  let d = new Date(s);
+                  d <= e;
+                  d.setDate(d.getDate() + 1)
+                ) {
+                  const iso = d.toISOString().slice(0, 10);
+                  if (fresh.has(iso)) conflicts.push(iso);
+                }
+                if (conflicts.length > 0) {
+                  toast.error(
+                    conflicts.length === 1
+                      ? `${conflicts[0]} is no longer available. Please pick a different date.`
+                      : `${conflicts.length} days in your range aren't available (${conflicts[0]}–${conflicts[conflicts.length - 1]}). Please pick a different range.`,
+                  );
+                  setEventDate(null);
+                  setEventEndDate(null);
+                  return;
+                }
+              } catch {
+                // Network flake — let the server-side check-and-hold reject
+                // if it turns out to be blocked. Blocking here on a failed
+                // fetch would strand offline / slow users.
+              }
+              goToStep(hasPreSelectedProduct ? "customer" : "category");
+            }}
             unavailableDates={selectedProductSlug ? unavailableDates : new Set()}
             minLeadHours={minLeadHours}
           />
