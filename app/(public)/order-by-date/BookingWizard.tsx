@@ -251,6 +251,53 @@ export function BookingWizard({
     return () => document.removeEventListener("visibilitychange", handleVisibility);
   }, [selectedProductSlug]);
 
+  // Re-fetch + verify the picked range against fresh unavailability data.
+  // Called before advancing to the customer step from either the date step
+  // (when the user came in with a pre-selected product via Book Now — product
+  // is set BEFORE date) OR the product step (when they came in via
+  // /order-by-date — date is set BEFORE product). In either order the last
+  // transition INTO the customer step is where we can confirm the exact
+  // (product, range) pair is still bookable, so this validation lives here
+  // and is called by both onNext handlers.
+  //
+  // Returns true when the range is clean (advance), false when a conflict
+  // was found (toast fired, range cleared, do not advance). Network failures
+  // fall through as true so the server-side check-and-hold is the last line
+  // of defense — never block the user on our slowness.
+  async function verifyRangeStillAvailable(): Promise<boolean> {
+    if (!selectedProductSlug || !eventDate) return true;
+    try {
+      const res = await fetch(`/api/products/${selectedProductSlug}`);
+      const data = await res.json();
+      const fresh = new Set<string>(data.unavailable_dates || []);
+      setUnavailableDates(fresh);
+      const conflicts: string[] = [];
+      const s = new Date(eventDate + "T00:00:00");
+      const e = new Date((eventEndDate || eventDate) + "T00:00:00");
+      for (
+        let d = new Date(s);
+        d <= e;
+        d.setDate(d.getDate() + 1)
+      ) {
+        const iso = d.toISOString().slice(0, 10);
+        if (fresh.has(iso)) conflicts.push(iso);
+      }
+      if (conflicts.length > 0) {
+        toast.error(
+          conflicts.length === 1
+            ? `${conflicts[0]} is no longer available. Please pick a different date.`
+            : `${conflicts.length} days in your range aren't available (${conflicts[0]}–${conflicts[conflicts.length - 1]}). Please pick a different range.`,
+        );
+        setEventDate(null);
+        setEventEndDate(null);
+        return false;
+      }
+      return true;
+    } catch {
+      return true;
+    }
+  }
+
   // Abandoned cart timer: 30 min after user enters customer info with email,
   // fire GHL webhook so they can recover the booking via email/SMS.
   // Resets on any form change. Cleared when leaving the customer step (submit
@@ -609,52 +656,17 @@ export function BookingWizard({
             numDays={numDays}
             totalAmount={totalAmount}
             onNext={async () => {
-              // Belt-and-suspenders: re-fetch availability + verify every day
-              // in the picked range before advancing. The calendar's disable
-              // state is only as fresh as the last product-change fetch, so a
-              // stale tab (or a fetch that failed silently) could otherwise let
-              // a booking that will get rejected at check-and-hold move forward
-              // and confuse the customer at checkout. If the current range
-              // now conflicts with a block, we clear it and show which days
-              // are the problem.
-              if (!selectedProductSlug || !eventDate) {
-                goToStep(hasPreSelectedProduct ? "customer" : "category");
-                return;
+              // If the user came in with a pre-selected product (Book Now on
+              // the product page), date is the LAST step before customer —
+              // validate now. Otherwise product is still to come, so defer
+              // validation to the product step's onNext.
+              if (hasPreSelectedProduct) {
+                const ok = await verifyRangeStillAvailable();
+                if (!ok) return;
+                goToStep("customer");
+              } else {
+                goToStep("category");
               }
-              try {
-                const res = await fetch(`/api/products/${selectedProductSlug}`);
-                const data = await res.json();
-                const fresh = new Set<string>(data.unavailable_dates || []);
-                setUnavailableDates(fresh);
-                const conflicts: string[] = [];
-                const s = new Date(eventDate + "T00:00:00");
-                const e = new Date(
-                  (eventEndDate || eventDate) + "T00:00:00",
-                );
-                for (
-                  let d = new Date(s);
-                  d <= e;
-                  d.setDate(d.getDate() + 1)
-                ) {
-                  const iso = d.toISOString().slice(0, 10);
-                  if (fresh.has(iso)) conflicts.push(iso);
-                }
-                if (conflicts.length > 0) {
-                  toast.error(
-                    conflicts.length === 1
-                      ? `${conflicts[0]} is no longer available. Please pick a different date.`
-                      : `${conflicts.length} days in your range aren't available (${conflicts[0]}–${conflicts[conflicts.length - 1]}). Please pick a different range.`,
-                  );
-                  setEventDate(null);
-                  setEventEndDate(null);
-                  return;
-                }
-              } catch {
-                // Network flake — let the server-side check-and-hold reject
-                // if it turns out to be blocked. Blocking here on a failed
-                // fetch would strand offline / slow users.
-              }
-              goToStep(hasPreSelectedProduct ? "customer" : "category");
             }}
             unavailableDates={selectedProductSlug ? unavailableDates : new Set()}
             minLeadHours={minLeadHours}
@@ -677,7 +689,20 @@ export function BookingWizard({
             value={selectedProductSlug}
             onChange={(slug) => setSelectedProductSlug(slug)}
             onBack={() => goToStep("category")}
-            onNext={() => goToStep("customer")}
+            onNext={async () => {
+              // Product just got picked; date was picked in step 1. Verify
+              // the (product, range) combination against fresh unavailability
+              // before advancing — this is the entry into the customer step
+              // for the /order-by-date-first flow.
+              const ok = await verifyRangeStillAvailable();
+              if (!ok) {
+                // Range was cleared; bounce the user back to the date step
+                // so they re-pick against the newly-known block set.
+                goToStep("date");
+                return;
+              }
+              goToStep("customer");
+            }}
           />
         )}
 
